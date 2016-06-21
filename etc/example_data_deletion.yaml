@@ -3,3 +3,5 @@ default:
     raw_archives: tests/assets/data_deletion/archive
     fastqs: tests/assets/data_deletion/fastqs
     delivered_data: tests/assets/data_deletion/delivered_data
+
+    ncbi_cache: ':memory:'
