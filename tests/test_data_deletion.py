@@ -4,6 +4,7 @@ from os.path import join, abspath, dirname
 from unittest import TestCase
 from unittest.mock import patch, Mock
 from egcg_core.util import find_files
+print('wd: ' + os.getcwd())
 from data_deletion import Deleter
 
 

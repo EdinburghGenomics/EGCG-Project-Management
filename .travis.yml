@@ -11,7 +11,7 @@ script: py.test
 notifications:
   email:
     on_success: change # default: change
-    on_failure: always # default: always
+    on_failure: change # default: always
 env:
   global:
     DATADELETIONCONFIG=etc/example_data_deletion.yaml
