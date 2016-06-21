@@ -4,8 +4,7 @@ from os.path import join
 from unittest.mock import patch
 from data_deletion.fastq import FastqDeleter, _FastqDeletionRecord
 from egcg_core.util import find_files, find_fastqs
-from tests.test_data_deletion import TestDeleter
-from tests import patches as p
+from tests import TestDeleter, patches as p
 
 
 class TestFastqDeleter(TestDeleter):

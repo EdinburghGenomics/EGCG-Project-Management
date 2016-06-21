@@ -1,14 +1,9 @@
 import os
-from sys import executable
 from shutil import rmtree
 from os.path import join, abspath, dirname
 from unittest import TestCase
 from unittest.mock import patch, Mock
 from egcg_core.util import find_files
-print('wd: ' + os.getcwd())
-print('content: ' + str(os.listdir(os.getcwd())))
-print('$PATH: ' + str(os.getenv('PATH')))
-print('executable: ' + executable)
 from data_deletion import Deleter
 
 
@@ -40,7 +35,7 @@ class TestDeleter(TestCase):
             os.remove(deletion_script)
         for tmpdir in find_files(self.assets_deletion, '*', '.data_deletion_*'):
             rmtree(tmpdir)
-    
+
     def compare_lists(self, obs, exp):
         obs = sorted(obs)
         exp = sorted(exp)

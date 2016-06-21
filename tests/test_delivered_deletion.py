@@ -2,8 +2,7 @@ import os
 from shutil import rmtree
 from os.path import join
 from unittest.mock import patch
-from tests import patches as p
-from tests.test_data_deletion import TestDeleter
+from tests import TestDeleter, patches as p
 from data_deletion.delivered_data import DeliveredDataDeleter
 
 
