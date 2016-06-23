@@ -80,8 +80,6 @@ patched_deletable_runs = patch(
 )
 patched_now = patch('data_deletion.Deleter._now', return_value=datetime(2000, 12, 31))
 
-
-
 patched_clarity_get_samples = patch(
     'data_deletion.fastq.clarity.get_released_samples', return_value=['deletable_sample', 'deletable_sample_2']
 )

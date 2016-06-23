@@ -3,7 +3,7 @@ from shutil import rmtree
 from os.path import join
 from unittest.mock import patch
 from data_deletion.raw_data import RawDataDeleter
-from tests import TestDeleter, patches as ptc
+from tests.test_data_deletion import TestDeleter, patches as ptc
 
 
 class TestRawDataDeleter(TestDeleter):
