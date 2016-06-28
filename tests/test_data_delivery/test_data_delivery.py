@@ -1,6 +1,6 @@
 from unittest.mock import patch
 from tests import TestProjectManagement
-from bin.deliver_reviewed_data import DataDelivery, DataDeliveryError
+from bin.deliver_reviewed_data import DataDelivery
 
 
 def ppath(*parts):
