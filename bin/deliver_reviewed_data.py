@@ -294,19 +294,7 @@ class DataDelivery(AppLogger):
                 self.write_metrics_file(project, batch_delivery_folder)
             self.mark_samples_as_released(list(sample2stagedirectory))
 
-
-
         # TODO: Generate project report
-
-
-'''
- - prepare the data delivery
-   - find the samples to deliver
-   - find the data and stage
-   - execute the data aggregation commands if any
-   - move to delivery
-   - cleanup
-'''
 
 
 def main():
@@ -324,7 +312,7 @@ def main():
         log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout))
 
     cfg.merge(cfg['sample'])
-    dd = DataDelivery(args.dry_run)
+    dd = DataDelivery(args.dry_run, args.work_dir)
     if args.mark_only:
         dd.mark_only(project_id=args.project_id, sample_id=args.sample_id)
     else:
