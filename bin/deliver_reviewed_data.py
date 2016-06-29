@@ -255,13 +255,14 @@ class DataDelivery(AppLogger):
                 open_file.write('\n'.join(lines) + '\n')
 
     def run_aggregate_commands(self):
-        _execute(
-                *self.all_commands_for_cluster,
-                job_name='concat_delivery',
-                working_dir=self.staging_dir,
-                cpus=1,
-                mem=2
-        )
+        if self.all_commands_for_cluster:
+            _execute(
+                    *self.all_commands_for_cluster,
+                    job_name='concat_delivery',
+                    working_dir=self.staging_dir,
+                    cpus=1,
+                    mem=2
+            )
 
     def cleanup(self):
         if self.no_cleanup:
