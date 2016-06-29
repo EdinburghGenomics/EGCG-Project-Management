@@ -326,11 +326,11 @@ def main():
         log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout))
 
     cfg.merge(cfg['sample'])
-    dd = DataDelivery(args.dry_run, args.work_dir)
+    dd = DataDelivery(args.dry_run, args.work_dir, no_cleanup=args.no_cleanup)
     if args.mark_only:
         dd.mark_only(project_id=args.project_id, sample_id=args.sample_id)
     else:
-        dd.deliver_data(project_id=args.project_id, sample_id=args.sample_id, no_cleanup=args.no_cleanup)
+        dd.deliver_data(project_id=args.project_id, sample_id=args.sample_id)
 
 
 if __name__ == '__main__':
