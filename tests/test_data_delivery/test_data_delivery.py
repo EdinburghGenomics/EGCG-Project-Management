@@ -34,7 +34,8 @@ sample1 = {
                     'run_id': 'run1',
                     'project_id': 'test_project',
                     'sample_id': 'deliverable_sample',
-                    'lane': 1
+                    'lane': 1,
+                    'useable': 'yes'
                 }
             ]
         }
@@ -63,7 +64,8 @@ sample2 = {
                     'run_id': 'run1',
                     'project_id': 'test_project',
                     'sample_id': 'deliverable_sample2',
-                    'lane': 2
+                    'lane': 2,
+                    'useable': 'yes'
                 },
                 {
                     'run_element_id': 'run_el_id3',
@@ -71,7 +73,8 @@ sample2 = {
                     'run_id': 'run1',
                     'project_id': 'test_project',
                     'sample_id': 'deliverable_sample2',
-                    'lane': 3
+                    'lane': 3,
+                    'useable': 'yes'
                 }
             ]
         }
@@ -146,7 +149,7 @@ class TestDataDelivery(TestProjectManagement):
 
 
     def setUp(self):
-        self.delivery_dry = DataDelivery(dry_run=True, work_dir=os.path.join(self.assets_delivery, 'staging'))
+        self.delivery_dry = DataDelivery(dry_run=True, work_dir=os.path.join(self.assets_delivery, 'staging'), no_cleanup=True)
         self.delivery_real = DataDelivery(dry_run=False, work_dir=os.path.join(self.assets_delivery, 'staging'))
         self._create_run_elements(sample1.get('run_elements') + sample2.get('run_elements'))
 
@@ -194,7 +197,6 @@ class TestDataDelivery(TestProjectManagement):
             assert list(project_to_samples) == ['test_project']
             assert list([sample.get('sample_id') for samples in project_to_samples.values() for sample in samples]) == ['deliverable_sample']
 
-
         with patched_error_project as mocked_get_doc:
             self.assertRaises(EGCGError, self.delivery_dry.get_deliverable_projects_samples)
 
@@ -205,7 +207,7 @@ class TestDataDelivery(TestProjectManagement):
                                'Yield', 'Yield Q30', 'Nb reads in bam', 'mapping rate', 'properly mapped reads rate',
                                'duplicate rate', 'Mean coverage', 'Callable bases rate', 'Delivery folder']
             expected_lines = [
-                'test_project\tdeliverable_sample\tuser_s_id\t0\t0.0\t0.0\t1\t0.0\t0.0\t0.0\t0\t0\tdate_delivery'
+                'test_project\tdeliverable_sample\tuser_s_id\t15\t0.0\t0.0\t1\t0.0\t0.0\t0.0\t0\t0\tdate_delivery'
             ]
             with patch(ppath('clarity.get_species_from_sample'), return_value='Homo sapiens'):
                 header, lines = self.delivery_dry.summarise_metrics_per_sample(

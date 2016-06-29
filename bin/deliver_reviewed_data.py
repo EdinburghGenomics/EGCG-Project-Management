@@ -33,7 +33,7 @@ def _execute(*commands, **kwargs):
         raise EGCGError('commands %s exited with status %s' % (commands, exit_status))
 
 class DataDelivery(AppLogger):
-    def __init__(self, dry_run, work_dir):
+    def __init__(self, dry_run, work_dir, no_cleanup=False):
         self.all_commands_for_cluster = []
         self.dry_run = dry_run
         self.all_samples_values = []
@@ -41,6 +41,7 @@ class DataDelivery(AppLogger):
         self.work_dir = work_dir
         today = datetime.date.today().isoformat()
         self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + today)
+        self.no_cleanup = no_cleanup
 
     def get_deliverable_projects_samples(self, project_id=None, sample_id=None):
         project_to_samples = defaultdict(list)
@@ -262,12 +263,16 @@ class DataDelivery(AppLogger):
                 mem=2
         )
 
+    def cleanup(self):
+        if self.no_cleanup:
+            return
+        if os.path.exists(self.staging_dir):
+            shutil.rmtree(self.staging_dir)
+
 
     def deliver_data(self, project_id=None, sample_id=None):
         delivery_dest = cfg.query('delivery_dest')
         project_to_samples = self.get_deliverable_projects_samples(project_id, sample_id)
-        print(project_to_samples)
-
         project_to_delivery_folder = {}
         sample2stagedirectory={}
         for project in project_to_samples:
@@ -300,6 +305,7 @@ class DataDelivery(AppLogger):
                 self.write_metrics_file(project, batch_delivery_folder)
             self.mark_samples_as_released(list(sample2stagedirectory))
 
+        self.cleanup()
         # TODO: Generate project report
 
 
@@ -307,6 +313,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('--dry_run', action='store_true')
     p.add_argument('--debug', action='store_true')
+    p.add_argument('--no_cleanup', action='store_true')
     p.add_argument('--work_dir', type=str, required=True)
     p.add_argument('--mark_only', action='store_true')
     p.add_argument('--project_id', type=str)
@@ -322,7 +329,7 @@ def main():
     if args.mark_only:
         dd.mark_only(project_id=args.project_id, sample_id=args.sample_id)
     else:
-        dd.deliver_data(project_id=args.project_id, sample_id=args.sample_id)
+        dd.deliver_data(project_id=args.project_id, sample_id=args.sample_id, no_cleanup=args.no_cleanup)
 
 
 if __name__ == '__main__':
