@@ -258,11 +258,12 @@ class DataDelivery(AppLogger):
     def run_aggregate_commands(self):
         if self.all_commands_for_cluster:
             _execute(
-                    *self.all_commands_for_cluster,
-                    job_name='concat_delivery',
-                    working_dir=self.staging_dir,
-                    cpus=1,
-                    mem=2
+                *self.all_commands_for_cluster,
+                job_name='concat_delivery',
+                working_dir=self.staging_dir,
+                cpus=1,
+                mem=2,
+                log_commands=False
             )
 
     def cleanup(self):
