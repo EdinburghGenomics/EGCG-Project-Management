@@ -54,7 +54,7 @@ class DataDelivery(AppLogger):
         # These samples are useable but could have been delivered already so need to check
         samples = rest_communication.get_documents(
                 'samples',
-                depaginate=True,
+                all_pages=True,
                 embedded={"analysis_driver_procs": 1, "run_elements": 1},
                 where=where_clause
         )
@@ -83,7 +83,7 @@ class DataDelivery(AppLogger):
         return sample_dir
 
     def _stage_fastq_files(self, sample, sample_dir):
-        delivery_type = clarity.get_sample().udf.get('delivery', 'merged')
+        delivery_type = clarity.get_sample(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)).udf.get('delivery', 'merged')
         original_fastq_files = self._get_fastq_file_for_sample(sample)
         external_sample_id = sample.get(ELEMENT_SAMPLE_EXTERNAL_ID)
 
@@ -261,6 +261,8 @@ class DataDelivery(AppLogger):
     def deliver_data(self, project_id=None, sample_id=None):
         delivery_dest = cfg.query('delivery_dest')
         project_to_samples = self.get_deliverable_projects_samples(project_id, sample_id)
+        print(project_to_samples)
+
         project_to_delivery_folder = {}
         sample2stagedirectory={}
         for project in project_to_samples:
@@ -268,17 +270,24 @@ class DataDelivery(AppLogger):
                 stage_directory = self.stage_data(sample)
                 sample2stagedirectory[sample.get(ELEMENT_SAMPLE_INTERNAL_ID)] = stage_directory
 
-        if not self.dry_run:
-            self.run_aggregate_commands()
-
         if self.dry_run:
-            pass
+            print('Will Execute ')
+            print('\n'.join(self.all_commands_for_cluster))
+            print('Will move')
+            for project in project_to_samples:
+                today = datetime.date.today().isoformat()
+                batch_delivery_folder = os.path.join(delivery_dest, project, today)
+                print('%s --> %s'%(sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)), batch_delivery_folder))
+                header, lines = self.summarise_metrics_per_sample(project, batch_delivery_folder)
+                print('\t'.join(header))
+                print('\n'.join(lines))
         else:
+            self.run_aggregate_commands()
             for project in project_to_samples:
                 # Create the batch directory
                 today = datetime.date.today().isoformat()
                 batch_delivery_folder = os.path.join(delivery_dest, project, today)
-                os.makedirs(batch_delivery_folder)
+                os.makedirs(batch_delivery_folder, exist_ok=True)
                 # move all the staged sample directory
                 project_to_delivery_folder[project] = batch_delivery_folder
                 for sample in project_to_samples.get(project):
