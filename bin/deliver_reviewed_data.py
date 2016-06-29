@@ -53,10 +53,11 @@ class DataDelivery(AppLogger):
             where_clause["sample_id"] = sample_id
         # These samples are useable but could have been delivered already so need to check
         samples = rest_communication.get_documents(
-                'samples',
-                all_pages=True,
-                embedded={"analysis_driver_procs": 1, "run_elements": 1},
-                where=where_clause
+            'samples',
+            all_pages=True,
+            quiet=True,
+            embedded={"analysis_driver_procs": 1, "run_elements": 1},
+            where=where_clause
         )
         for sample in samples:
             processes = sample.get('analysis_driver_procs', [{}])
