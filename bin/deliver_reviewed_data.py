@@ -13,8 +13,7 @@ from egcg_core.config import default as cfg
 from egcg_core.exceptions import EGCGError
 from egcg_core.util import find_fastqs
 from egcg_core.constants import ELEMENT_NB_READS_CLEANED, ELEMENT_RUN_NAME, ELEMENT_PROJECT_ID, ELEMENT_LANE, \
-    ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_RUN_ELEMENT_ID
-
+    ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_RUN_ELEMENT_ID, ELEMENT_USEABLE
 
 hs_list_files = [
     '{ext_sample_id}.g.vcf.gz',
@@ -213,7 +212,7 @@ class DataDelivery(AppLogger):
     def _get_fastq_file_for_sample(self, sample):
         fastqs_files = {}
         for run_element in sample.get('run_elements'):
-            if int(run_element.get(ELEMENT_NB_READS_CLEANED, 0)) > 0:
+            if run_element.get(ELEMENT_USEABLE) == 'yes' and int(run_element.get(ELEMENT_NB_READS_CLEANED, 0)) > 0:
                 local_fastq_dir = os.path.join(cfg['input_dir'], run_element.get(ELEMENT_RUN_NAME), 'fastq')
                 fastqs = find_fastqs(local_fastq_dir, run_element.get(ELEMENT_PROJECT_ID),
                                      sample.get(ELEMENT_SAMPLE_INTERNAL_ID), run_element.get(ELEMENT_LANE))
