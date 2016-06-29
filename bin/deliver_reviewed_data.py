@@ -9,22 +9,11 @@ import shutil
 from egcg_core import executor
 from egcg_core import rest_communication, clarity
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
-from egcg_core.config import EnvConfiguration
+from egcg_core.config import default as cfg
 from egcg_core.exceptions import EGCGError
 from egcg_core.util import find_fastqs
 from egcg_core.constants import ELEMENT_NB_READS_CLEANED, ELEMENT_RUN_NAME, ELEMENT_PROJECT_ID, ELEMENT_LANE, \
-    ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_SAMPLE_EXTERNAL_ID
-
-
-
-
-cfg = EnvConfiguration(
-    [
-        os.getenv('EGCGCONFIG'),
-        os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'example_data_delivery.yaml')
-    ]
-)
-
+    ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_RUN_ELEMENT_ID
 
 
 hs_list_files = [
@@ -38,6 +27,11 @@ hs_list_files = [
 
 other_list_files = []
 
+
+def _execute(*commands, **kwargs):
+    exit_status = executor.execute(*commands, **kwargs).join()
+    if exit_status != 0:
+        raise EGCGError('commands %s exited with status %s' % (commands, exit_status))
 
 class DataDelivery(AppLogger):
     def __init__(self, dry_run, work_dir):
@@ -75,10 +69,10 @@ class DataDelivery(AppLogger):
                 self.all_samples_values.append(sample)
         return project_to_samples
 
-    def stage_data(self, project, sample):
+    def stage_data(self, sample):
         # Create staging_directory
         today = datetime.date.today().isoformat()
-        sample_dir = os.path.join(self.staging_dir, project, today, sample.get(ELEMENT_SAMPLE_INTERNAL_ID))
+        sample_dir = os.path.join(self.staging_dir, sample.get(ELEMENT_SAMPLE_INTERNAL_ID))
         os.makedirs(sample_dir, exist_ok=True)
 
         # Find the fastq files
@@ -89,37 +83,37 @@ class DataDelivery(AppLogger):
         return sample_dir
 
     def _stage_fastq_files(self, sample, sample_dir):
-        delivery_type = 'merged'
+        delivery_type = clarity.get_sample().udf.get('delivery')
         original_fastq_files = self._get_fastq_file_for_sample(sample)
         external_sample_id = sample.get(ELEMENT_SAMPLE_EXTERNAL_ID)
 
         if delivery_type == 'merged':
             if len(original_fastq_files) == 1:
-                r1_file, r2_file = original_fastq_files[0]
-                self._link_file_to_sample_folder(r1_file, sample_dir, rename=external_sample_id + '_R1.fastq.gz')
-                self._link_file_to_sample_folder(r2_file, sample_dir, rename=external_sample_id + '_R2.fastq.gz')
-                self._link_file_to_sample_folder(r1_file + '.md5', sample_dir,
-                                                 rename=external_sample_id + '_R1.fastq.gz.md5')
-                self._link_file_to_sample_folder(r2_file + '.md5', sample_dir,
-                                                 rename=external_sample_id + '_R2.fastq.gz.md5')
-                # retrieve fastqc files
+                r1, r2 = list(original_fastq_files.values())[0]
+                self._link_run_element_files(r1, r2, sample_dir, external_sample_id)
             else:
-                r1_files = [r1 for r1, r2 in original_fastq_files]
-                r2_files = [r2 for r1, r2 in original_fastq_files]
+                r1_files = [r1 for r1, r2 in original_fastq_files.values()]
+                r2_files = [r2 for r1, r2 in original_fastq_files.values()]
                 self._on_cluster_concat_file_to_sample(r1_files, sample_dir, rename=external_sample_id + '_R1.fastq.gz')
                 self._on_cluster_concat_file_to_sample(r2_files, sample_dir, rename=external_sample_id + '_R2.fastq.gz')
         else:
             fastq_folder = os.path.join(sample_dir, 'raw_data')
             os.makedirs(fastq_folder)
-            for r1, r2 in original_fastq_files:
-                self._link_file_to_sample_folder(r1, fastq_folder, rename=external_sample_id + '_R1.fastq.gz')
-                self._link_file_to_sample_folder(r2, fastq_folder, rename=external_sample_id + '_R2.fastq.gz')
-                self._link_file_to_sample_folder(r1 + '.md5', fastq_folder, rename=external_sample_id + '_R1.fastq.gz')
-                self._link_file_to_sample_folder(r2 + '.md5', fastq_folder, rename=external_sample_id + '_R2.fastq.gz')
-                self._link_file_to_sample_folder(r1.replace('.fastq.gz', '_fastqc.html'), fastq_folder,
-                                                 rename=external_sample_id + '_R1_fastqc.html')
-                self._link_file_to_sample_folder(r2.replace('.fastq.gz', '_fastqc.html'), fastq_folder,
-                                                 rename=external_sample_id + '_R2_fastqc.html')
+            for run_element_id in original_fastq_files:
+                r1, r2 = original_fastq_files.get(run_element_id)
+                self._link_run_element_files(r1, r2, fastq_folder, run_element_id)
+
+
+    def _link_run_element_files(self, r1, r2, fastq_folder, rename):
+        self._link_file_to_sample_folder(r1, fastq_folder, rename=rename + '_R1.fastq.gz')
+        self._link_file_to_sample_folder(r2, fastq_folder, rename=rename + '_R2.fastq.gz')
+        self._link_file_to_sample_folder(r1 + '.md5', fastq_folder, rename=rename + '_R1.fastq.gz.md5')
+        self._link_file_to_sample_folder(r2 + '.md5', fastq_folder, rename=rename + '_R2.fastq.gz.md5')
+        self._link_file_to_sample_folder(r1.replace('.fastq.gz', '_fastqc.html'), fastq_folder,
+                                         rename=rename + '_R1_fastqc.html')
+        self._link_file_to_sample_folder(r2.replace('.fastq.gz', '_fastqc.html'), fastq_folder,
+                                         rename=rename + '_R2_fastqc.html')
+
 
     def _stage_analysed_files(self, sample, sample_dir):
         sample_id = sample.get(ELEMENT_SAMPLE_INTERNAL_ID)
@@ -130,7 +124,7 @@ class DataDelivery(AppLogger):
 
         if not os.path.isdir(origin_sample_dir):
             raise EGCGError('Directory for sample %s in project %s does not exist' % (sample_id, project_id))
-        list_of_file_to_move = self.get_list_of_file_to_move(sample_name=sample_id, external_sample_name=external_sample_id)
+        list_of_file_to_move = self.get_analysis_files(sample_name=sample_id, external_sample_name=external_sample_id)
         for file_to_move in list_of_file_to_move:
             origin_file = os.path.join(origin_sample_dir, file_to_move)
             if not os.path.isfile(origin_file):
@@ -183,22 +177,18 @@ class DataDelivery(AppLogger):
                 lines.append('\t'.join(res))
         return headers, lines
 
-    def _execute(command, **kwargs):
-        exit_status = executor.execute([command], **kwargs).join()
-        if exit_status != 0:
-            raise EGCGError('command %s exited with status %s' % (command, exit_status))
 
     def _link_file_to_sample_folder(self, file_to_link, sample_folder, rename=None):
         if rename is None:
             rename = os.path.basename(file_to_link)
         command = 'ln %s %s' % (file_to_link, os.path.join(sample_folder, rename))
-        self._execute(command, env='local')
+        _execute(command, env='local')
 
     def _on_cluster_concat_file_to_sample(self, list_files, sample_folder, rename):
-        command = 'cat %s > %s' % (' '.join(list_files), os.path.join(sample_folder, rename))
-        command += '; md5sum %s > %s' % (
-        os.path.join(sample_folder, rename), os.path.join(sample_folder, rename) + '.md5')
-        command += '; fastqc %s ' % (os.path.join(sample_folder, rename))
+        res_fastq_file = os.path.join(sample_folder, rename)
+        command = 'cat %s > %s' % (' '.join(list_files), res_fastq_file)
+        command += '; ' + cfg.query('tools', 'md5sum', ret_default='md5sum') + ' {fq} > {fq}.md5'.format(fq=res_fastq_file)
+        command += '; ' + cfg.query('tools', 'fastqc') +  ' --nogroup -q ' + res_fastq_file
         self.all_commands_for_cluster.append(command)
 
     def get_sample_species(self, sample_name):
@@ -206,7 +196,7 @@ class DataDelivery(AppLogger):
             self.sample2species[sample_name] = clarity.get_species_from_sample(sample_name)
         return self.sample2species.get(sample_name)
 
-    def get_list_of_file_to_move(self, sample_name, external_sample_name):
+    def get_analysis_files(self, sample_name, external_sample_name):
         species = self.get_sample_species(sample_name)
         if species is None:
             raise EGCGError('No species information found in the LIMS for ' + sample_name)
@@ -227,7 +217,11 @@ class DataDelivery(AppLogger):
                 local_fastq_dir = os.path.join(cfg['input_dir'], run_element.get(ELEMENT_RUN_NAME), 'fastq')
                 fastqs = find_fastqs(local_fastq_dir, run_element.get(ELEMENT_PROJECT_ID),
                                      sample.get(ELEMENT_SAMPLE_INTERNAL_ID), run_element.get(ELEMENT_LANE))
-                fastqs_files[run_element.id] = tuple(sorted(fastqs))
+                if fastqs:
+                    fastqs_files[run_element.get(ELEMENT_RUN_ELEMENT_ID)] = tuple(sorted(fastqs))
+                else:
+                    raise EGCGError('No Fastq files found for %s'%(str((local_fastq_dir, run_element.get(ELEMENT_PROJECT_ID),
+                                     sample.get(ELEMENT_SAMPLE_INTERNAL_ID), run_element.get(ELEMENT_LANE)))))
         return fastqs_files
 
     def mark_samples_as_released(self, samples):
@@ -261,9 +255,7 @@ class DataDelivery(AppLogger):
                 open_file.write('\n'.join(lines) + '\n')
 
     def run_aggregate_commands(self):
-        exit_status = executor.execute(self.all_commands_for_cluster)
-        if exit_status != 0 :
-            raise EGCGError('Aggregation command failed with status %s'%exit_status)
+        _execute(*self.all_commands_for_cluster)
 
 
     def deliver_data(self, project_id=None, sample_id=None):
@@ -273,8 +265,8 @@ class DataDelivery(AppLogger):
         sample2stagedirectory={}
         for project in project_to_samples:
             for sample in project_to_samples.get(project):
-                stage_directory = self.stage_data(project, sample)
-                sample2stagedirectory[sample] = stage_directory
+                stage_directory = self.stage_data(sample)
+                sample2stagedirectory[sample.get(ELEMENT_SAMPLE_INTERNAL_ID)] = stage_directory
 
         if not self.dry_run:
             self.run_aggregate_commands()
@@ -290,7 +282,7 @@ class DataDelivery(AppLogger):
                 # move all the staged sample directory
                 project_to_delivery_folder[project] = batch_delivery_folder
                 for sample in project_to_samples.get(project):
-                    shutil.move(sample2stagedirectory.get(sample), batch_delivery_folder)
+                    shutil.move(sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)), batch_delivery_folder)
                 self.write_metrics_file(project, batch_delivery_folder)
             self.mark_samples_as_released(list(sample2stagedirectory))
 
