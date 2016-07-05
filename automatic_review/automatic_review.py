@@ -3,14 +3,16 @@ import argparse
 import logging
 from os.path import join, dirname, abspath
 from egcg_core.app_logging import logging_default as log_cfg
-from egcg_core import rest_communication
+from egcg_core import rest_communication, clarity
 from egcg_core.constants import ELEMENT_REVIEW_COMMENTS
-from egcg_core.config import Configuration
+from egcg_core.config import Configuration, EnvConfiguration
+from egcg_core.config import cfg
 
-cfg = Configuration([join(dirname(dirname(abspath(__file__))), 'etc', 'review_thresholds.yaml')])
+
+
+
 log_cfg.default_level = logging.DEBUG
 log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout), logging.DEBUG)
-
 
 def main():
     args = _parse_args()
@@ -50,7 +52,6 @@ def morethan(a, b):
 
 
 def lessthan(a, b):
-
     if a is not None:
         return a <= b
     else:
@@ -62,25 +63,24 @@ def inlist(a, b):
         return a in b
 
 
-def metrics(dataset, datatype):
+def metrics(dataset, cfg):
     PassFailDict = {}
     return_failed_metrics = None
-
-    for metric in (cfg.get(datatype)):
+    for metric in (cfg):
         metric_value = (query(dataset, metric.split(',')))
         metric_name = (metric.split(',')[-1])
-        if ((cfg.get(datatype)).get(metric)['comparison']) == '>':
-            if morethan(metric_value, ((cfg.get(datatype)).get(metric)['value'])):
+        if (cfg.get(metric)['comparison']) == '>':
+            if morethan(metric_value, (cfg.get(metric)['value'])):
                 PassFailDict[metric_name] = 'pass'
             else:
                 PassFailDict[metric_name] = 'fail'
-        elif ((cfg.get(datatype)).get(metric)['comparison']) == '<':
-            if lessthan(metric_value, ((cfg.get(datatype)).get(metric)['value'])):
+        elif (cfg.get(metric)['comparison']) == '<':
+            if lessthan(metric_value, (cfg.get(metric)['value'])):
                 PassFailDict[metric_name] = 'pass'
             else:
                 PassFailDict[metric_name] = 'fail'
-        elif ((cfg.get(datatype)).get(metric)['comparison']) == 'inlist':
-            values = (cfg.get(datatype).get(metric)['value'])
+        elif (cfg.get(metric)['comparison']) == 'inlist':
+            values = (cfg.get(metric)['value'])
             values_list = []
             for v in values:
                 value = (query(dataset, [v], ret_default=[v]))
@@ -100,15 +100,16 @@ def metrics(dataset, datatype):
 
 
 class AutomaticRunReview():
-    def __init__(self, run_name, run_element_by_lane):
+    def __init__(self, run_name, run_element_by_lane, cfg):
         self.run_name = run_name
         self.run_element_by_lane = run_element_by_lane
+        self.cfg = cfg
 
     def patch_entry(self):
         run_metrics = {}
         for lane in self.run_element_by_lane:
             lane_id = lane['lane_number']
-            run_metrics[lane_id] = metrics(lane, 'run')
+            run_metrics[lane_id] = metrics(lane, self.cfg)
         if run_metrics:
             for lane in run_metrics:
                 patch_review = {}
@@ -159,7 +160,9 @@ def get_reviewable_runs():
         for run in runs:
             run_id = run.get('run_id')
             run_elements_by_lane = rest_communication.get_documents('aggregate/run_elements_by_lane', match={"run_id":run_id})
-            r = AutomaticRunReview(run_id, run_elements_by_lane)
+            cfg = Configuration([join(dirname(dirname(abspath(__file__))), '..', 'etc', 'review_thresholds.yaml')])
+            cfg = cfg.get('run')
+            r = AutomaticRunReview(run_id, run_elements_by_lane, cfg)
             r.patch_entry()
 
 
@@ -175,3 +178,4 @@ def get_reviewable_samples():
 
 if __name__ == '__main__':
     sys.exit(main())
+

@@ -9,3 +9,4 @@ default = EnvConfiguration(
         os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'example_data_deletion.yaml')
     ]
 )
+
