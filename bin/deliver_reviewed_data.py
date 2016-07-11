@@ -45,6 +45,7 @@ class DataDelivery(AppLogger):
         self.dry_run = dry_run
         self.all_samples_values = []
         self.sample2species = {}
+        self.sample2analysis_type = {}
         self.work_dir = work_dir
         today = datetime.date.today().isoformat()
         self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + today)
