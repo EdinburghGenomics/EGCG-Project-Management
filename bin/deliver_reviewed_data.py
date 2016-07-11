@@ -143,7 +143,7 @@ class DataDelivery(AppLogger):
     def summarise_metrics_per_sample(self, project_id, delivery_folder):
         headers = ['Project', 'Sample Id', 'User sample id', 'Read pair sequenced', 'Yield', 'Yield Q30',
                    'Nb reads in bam', 'mapping rate', 'properly mapped reads rate', 'duplicate rate',
-                   'Mean coverage', 'Callable bases rate', 'Delivery folder']
+                   'Mean coverage', 'Delivery folder']
         headers_not_human = ['Project', 'Sample Id', 'User sample id', 'Read pair sequenced', 'Yield', 'Yield Q30',
                              'Delivery folder']
         lines = []
@@ -182,7 +182,6 @@ class DataDelivery(AppLogger):
                     if not mean_cov:
                         mean_cov = sample.get('median_coverage', 0)
                     res.append(str(mean_cov))
-                    res.append(str(sample.get('pc_callable', 0) * 100))
                 else:
                     headers = headers_not_human
                 res.append(os.path.basename(delivery_folder))
