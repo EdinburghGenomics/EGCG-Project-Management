@@ -81,3 +81,36 @@ samples_pass = {
     'delivered': 'yes',
     'pc_duplicate_reads': 20
 }
+
+
+samples_no_genotype = {
+    'mapped_reads': 796025840,
+    'library_id': 'LP0328602-DTP_B12',
+    'sample_id': 'LP1251551__B_12',
+    'genotype_validation': None,
+    'proc_status': 'finished',
+    'run_ids': ['151030_E00365_0014_AHFCNTCCXX'],
+    'provided_gender': 'female',
+    'clean_yield_in_gb': 120.173780067,
+    'genotype_match': 'Match',
+    'user_sample_id': 'LBC360090',
+    'useable': 'yes',
+    'pc_properly_mapped_reads': 92.71451664140578,
+    'properly_mapped_reads': 771788247,
+    'gender_match': 'female',
+    '_id': 'LP1251551__B_12',
+    'clean_yield_q30': 95.822039802,
+    'called_gender': 'female',
+    'clean_pc_q30_r1': 91.19261385088816,
+    'median_coverage': 30.348,
+    'duplicate_reads': 122371572,
+    'pc_pass_filter': 100.0,
+    'pc_mapped_reads': 95.62616595490734,
+    'project_id': 'X0001ML',
+    'clean_pc_q30_r2': 68.60350926684019,
+    'delivered': 'yes',
+    'pc_duplicate_reads': 20
+}
+
+
+
