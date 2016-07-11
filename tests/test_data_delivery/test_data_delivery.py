@@ -1,3 +1,4 @@
+import hashlib
 import os
 from unittest.mock import patch, Mock
 
@@ -164,6 +165,14 @@ class TestDataDelivery(TestProjectManagement):
     def _touch(self, f):
         open(f, 'w').close()
 
+    def _md5(self, fname):
+        hash_md5 = hashlib.md5()
+        with open(fname, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        with open(fname + '.md5', "w") as f:
+            f.write(hash_md5.hexdigest() + "  " + fname)
+
     def _remove_run_elements(self, list_run_elements):
         sample_dirs = set()
         for run_element in list_run_elements:
@@ -182,10 +191,10 @@ class TestDataDelivery(TestProjectManagement):
             os.makedirs(sample_dir, exist_ok=True)
             for t in [
                 'S1_L00%s_R1.fastq.gz', 'S1_L00%s_R2.fastq.gz',
-                'S1_L00%s_R1.fastq.gz.md5', 'S1_L00%s_R2.fastq.gz.md5',
                 'S1_L00%s_R1_fastqc.html', 'S1_L00%s_R2_fastqc.html'
             ]:
                 self._touch(os.path.join(sample_dir, t%run_element.get('lane')))
+                self._md5(os.path.join(sample_dir, t%run_element.get('lane')))
 
     def create_analysed_sample_file(self):
         pass
@@ -205,9 +214,9 @@ class TestDataDelivery(TestProjectManagement):
             self.delivery_dry.get_deliverable_projects_samples(project_id='test_project')
             expected_header = ['Project', 'Sample Id', 'User sample id', 'Read pair sequenced',
                                'Yield', 'Yield Q30', 'Nb reads in bam', 'mapping rate', 'properly mapped reads rate',
-                               'duplicate rate', 'Mean coverage', 'Callable bases rate', 'Delivery folder']
+                               'duplicate rate', 'Mean coverage', 'Delivery folder']
             expected_lines = [
-                'test_project\tdeliverable_sample\tuser_s_id\t15\t0.0\t0.0\t1\t0.0\t0.0\t0.0\t0\t0\tdate_delivery'
+                'test_project\tdeliverable_sample\tuser_s_id\t15\t0.0\t0.0\t1\t0.0\t0.0\t0.0\t0\tdate_delivery'
             ]
             with patch(ppath('clarity.get_species_from_sample'), return_value='Homo sapiens'):
                 header, lines = self.delivery_dry.summarise_metrics_per_sample(
@@ -216,6 +225,10 @@ class TestDataDelivery(TestProjectManagement):
                 )
                 assert header == expected_header
                 assert lines == expected_lines
+
+    #def test_generate_md5_summary(self):
+    #    self.delivery_dry.generate_md5_summary()
+
 
     def test_deliver_data_merged(self):
         with patched_deliverable_project1 as mocked_get_doc , \
@@ -256,7 +269,7 @@ class TestDataDelivery(TestProjectManagement):
             self.delivery_real.deliver_data(project_id='test_project')
             assert os.listdir(self.dest_dir) == ['test_project']
             today = datetime.date.today().isoformat()
-            assert os.listdir(os.path.join(self.dest_dir, 'test_project')) == [today, 'summary_metrics.csv']
+            assert os.listdir(os.path.join(self.dest_dir, 'test_project')) == [today, 'all_md5sums.txt', 'summary_metrics.csv']
             assert os.listdir(os.path.join(self.dest_dir, 'test_project', today)) == ['deliverable_sample']
             list_files = sorted(os.listdir(os.path.join(self.dest_dir, 'test_project', today, 'deliverable_sample')))
             assert sorted(list_files) == sorted(self.final_files_merged)

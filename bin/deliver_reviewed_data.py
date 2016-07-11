@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import glob
 import logging
 import os
 import sys
@@ -286,6 +287,23 @@ class DataDelivery(AppLogger):
                 log_commands=False
             )
 
+    def generate_md5_summary(self, project, batch_folder):
+        all_md5_files = glob.glob(os.path.join(batch_folder,'*','*.md5'))
+        md5_summary = []
+        for md5_file in all_md5_files:
+            with open(md5_file) as open_file:
+                md5, file_path = open_file.readline().strip().split()
+            file_name = os.path.basename(md5_file).strip('.md5')
+            dir_name = os.path.basename(os.path.dirname(md5_file))
+            batch_name = os.path.basename(batch_folder)
+            with open(md5_file, 'w') as open_file:
+                open_file.write('%s  %s' % (md5, file_name))
+            md5_summary.append('%s  %s' % (md5, os.path.join(batch_name, dir_name, file_name)))
+        delivery_dest = cfg.query('delivery_dest')
+        all_md5_files = os.path.join(delivery_dest, project, 'all_md5sums.txt')
+        with open(all_md5_files, 'a') as open_file:
+            open_file.write('\n'.join(md5_summary) + '\n')
+
     def cleanup(self):
         if self.no_cleanup:
             return
@@ -327,7 +345,10 @@ class DataDelivery(AppLogger):
                 for sample in project_to_samples.get(project):
                     shutil.move(sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)), batch_delivery_folder)
                 self.write_metrics_file(project, batch_delivery_folder)
+                self.generate_md5_summary(project, batch_delivery_folder)
+
             self.mark_samples_as_released(list(sample2stagedirectory))
+
 
         self.cleanup()
         # TODO: Generate project report
