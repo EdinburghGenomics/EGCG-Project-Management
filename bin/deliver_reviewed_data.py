@@ -24,6 +24,13 @@ hs_list_files = [
     '{ext_sample_id}.bam.bai'
 ]
 
+variant_call_list_files = [
+    '{ext_sample_id}.g.vcf.gz',
+    '{ext_sample_id}.g.vcf.gz.tbi',
+    '{ext_sample_id}.bam',
+    '{ext_sample_id}.bam.bai'
+]
+
 other_list_files = []
 
 
@@ -202,10 +209,13 @@ class DataDelivery(AppLogger):
 
     def get_analysis_files(self, sample_name, external_sample_name):
         species = self.get_sample_species(sample_name)
+        analysis_type = clarity.get_sample(sample_name).udf.get('Analysis Type')
         if species is None:
             raise EGCGError('No species information found in the LIMS for ' + sample_name)
         elif species == 'Homo sapiens':
             list_of_file = hs_list_files
+        elif analysis_type == 'Variant Calling':
+            list_of_file = variant_call_list_files
         else:
             list_of_file = other_list_files
         final_list = []
