@@ -163,8 +163,8 @@ class DataDelivery(AppLogger):
                 res.append(str(clean_reads))
                 res.append(str((clean_bases_r1 + clean_bases_r2) / 1000000000))
                 res.append(str((clean_q30_bases_r1 + clean_q30_bases_r2) / 1000000000))
-                theoritical_cov = (clean_bases_r1 + clean_bases_r2) / 3200000000.0
-                if self.get_sample_species(sample.get('sample_id')) == 'Homo sapiens':
+                if self.get_sample_species(sample.get('sample_id')) == 'Homo sapiens' or \
+                        self.get_analysis_type(sample.get('sample_id')) == 'Variant Calling':
                     tr = sample.get('bam_file_reads', 0)
                     mr = sample.get('mapped_reads', 0)
                     dr = sample.get('duplicate_reads', 0)
@@ -175,9 +175,9 @@ class DataDelivery(AppLogger):
                     res.append(str(float(mr) / float(tr) * 100))
                     res.append(str(float(pmr) / float(tr) * 100))
                     res.append(str(float(dr) / float(tr) * 100))
-                    theoritical_cov = theoritical_cov * (float(mr) / float(tr)) * (1 - (float(dr) / float(tr)))
-                    # res.append(str(theoritical_cov))
                     mean_cov = sample.get('coverage', {}).get('mean')
+
+                    #legacy code to get the coverage info for old samples
                     if not mean_cov:
                         mean_cov = sample.get('median_coverage', 0)
                     res.append(str(mean_cov))
@@ -207,9 +207,16 @@ class DataDelivery(AppLogger):
             self.sample2species[sample_name] = clarity.get_species_from_sample(sample_name)
         return self.sample2species.get(sample_name)
 
+    def get_analysis_type(self, sample_name):
+        if sample_name not in self.sample2analysis_type:
+            self.sample2analysis_type[sample_name] = clarity.get_sample(sample_name).udf.get('Analysis Type')
+        return self.sample2analysis_type.get(sample_name)
+
+
     def get_analysis_files(self, sample_name, external_sample_name):
         species = self.get_sample_species(sample_name)
-        analysis_type = clarity.get_sample(sample_name).udf.get('Analysis Type')
+        analysis_type = self.get_analysis_type(sample_name)
+        clarity.get_sample(sample_name).udf.get('Analysis Type')
         if species is None:
             raise EGCGError('No species information found in the LIMS for ' + sample_name)
         elif species == 'Homo sapiens':
@@ -234,7 +241,7 @@ class DataDelivery(AppLogger):
                 if fastqs:
                     fastqs_files[run_element.get(ELEMENT_RUN_ELEMENT_ID)] = tuple(sorted(fastqs))
                 else:
-                    raise EGCGError('No Fastq files found for %s'%(str((local_fastq_dir, run_element.get(ELEMENT_PROJECT_ID),
+                    raise EGCGError('No Fastq files found for %s' % (str((local_fastq_dir, run_element.get(ELEMENT_PROJECT_ID),
                                      sample.get(ELEMENT_SAMPLE_INTERNAL_ID), run_element.get(ELEMENT_LANE)))))
         return fastqs_files
 
@@ -303,7 +310,8 @@ class DataDelivery(AppLogger):
             for project in project_to_samples:
                 today = datetime.date.today().isoformat()
                 batch_delivery_folder = os.path.join(delivery_dest, project, today)
-                print('%s --> %s'%(sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)), batch_delivery_folder))
+                for sample in project_to_samples.get(project):
+                    print('%s --> %s'%(sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)), batch_delivery_folder))
                 header, lines = self.summarise_metrics_per_sample(project, batch_delivery_folder)
                 print('\t'.join(header))
                 print('\n'.join(lines))
