@@ -1,10 +1,12 @@
+from datetime import datetime
 from os import listdir
 from os.path import join, isdir
-from datetime import datetime
+
 from egcg_core import rest_communication, util, clarity
 from egcg_core.constants import ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_PROJECT_ID
+
+from config import default as cfg
 from data_deletion import Deleter
-from data_deletion.config import default as cfg
 
 
 class DeliveredDataDeleter(Deleter):

@@ -1,4 +1,3 @@
-
 run_elements_by_lane_pass = [
     {'lane_pc_optical_dups': None, 'sample_ids': ['LP1251760_G_09'], 'pc_q30': 83.86778972069591, 'lane_number': 7, 'cv': 0.0, 'stdev_pf': 0.0, 'useable': ['yes'], 'pc_pass_filter': 75.71414257913844, 'run_id': '160415_E00375_0091_BHFHWFCCXX', 'yield_q30_in_gb': 118.340301375, 'passing_filter_reads': 470344661, 'pc_q30_r2': 75.66213897769747, 'clean_yield_in_gb': 138.934823074, '_id': {'run_id': '160415_E00375_0091_BHFHWFCCXX', 'lane': 7}, 'avg_pf': 470344661.0, 'pc_q30_r1': 92.07344046369434, 'yield_in_gb': 141.1033983, 'clean_yield_q30_in_gb': 117.290061906},
     {'lane_pc_optical_dups': None, 'sample_ids': ['LP1251760_A_10'], 'pc_q30': 83.01783234937763, 'lane_number': 1, 'cv': 0.0, 'stdev_pf': 0.0, 'useable': ['yes'], 'pc_pass_filter': 75.2795680870508, 'run_id': '160415_E00375_0091_BHFHWFCCXX', 'yield_q30_in_gb': 116.468631593, 'passing_filter_reads': 467645036, 'pc_q30_r2': 76.1873267769132, 'clean_yield_in_gb': 130.418415308, '_id': {'run_id': '160415_E00375_0091_BHFHWFCCXX', 'lane': 1}, 'avg_pf': 467645036.0, 'pc_q30_r1': 89.84833792184207, 'yield_in_gb': 140.2935108, 'clean_yield_q30_in_gb': 112.168373129},
@@ -82,3 +81,58 @@ samples_pass = {
     'delivered': 'yes',
     'pc_duplicate_reads': 20
 }
+
+
+samples_no_genotype = {
+    'mapped_reads': 796025840,
+    'library_id': 'LP0328602-DTP_B12',
+    'sample_id': 'LP1251551__B_12',
+    'genotype_validation': None,
+    'proc_status': 'finished',
+    'run_ids': ['151030_E00365_0014_AHFCNTCCXX'],
+    'provided_gender': 'female',
+    'clean_yield_in_gb': 120.173780067,
+    'genotype_match': 'Match',
+    'user_sample_id': 'LBC360090',
+    'useable': 'yes',
+    'pc_properly_mapped_reads': 92.71451664140578,
+    'properly_mapped_reads': 771788247,
+    'gender_match': 'female',
+    '_id': 'LP1251551__B_12',
+    'clean_yield_q30': 95.822039802,
+    'called_gender': 'female',
+    'clean_pc_q30_r1': 91.19261385088816,
+    'median_coverage': 30.348,
+    'duplicate_reads': 122371572,
+    'pc_pass_filter': 100.0,
+    'pc_mapped_reads': 95.62616595490734,
+    'project_id': 'X0001ML',
+    'clean_pc_q30_r2': 68.60350926684019,
+    'delivered': 'yes',
+    'pc_duplicate_reads': 20
+}
+
+samples_non_human = {
+    'mapped_reads': 796025840,
+    'library_id': 'LP0328602-DTP_B12',
+    'sample_id': 'LP1251551__B_12',
+    'proc_status': 'finished',
+    'run_ids': ['151030_E00365_0014_AHFCNTCCXX'],
+    'clean_yield_in_gb': 120.173780067,
+    'user_sample_id': 'LBC360090',
+    'useable': 'yes',
+    'pc_properly_mapped_reads': 92.71451664140578,
+    'properly_mapped_reads': 771788247,
+    '_id': 'LP1251551__B_12',
+    'clean_yield_q30': 95.822039802,
+    'clean_pc_q30_r1': 91.19261385088816,
+    'median_coverage': 30.348,
+    'duplicate_reads': 122371572,
+    'pc_pass_filter': 100.0,
+    'pc_mapped_reads': 95.62616595490734,
+    'project_id': 'X0001ML',
+    'clean_pc_q30_r2': 68.60350926684019,
+    'delivered': 'yes',
+    'pc_duplicate_reads': 20
+}
+

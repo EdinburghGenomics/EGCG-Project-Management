@@ -1,9 +1,11 @@
 from os import listdir
 from os.path import join, isdir
+
 from egcg_core import rest_communication
 from egcg_core.constants import ELEMENT_RUN_NAME, ELEMENT_PROCS, ELEMENT_STATUS, DATASET_DELETED, ELEMENT_PROC_ID
+
+from config import default as cfg
 from data_deletion import Deleter
-from data_deletion.config import default as cfg
 
 
 class RawDataDeleter(Deleter):

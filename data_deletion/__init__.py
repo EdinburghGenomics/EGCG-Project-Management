@@ -1,9 +1,11 @@
+from datetime import datetime
 from os import listdir
 from os.path import join
-from datetime import datetime
+
 from egcg_core import app_logging, executor
 from egcg_core.exceptions import EGCGError
-from data_deletion.config import default as cfg
+
+from config import default as cfg
 
 log_cfg = app_logging.LoggingConfiguration(cfg)
 

@@ -1,10 +1,12 @@
 from os import listdir
 from os.path import join, basename
+
 from egcg_core import rest_communication, clarity, util
 from egcg_core.constants import ELEMENT_DELIVERED, ELEMENT_FASTQS_DELETED, ELEMENT_USEABLE,\
     ELEMENT_PROJECT_ID, ELEMENT_RUN_NAME, ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_LANE
+
+from config import default as cfg
 from data_deletion import Deleter
-from data_deletion.config import default as cfg
 
 
 class FastqDeleter(Deleter):
