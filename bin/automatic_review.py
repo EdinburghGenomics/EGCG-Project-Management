@@ -170,19 +170,16 @@ class AutomaticSampleReview():
         if sample_review:
             if sample_review == 'pass':
                 patch_review['reviewed'] = 'pass'
-                #rest_communication.patch_entries('samples', payload=patch_review, update_lists=None, where={"sample_id": self.sample_name})
+                rest_communication.patch_entries('samples', payload=patch_review, update_lists=None, where={"sample_id": self.sample_name})
             elif sample_review == 'fail':
                 patch_review['reviewed'] = 'fail'
                 patch_comments[ELEMENT_REVIEW_COMMENTS] = 'failed due to ' + ', '.join(reasons)
-                #rest_communication.patch_entries('samples', payload=patch_review, update_lists=None, where={"sample_id": self.sample_name})
-                #rest_communication.patch_entries('samples', payload=patch_comments, update_lists=None, where={"sample_id": self.sample_name})
+                rest_communication.patch_entries('samples', payload=patch_review, update_lists=None, where={"sample_id": self.sample_name})
+                rest_communication.patch_entries('samples', payload=patch_comments, update_lists=None, where={"sample_id": self.sample_name})
             elif sample_review == 'genotype missing':
                 patch_review['reviewed'] = 'genotype missing'
-                #rest_communication.patch_entries('samples', payload=patch_review, update_lists=None, where={"sample_id": self.sample_name})
-        #print(patch_review)
-        #print(self.sample_genotype)
-        #print(self.species)
-        #print('\n\n')
+                rest_communication.patch_entries('samples', payload=patch_review, update_lists=None, where={"sample_id": self.sample_name})
+
         return patch_review
 
 def get_reviewable_runs():
@@ -196,18 +193,13 @@ def get_reviewable_runs():
             r.patch_entry()
 
 def get_reviewable_samples():
-    samples = rest_communication.get_documents('aggregate/samples', depaginate=True,  match={"proc_status":"finished","reviewed":"pass"})
+    samples = rest_communication.get_documents('aggregate/samples', depaginate=True,  match={"proc_status":"finished","reviewed":"not%20reviewed"})
     if samples:
         for sample in samples:
             gen = sample.get('genotype_validation')
             sample_id = sample.get('sample_id')
             species = clarity.get_species_from_sample(sample_id)
             sample_cfg = sample_config(sample, species)
-            yieldq30 = clarity.get_expected_yield_for_sample(sample_id)
-            #print(sample_cfg)
-            print(species)
-            #print(yieldq30)
-            print('\n\n')
             if sample_cfg:
                 s = AutomaticSampleReview(sample, sample_cfg, species)
                 s.patch_entry()
