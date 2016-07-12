@@ -289,6 +289,7 @@ class DataDelivery(AppLogger):
 
     def generate_md5_summary(self, project, batch_folder):
         all_md5_files = glob.glob(os.path.join(batch_folder,'*','*.md5'))
+        all_md5_files.extend(glob.glob(os.path.join(batch_folder,'*','raw_data','*.md5')))
         md5_summary = []
         for md5_file in all_md5_files:
             with open(md5_file) as open_file:

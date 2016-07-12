@@ -185,7 +185,6 @@ class TestDataDelivery(TestProjectManagement):
             sample_dir = os.path.join(self.assets_delivery,
                                       'runs',
                                       run_element.get('run_id'),
-                                      'fastq',
                                       run_element.get('project_id'),
                                       run_element.get('sample_id'))
             os.makedirs(sample_dir, exist_ok=True)
@@ -252,7 +251,7 @@ class TestDataDelivery(TestProjectManagement):
 
     def test_deliver_data_split(self):
         with patched_deliverable_project1, patched_get_species,\
-                patch(ppath('clarity','get_sample'), return_value=Mock(udf={'delivery':'split'})):
+                patch(ppath('clarity','get_sample'), return_value=Mock(udf={'Delivery':'split'})):
             self.delivery_dry.deliver_data(project_id='test_project')
             assert os.listdir(self.delivery_dry.staging_dir) == ['deliverable_sample']
             list_files = sorted(os.listdir(os.path.join(self.delivery_dry.staging_dir, 'deliverable_sample')))
