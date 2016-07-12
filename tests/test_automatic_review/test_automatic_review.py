@@ -25,12 +25,10 @@ class TestAutomaticReview(TestProjectManagement):
 
 
 
-    @patch('bin.automatic_review.clarity.get_species_from_sample')
     @patch('bin.automatic_review.clarity.get_expected_yield_for_sample')
-    def test_sample_config(self, mock_yield, mock_species):
-        mock_species.return_value = 'Homo sapiens'
+    def test_sample_config(self, mock_yield):
         mock_yield.return_value = 120000000000
-        no_genotype = automatic_review.sample_config('test', None)
+        no_genotype = automatic_review.sample_config(fake_data.samples_no_genotype, 'Homo sapiens')
 
         assert no_genotype == {'clean_yield_in_gb': {'comparison': '>', 'value': 160},
                                'pc_duplicate_reads': {'comparison': '<', 'value': 35},
@@ -42,8 +40,7 @@ class TestAutomaticReview(TestProjectManagement):
 
 
 
-        genotype = {'mismatching_snps': 0, 'no_call_seq': 0, 'no_call_chip': 3, 'matching_snps': 29}
-        with_genotype = automatic_review.sample_config('test', genotype)
+        with_genotype = automatic_review.sample_config(fake_data.samples_pass, 'Homo sapiens')
         assert with_genotype == {'clean_yield_in_gb': {'comparison': '>', 'value': 160},
                                'pc_duplicate_reads': {'comparison': '<', 'value': 35},
                                'pc_mapped_reads': {'comparison': '>', 'value': 90},
@@ -55,15 +52,6 @@ class TestAutomaticReview(TestProjectManagement):
                                }
 
 
-        mock_species.return_value = 'Bos taurus'
-        mock_yield.return_value = 120000000000
-        non_human = automatic_review.sample_config('test', None)
-        assert non_human == {'clean_yield_in_gb': {'comparison': '>', 'value': 160},
-                        'pc_duplicate_reads': {'comparison': '<', 'value': 35},
-                        'pc_mapped_reads': {'comparison': '>', 'value': 90},
-                        'median_coverage': {'comparison': '>', 'value': 40},
-                        'clean_yield_q30': {'comparison': '>', 'value': 120}}
-
 
     @patch('bin.automatic_review.clarity.get_species_from_sample')
     @patch('bin.automatic_review.clarity.get_expected_yield_for_sample')
@@ -71,19 +59,46 @@ class TestAutomaticReview(TestProjectManagement):
         mock_species.return_value = 'Homo sapiens'
         mock_yield.return_value = 95000000000
 
-        genotype = (fake_data.samples_fail.get('genotype_validation'))
-        sample_cfg = automatic_review.sample_config('test', genotype)
+        sample_cfg = automatic_review.sample_config(fake_data.samples_fail, 'Homo sapiens')
         sample_review, reasons = automatic_review.metrics(fake_data.samples_fail, sample_cfg)
         assert sample_review == 'fail'
         assert set(reasons) == set(['clean_yield_q30', 'clean_yield_in_gb'])
 
-        genotype = (fake_data.samples_pass.get('genotype_validation'))
-        sample_cfg = automatic_review.sample_config('test', genotype)
+        sample_cfg = automatic_review.sample_config(fake_data.samples_pass, 'Homo sapiens')
         sample_review, reasons = automatic_review.metrics(fake_data.samples_pass, sample_cfg)
         assert sample_review == 'pass'
 
-        genotype = (fake_data.samples_no_genotype.get('genotype_validation'))
-        sample_cfg = automatic_review.sample_config('test', genotype)
+        sample_cfg = automatic_review.sample_config(fake_data.samples_no_genotype, 'Bos taurus')
         sample_review, reasons = automatic_review.metrics(fake_data.samples_no_genotype, sample_cfg)
         assert sample_review == 'pass'
+
+
+
+
+
+    @patch('bin.automatic_review.rest_communication.patch_entries')
+    def test_automatic_sample_review(self, mock_patch):
+        mock_patch.return_value = None
+        sample_cfg = automatic_review.sample_config(fake_data.samples_pass, 'Homo sapiens')
+        sampleReview = automatic_review.AutomaticSampleReview(fake_data.samples_pass, sample_cfg, 'Homo sapiens')
+        review_patch = sampleReview.patch_entry()
+        assert review_patch == {'reviewed': 'pass'}
+
+        sample_cfg = automatic_review.sample_config(fake_data.samples_fail, 'Homo sapiens')
+        sampleReview = automatic_review.AutomaticSampleReview(fake_data.samples_fail, sample_cfg, 'Homo sapiens')
+        review_patch = sampleReview.patch_entry()
+        assert review_patch == {'reviewed': 'fail'}
+
+        sample_cfg = automatic_review.sample_config(fake_data.samples_no_genotype, 'Homo sapiens')
+        sampleReview = automatic_review.AutomaticSampleReview(fake_data.samples_no_genotype, sample_cfg, 'Homo sapiens')
+        review_patch = sampleReview.patch_entry()
+        assert review_patch == {'reviewed': 'genotype missing'}
+
+        sample_cfg = automatic_review.sample_config(fake_data.samples_non_human, 'Bos taurus')
+        sampleReview = automatic_review.AutomaticSampleReview(fake_data.samples_non_human, sample_cfg, 'Bos taurus')
+        review_patch = sampleReview.patch_entry()
+        assert review_patch == {'reviewed': 'pass'}
+
+
+
 
