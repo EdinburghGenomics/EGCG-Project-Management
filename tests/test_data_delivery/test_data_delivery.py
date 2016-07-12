@@ -6,9 +6,11 @@ import shutil
 
 import datetime
 from egcg_core.exceptions import EGCGError
+
+from config import load_config
 from tests import TestProjectManagement
 from bin.deliver_reviewed_data import DataDelivery
-from egcg_core.config import default as cfg
+from egcg_core.config import cfg
 
 sample1 = {
             'sample_id': 'deliverable_sample',
@@ -127,6 +129,8 @@ patched_get_species = patch(
 class TestDataDelivery(TestProjectManagement):
 
     def __init__(self, *args, **kwargs):
+        load_config(os.path.join(os.path.dirname(self.root_path), 'etc', 'example_data_delivery.yaml'))
+
         super(TestDataDelivery, self).__init__(*args, **kwargs)
         self.assets_delivery = os.path.join(self.assets_path, 'data_delivery')
         analysis_files = [

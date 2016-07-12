@@ -1,13 +1,16 @@
 import os
-from egcg_core.config import EnvConfiguration
+from egcg_core.config import cfg
 
+default_search_path = [
+    os.getenv('PROJECTMANAGEMENTCONFIG'),
+    os.path.expanduser('~/.project_management.yaml'),
+]
 
-default = EnvConfiguration(
-    [
-        os.getenv('PROJECTMANAGEMENTCONFIG'),
-        os.path.expanduser('~/.project_management.yaml'),
-        os.path.join(os.path.dirname(__file__), 'etc', 'example_project_management.yaml')
-    ],
-    env_var='PROJECTMANAGEMENTENV'
-)
+def load_config(*config_files):
+    if not config_files:
+        config_files=default_search_path
+    for f in config_files:
+        if f and os.path.isfile(f):
+            cfg.load_config_file(f)
+    #cfg.load_config_files(search_path, env_var='PROJECTMANAGEMENTENV')
 

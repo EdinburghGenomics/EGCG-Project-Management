@@ -10,11 +10,13 @@ import shutil
 from egcg_core import executor
 from egcg_core import rest_communication, clarity
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
-from egcg_core.config import default as cfg
 from egcg_core.exceptions import EGCGError
 from egcg_core.util import find_fastqs
 from egcg_core.constants import ELEMENT_NB_READS_CLEANED, ELEMENT_RUN_NAME, ELEMENT_PROJECT_ID, ELEMENT_LANE, \
     ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_RUN_ELEMENT_ID, ELEMENT_USEABLE
+from egcg_core.config import cfg
+from config import load_config
+
 
 hs_list_files = [
     '{ext_sample_id}.g.vcf.gz',
@@ -365,6 +367,8 @@ def main():
     p.add_argument('--project_id', type=str)
     p.add_argument('--sample_id', type=str)
     args = p.parse_args()
+
+    load_config()
 
     if args.debug:
         log_cfg.set_log_level(logging.DEBUG)
