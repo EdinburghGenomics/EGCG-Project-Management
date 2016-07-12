@@ -93,7 +93,7 @@ class DataDelivery(AppLogger):
         return sample_dir
 
     def _stage_fastq_files(self, sample, sample_dir):
-        delivery_type = clarity.get_sample(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)).udf.get('delivery', 'merged')
+        delivery_type = clarity.get_sample(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)).udf.get('Delivery', 'merged')
         original_fastq_files = self._get_fastq_file_for_sample(sample)
         external_sample_id = sample.get(ELEMENT_SAMPLE_EXTERNAL_ID)
 
