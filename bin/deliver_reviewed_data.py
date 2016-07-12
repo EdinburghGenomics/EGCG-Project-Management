@@ -15,6 +15,8 @@ from egcg_core.util import find_fastqs
 from egcg_core.constants import ELEMENT_NB_READS_CLEANED, ELEMENT_RUN_NAME, ELEMENT_PROJECT_ID, ELEMENT_LANE, \
     ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_RUN_ELEMENT_ID, ELEMENT_USEABLE
 from egcg_core.config import cfg
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import load_config
 
 
