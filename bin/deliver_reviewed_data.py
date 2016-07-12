@@ -295,11 +295,11 @@ class DataDelivery(AppLogger):
             with open(md5_file) as open_file:
                 md5, file_path = open_file.readline().strip().split()
             file_name = os.path.basename(md5_file).strip('.md5')
-            dir_name = os.path.basename(os.path.dirname(md5_file))
             batch_name = os.path.basename(batch_folder)
+            prefix, suffix = md5_file.strip('.md5').split(batch_name)
             with open(md5_file, 'w') as open_file:
                 open_file.write('%s  %s' % (md5, file_name))
-            md5_summary.append('%s  %s' % (md5, os.path.join(batch_name, dir_name, file_name)))
+            md5_summary.append('%s  %s' % (md5, batch_name+suffix))
         delivery_dest = cfg.query('delivery_dest')
         all_md5_files = os.path.join(delivery_dest, project, 'all_md5sums.txt')
         with open(all_md5_files, 'a') as open_file:

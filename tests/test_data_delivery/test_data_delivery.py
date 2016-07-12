@@ -232,7 +232,7 @@ class TestDataDelivery(TestProjectManagement):
     def test_deliver_data_merged(self):
         with patched_deliverable_project1 as mocked_get_doc , \
                 patched_get_species as mocked_get_species,\
-                patch(ppath('clarity','get_sample'), return_value=Mock(udf={'delivery':'merged'})):
+                patch(ppath('clarity','get_sample'), return_value=Mock(udf={'Delivery':'merged'})):
             self.delivery_dry.deliver_data(project_id='test_project')
             assert os.listdir(self.delivery_dry.staging_dir) == ['deliverable_sample']
             list_files = sorted(os.listdir(os.path.join(self.delivery_dry.staging_dir, 'deliverable_sample')))
@@ -241,7 +241,7 @@ class TestDataDelivery(TestProjectManagement):
     def test_deliver_data_merged_concat(self):
         with patched_deliverable_project2 as mocked_get_doc , \
                 patched_get_species as mocked_get_species,\
-                patch(ppath('clarity','get_sample'), return_value=Mock(udf={'delivery':'merged'})):
+                patch(ppath('clarity','get_sample'), return_value=Mock(udf={'Delivery':'merged'})):
             self.delivery_dry.deliver_data(project_id='test_project')
             assert os.listdir(self.delivery_dry.staging_dir) == ['deliverable_sample2']
             list_files = sorted(os.listdir(os.path.join(self.delivery_dry.staging_dir, 'deliverable_sample2')))
@@ -262,7 +262,7 @@ class TestDataDelivery(TestProjectManagement):
     def test_deliver_data_merged_real(self):
         with patched_deliverable_project1 as mocked_get_doc , \
                 patched_get_species as mocked_get_species,\
-                patch(ppath('clarity','get_sample'), return_value=Mock(udf={'delivery':'merged'})),\
+                patch(ppath('clarity','get_sample'), return_value=Mock(udf={'Delivery':'merged'})),\
                 patch.object(DataDelivery, 'run_aggregate_commands', side_effect=print_args),\
                 patch('bin.deliver_reviewed_data.DataDelivery.mark_samples_as_released') :
             self.delivery_real.deliver_data(project_id='test_project')
@@ -272,6 +272,23 @@ class TestDataDelivery(TestProjectManagement):
             assert os.listdir(os.path.join(self.dest_dir, 'test_project', today)) == ['deliverable_sample']
             list_files = sorted(os.listdir(os.path.join(self.dest_dir, 'test_project', today, 'deliverable_sample')))
             assert sorted(list_files) == sorted(self.final_files_merged)
+
+
+    def test_deliver_data_split_real(self):
+        with patched_deliverable_project1 as mocked_get_doc , \
+                patched_get_species as mocked_get_species,\
+                patch(ppath('clarity','get_sample'), return_value=Mock(udf={'Delivery':'split'})),\
+                patch.object(DataDelivery, 'run_aggregate_commands', side_effect=print_args),\
+                patch('bin.deliver_reviewed_data.DataDelivery.mark_samples_as_released') :
+            self.delivery_real.deliver_data(project_id='test_project')
+            assert os.listdir(self.dest_dir) == ['test_project']
+            today = datetime.date.today().isoformat()
+            assert os.listdir(os.path.join(self.dest_dir, 'test_project')) == [today, 'all_md5sums.txt', 'summary_metrics.csv']
+            assert os.listdir(os.path.join(self.dest_dir, 'test_project', today)) == ['deliverable_sample']
+            list_files = sorted(os.listdir(os.path.join(self.dest_dir, 'test_project', today, 'deliverable_sample')))
+            assert sorted(list_files) == sorted(self.final_files_split)
+
+
 
 def print_args(*args, **kwargs):
     pass
