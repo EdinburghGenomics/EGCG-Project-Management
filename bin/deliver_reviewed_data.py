@@ -236,7 +236,7 @@ class DataDelivery(AppLogger):
         fastqs_files = {}
         for run_element in sample.get('run_elements'):
             if run_element.get(ELEMENT_USEABLE) == 'yes' and int(run_element.get(ELEMENT_NB_READS_CLEANED, 0)) > 0:
-                local_fastq_dir = os.path.join(cfg['input_dir'], run_element.get(ELEMENT_RUN_NAME), 'fastq')
+                local_fastq_dir = os.path.join(cfg['input_dir'], run_element.get(ELEMENT_RUN_NAME))
                 fastqs = find_fastqs(local_fastq_dir, run_element.get(ELEMENT_PROJECT_ID),
                                      sample.get(ELEMENT_SAMPLE_INTERNAL_ID), run_element.get(ELEMENT_LANE))
                 if fastqs:
