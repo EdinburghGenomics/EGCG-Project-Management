@@ -3,17 +3,18 @@ from os.path import join, isdir
 
 from egcg_core import rest_communication
 from egcg_core.constants import ELEMENT_RUN_NAME, ELEMENT_PROCS, ELEMENT_STATUS, DATASET_DELETED, ELEMENT_PROC_ID
+from egcg_core.config import cfg
 
-from config import default as cfg
 from data_deletion import Deleter
 
 
 class RawDataDeleter(Deleter):
-    deletable_sub_dirs = ('Data', 'Logs', 'Thumbnail_Images')
-    data_dir = cfg['raw_data']
+
 
     def __init__(self, work_dir, dry_run=False, deletion_limit=None, manual_delete=None):
         super().__init__(work_dir, dry_run, deletion_limit)
+        self.deletable_sub_dirs = ('Data', 'Logs', 'Thumbnail_Images')
+        self.data_dir = cfg['raw_data']
         self.archive_dir = cfg['raw_archives']
         self.list_runs = manual_delete
 

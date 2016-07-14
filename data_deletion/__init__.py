@@ -4,8 +4,7 @@ from os.path import join
 
 from egcg_core import app_logging, executor
 from egcg_core.exceptions import EGCGError
-
-from config import default as cfg
+from egcg_core.config import cfg
 
 log_cfg = app_logging.LoggingConfiguration(cfg)
 

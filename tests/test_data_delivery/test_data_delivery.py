@@ -1,16 +1,15 @@
 import hashlib
 import os
 from unittest.mock import patch, Mock
-
 import shutil
-
 import datetime
+
 from egcg_core.exceptions import EGCGError
+from egcg_core.config import cfg
 
 from config import load_config
 from tests import TestProjectManagement
 from bin.deliver_reviewed_data import DataDelivery
-from egcg_core.config import cfg
 
 sample1 = {
             'sample_id': 'deliverable_sample',
@@ -130,7 +129,7 @@ class TestDataDelivery(TestProjectManagement):
 
     def __init__(self, *args, **kwargs):
         load_config(os.path.join(os.path.dirname(self.root_path), 'etc', 'example_data_delivery.yaml'))
-
+        os.chdir(os.path.dirname(self.root_path))
         super(TestDataDelivery, self).__init__(*args, **kwargs)
         self.assets_delivery = os.path.join(self.assets_path, 'data_delivery')
         analysis_files = [
@@ -167,7 +166,7 @@ class TestDataDelivery(TestProjectManagement):
         pass
 
     def _touch(self, f):
-        open(f, 'w').close()
+        return open(f, 'w').close()
 
     def _md5(self, fname):
         hash_md5 = hashlib.md5()
@@ -252,7 +251,6 @@ class TestDataDelivery(TestProjectManagement):
             assert sorted(list_files) == sorted(self.final_files_merged2)
             assert len(self.delivery_dry.all_commands_for_cluster) == 2
 
-
     def test_deliver_data_split(self):
         with patched_deliverable_project1, patched_get_species,\
                 patch(ppath('clarity','get_sample'), return_value=Mock(udf={'Delivery':'split'})):
@@ -260,8 +258,6 @@ class TestDataDelivery(TestProjectManagement):
             assert os.listdir(self.delivery_dry.staging_dir) == ['deliverable_sample']
             list_files = sorted(os.listdir(os.path.join(self.delivery_dry.staging_dir, 'deliverable_sample')))
             assert sorted(list_files) == sorted(self.final_files_split)
-
-
 
     def test_deliver_data_merged_real(self):
         with patched_deliverable_project1 as mocked_get_doc , \
@@ -276,7 +272,6 @@ class TestDataDelivery(TestProjectManagement):
             assert os.listdir(os.path.join(self.dest_dir, 'test_project', today)) == ['deliverable_sample']
             list_files = sorted(os.listdir(os.path.join(self.dest_dir, 'test_project', today, 'deliverable_sample')))
             assert sorted(list_files) == sorted(self.final_files_merged)
-
 
     def test_deliver_data_split_real(self):
         with patched_deliverable_project1 as mocked_get_doc , \

@@ -3,7 +3,7 @@ from egcg_core.config import cfg
 
 default_search_path = [
     os.getenv('PROJECTMANAGEMENTCONFIG'),
-    os.path.expanduser('~/.project_management.yaml'),
+    os.path.expanduser('~/.project_management.yaml')
 ]
 
 def load_config(*config_files):
