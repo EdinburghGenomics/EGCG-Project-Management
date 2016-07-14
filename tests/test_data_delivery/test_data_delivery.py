@@ -128,9 +128,9 @@ patched_get_species = patch(
 class TestDataDelivery(TestProjectManagement):
 
     def __init__(self, *args, **kwargs):
+        super(TestDataDelivery, self).__init__(*args, **kwargs)
         load_config(os.path.join(os.path.dirname(self.root_path), 'etc', 'example_data_delivery.yaml'))
         os.chdir(os.path.dirname(self.root_path))
-        super(TestDataDelivery, self).__init__(*args, **kwargs)
         self.assets_delivery = os.path.join(self.assets_path, 'data_delivery')
         analysis_files = [
             '{ext_sample_id}.bam', '{ext_sample_id}.bam.bai', '{ext_sample_id}.bam.bai.md5', '{ext_sample_id}.bam.md5',
@@ -148,11 +148,13 @@ class TestDataDelivery(TestProjectManagement):
 
         self.dest_dir = cfg.query('delivery_dest')
 
+
     def _format_list(self, list_, **kwargs):
         return [v.format(**kwargs) for v in list_]
 
 
     def setUp(self):
+        os.makedirs(self.dest_dir, exist_ok=True)
         self.delivery_dry = DataDelivery(dry_run=True, work_dir=os.path.join(self.assets_delivery, 'staging'), no_cleanup=True)
         self.delivery_real = DataDelivery(dry_run=False, work_dir=os.path.join(self.assets_delivery, 'staging'))
         self._create_run_elements(sample1.get('run_elements') + sample2.get('run_elements'))
