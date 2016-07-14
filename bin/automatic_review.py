@@ -183,10 +183,8 @@ def get_reviewable_runs():
 
 def get_reviewable_samples():
     samples = rest_communication.get_documents('aggregate/samples', depaginate=True,  match={"proc_status":"finished","reviewed":"not%20reviewed"})
-    print(len(samples))
     if samples:
         for sample in samples:
-            print(sample)
             sample_id = sample.get('sample_id')
             species = clarity.get_species_from_sample(sample_id)
             sample_cfg = sample_config(sample, species)
