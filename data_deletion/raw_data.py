@@ -9,8 +9,6 @@ from data_deletion import Deleter
 
 
 class RawDataDeleter(Deleter):
-
-
     def __init__(self, work_dir, dry_run=False, deletion_limit=None, manual_delete=None):
         super().__init__(work_dir, dry_run, deletion_limit)
         self.deletable_sub_dirs = ('Data', 'Logs', 'Thumbnail_Images')

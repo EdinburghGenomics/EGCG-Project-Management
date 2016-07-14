@@ -1,12 +1,11 @@
 from datetime import datetime
 from os import listdir
 from os.path import join, isdir
-
 from egcg_core import rest_communication, util, clarity
 from egcg_core.constants import ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_PROJECT_ID
 from egcg_core.config import cfg
-
 from data_deletion import Deleter
+
 
 class DeliveredDataDeleter(Deleter):
 
