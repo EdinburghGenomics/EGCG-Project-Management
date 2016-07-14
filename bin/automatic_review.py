@@ -3,12 +3,14 @@ import sys
 import yaml
 import argparse
 import logging
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from egcg_core.app_logging import logging_default as log_cfg
 from egcg_core import rest_communication, clarity
 from egcg_core.constants import ELEMENT_REVIEW_COMMENTS
 from egcg_core.config import cfg
 from config import default
+
 cfg.load_config_file(default.config_file)
 log_cfg.default_level = logging.DEBUG
 log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout), logging.DEBUG)
@@ -16,12 +18,14 @@ log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout), logging.DEBUG)
 cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'review_thresholds.yaml')
 review_thresholds = yaml.safe_load(open(cfg_path, 'r'))
 
+
 def main():
     args = _parse_args()
     if args.run_review:
         get_reviewable_runs()
     elif args.sample_review:
         get_reviewable_samples()
+
 
 def _parse_args():
     parser = argparse.ArgumentParser()
@@ -43,8 +47,9 @@ def query(content, parts, top_level=None, ret_default=None):
             return ret_default
     return item
 
+
 def sample_config(sample, species):
-    coverage_values = {95:(120,30), 120:(160,40), 190:(240,60)}
+    coverage_values = {95: (120, 30), 120: (160, 40), 190: (240, 60)}
 
     sample_cfg = {}
     default_cfg = review_thresholds.get('sample').get('default')
@@ -62,7 +67,7 @@ def sample_config(sample, species):
     sample_id = sample.get('sample_id')
     yieldq30 = clarity.get_expected_yield_for_sample(sample_id)
     if yieldq30:
-        yieldq30 = int(yieldq30/1000000000)
+        yieldq30 = int(yieldq30 / 1000000000)
         expected_yield, coverage = coverage_values.get(yieldq30)
         sample_cfg['clean_yield_q30']['value'] = yieldq30
         sample_cfg['clean_yield_in_gb']['value'] = expected_yield
@@ -117,7 +122,6 @@ def metrics(dataset, cfg):
             else:
                 PassFailDict[metric_name] = 'fail'
 
-
     if all(value == 'pass' for value in PassFailDict.values()):
         return ('pass', None)
     else:
@@ -126,32 +130,25 @@ def metrics(dataset, cfg):
     return return_failed_metrics
 
 
-
-
-
 class AutomaticRunReview():
     def __init__(self, run_name, run_element_by_lane, cfg):
         self.run_name = run_name
         self.run_element_by_lane = run_element_by_lane
         self.cfg = cfg
 
-
     def patch_entry(self):
 
         for lane in self.run_element_by_lane:
             lane_number = (lane.get('lane_number'))
             lane_review, reasons = metrics(lane, self.cfg)
-            rest_communication.patch_entries('run_elements', payload={'reviewed':lane_review}, update_lists=None, where={"run_id":self.run_name, "lane": lane_number})
+            rest_communication.patch_entries('run_elements', payload={'reviewed': lane_review}, update_lists=None,
+                                             where={"run_id": self.run_name, "lane": lane_number})
             if reasons:
-                rest_communication.patch_entries('run_elements', payload={ELEMENT_REVIEW_COMMENTS:'failed due to ' + ', '.join(reasons)}, update_lists=None, where={"run_id":self.run_name, "lane": lane_number})
+                rest_communication.patch_entries('run_elements', payload={
+                    ELEMENT_REVIEW_COMMENTS: 'failed due to ' + ', '.join(reasons)}, update_lists=None,
+                                                 where={"run_id": self.run_name, "lane": lane_number})
 
             return lane_review
-
-
-
-
-
-
 
 
 class AutomaticSampleReview():
@@ -166,23 +163,31 @@ class AutomaticSampleReview():
         sample_review, reasons = metrics(self.sample, self.cfg)
         if all([sample_review == 'pass', self.sample_genotype is None, self.species == 'Homo sapiens']):
             sample_review = 'genotype missing'
-        rest_communication.patch_entries('samples', payload={'reviewed':sample_review}, update_lists=None, where={"sample_id": self.sample_name})
+        rest_communication.patch_entries('samples', payload={'reviewed': sample_review}, update_lists=None,
+                                         where={"sample_id": self.sample_name})
         if reasons:
-            rest_communication.patch_entries('samples', payload={ELEMENT_REVIEW_COMMENTS:'failed due to ' + ', '.join(reasons)}, update_lists=None, where={"sample_id": self.sample_name})
+            rest_communication.patch_entries('samples',
+                                             payload={ELEMENT_REVIEW_COMMENTS: 'failed due to ' + ', '.join(reasons)},
+                                             update_lists=None, where={"sample_id": self.sample_name})
         return sample_review
 
+
 def get_reviewable_runs():
-    runs = rest_communication.get_documents('aggregate/all_runs', depaginate=True, match={"proc_status":"finished","review_statuses":"not%20reviewed"})
+    runs = rest_communication.get_documents('aggregate/all_runs', depaginate=True,
+                                            match={"proc_status": "finished", "review_statuses": "not%20reviewed"})
     if runs:
         for run in runs:
             run_id = run.get('run_id')
-            run_elements_by_lane = rest_communication.get_documents('aggregate/run_elements_by_lane', match={"run_id":run_id})
+            run_elements_by_lane = rest_communication.get_documents('aggregate/run_elements_by_lane',
+                                                                    match={"run_id": run_id})
             run_cfg = review_thresholds.get('run')
             r = AutomaticRunReview(run_id, run_elements_by_lane, run_cfg)
             r.patch_entry()
 
+
 def get_reviewable_samples():
-    samples = rest_communication.get_documents('aggregate/samples', depaginate=True,  match={"proc_status":"finished","reviewed":"not%20reviewed"})
+    samples = rest_communication.get_documents('aggregate/samples', depaginate=True,
+                                               match={"proc_status": "finished", "reviewed": "not%20reviewed"})
     if samples:
         for sample in samples:
             sample_id = sample.get('sample_id')
@@ -191,6 +196,7 @@ def get_reviewable_samples():
             if sample_cfg:
                 s = AutomaticSampleReview(sample, sample_cfg, species)
                 s.patch_entry()
+
 
 if __name__ == '__main__':
     sys.exit(main())
