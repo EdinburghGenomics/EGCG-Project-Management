@@ -3,22 +3,21 @@ import datetime
 import glob
 import logging
 import os
+import shutil
 import sys
 from collections import defaultdict
 
-import shutil
 from egcg_core import executor
 from egcg_core import rest_communication, clarity
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
-from egcg_core.exceptions import EGCGError
-from egcg_core.util import find_fastqs
+from egcg_core.config import cfg
 from egcg_core.constants import ELEMENT_NB_READS_CLEANED, ELEMENT_RUN_NAME, ELEMENT_PROJECT_ID, ELEMENT_LANE, \
     ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_RUN_ELEMENT_ID, ELEMENT_USEABLE
-from egcg_core.config import cfg
+from egcg_core.exceptions import EGCGError
+from egcg_core.util import find_fastqs
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import load_config
-
 
 hs_list_files = [
     '{ext_sample_id}.g.vcf.gz',
@@ -44,6 +43,7 @@ def _execute(*commands, **kwargs):
     if exit_status != 0:
         raise EGCGError('commands %s exited with status %s' % (commands, exit_status))
 
+
 class DataDelivery(AppLogger):
     def __init__(self, dry_run, work_dir, no_cleanup=False):
         self.all_commands_for_cluster = []
@@ -66,16 +66,17 @@ class DataDelivery(AppLogger):
             where_clause["sample_id"] = sample_id
         # These samples are useable but could have been delivered already so need to check
         samples = rest_communication.get_documents(
-            'samples',
-            all_pages=True,
-            quiet=True,
-            embedded={"analysis_driver_procs": 1, "run_elements": 1},
-            where=where_clause
+                'samples',
+                all_pages=True,
+                quiet=True,
+                embedded={"analysis_driver_procs": 1, "run_elements": 1},
+                where=where_clause
         )
         for sample in samples:
             processes = sample.get('analysis_driver_procs', [{}])
             processes.sort(
-                key=lambda x: datetime.datetime.strptime(x.get('_created', '01_01_1970_00:00:00'), '%d_%m_%Y_%H:%M:%S'))
+                    key=lambda x: datetime.datetime.strptime(x.get('_created', '01_01_1970_00:00:00'),
+                                                             '%d_%m_%Y_%H:%M:%S'))
             if not processes[-1].get('status', 'new') == 'finished':
                 raise EGCGError("Reviewed sample %s not marked as finished" % sample.get('sample_id'))
             if sample.get('delivered', 'no') == 'no':
@@ -85,7 +86,6 @@ class DataDelivery(AppLogger):
 
     def stage_data(self, sample):
         # Create staging_directory
-        today = datetime.date.today().isoformat()
         sample_dir = os.path.join(self.staging_dir, sample.get(ELEMENT_SAMPLE_INTERNAL_ID))
         os.makedirs(sample_dir, exist_ok=True)
 
@@ -117,7 +117,6 @@ class DataDelivery(AppLogger):
                 r1, r2 = original_fastq_files.get(run_element_id)
                 self._link_run_element_files(r1, r2, fastq_folder, run_element_id)
 
-
     def _link_run_element_files(self, r1, r2, fastq_folder, rename):
         self._link_file_to_sample_folder(r1, fastq_folder, rename=rename + '_R1.fastq.gz')
         self._link_file_to_sample_folder(r2, fastq_folder, rename=rename + '_R2.fastq.gz')
@@ -127,7 +126,6 @@ class DataDelivery(AppLogger):
                                          rename=rename + '_R1_fastqc.html')
         self._link_file_to_sample_folder(r2.replace('.fastq.gz', '_fastqc.html'), fastq_folder,
                                          rename=rename + '_R2_fastqc.html')
-
 
     def _stage_analysed_files(self, sample, sample_dir):
         sample_id = sample.get(ELEMENT_SAMPLE_INTERNAL_ID)
@@ -170,7 +168,7 @@ class DataDelivery(AppLogger):
                 res.append(str((clean_bases_r1 + clean_bases_r2) / 1000000000))
                 res.append(str((clean_q30_bases_r1 + clean_q30_bases_r2) / 1000000000))
                 if self.get_sample_species(sample.get('sample_id')) == 'Homo sapiens' or \
-                        self.get_analysis_type(sample.get('sample_id')) == 'Variant Calling':
+                                self.get_analysis_type(sample.get('sample_id')) == 'Variant Calling':
                     tr = sample.get('bam_file_reads', 0)
                     mr = sample.get('mapped_reads', 0)
                     dr = sample.get('duplicate_reads', 0)
@@ -183,7 +181,7 @@ class DataDelivery(AppLogger):
                     res.append(str(float(dr) / float(tr) * 100))
                     mean_cov = sample.get('coverage', {}).get('mean')
 
-                    #legacy code to get the coverage info for old samples
+                    # legacy code to get the coverage info for old samples
                     if not mean_cov:
                         mean_cov = sample.get('median_coverage', 0)
                     res.append(str(mean_cov))
@@ -192,7 +190,6 @@ class DataDelivery(AppLogger):
                 res.append(os.path.basename(delivery_folder))
                 lines.append('\t'.join(res))
         return headers, lines
-
 
     def _link_file_to_sample_folder(self, file_to_link, sample_folder, rename=None):
         if rename is None:
@@ -203,8 +200,9 @@ class DataDelivery(AppLogger):
     def _on_cluster_concat_file_to_sample(self, list_files, sample_folder, rename):
         res_fastq_file = os.path.join(sample_folder, rename)
         command = 'cat %s > %s' % (' '.join(list_files), res_fastq_file)
-        command += '; ' + cfg.query('tools', 'md5sum', ret_default='md5sum') + ' {fq} > {fq}.md5'.format(fq=res_fastq_file)
-        command += '; ' + cfg.query('tools', 'fastqc') +  ' --nogroup -q ' + res_fastq_file
+        command += '; ' + cfg.query('tools', 'md5sum', ret_default='md5sum') + ' {fq} > {fq}.md5'.format(
+            fq=res_fastq_file)
+        command += '; ' + cfg.query('tools', 'fastqc') + ' --nogroup -q ' + res_fastq_file
         self.all_commands_for_cluster.append(command)
 
     def get_sample_species(self, sample_name):
@@ -216,7 +214,6 @@ class DataDelivery(AppLogger):
         if sample_name not in self.sample2analysis_type:
             self.sample2analysis_type[sample_name] = clarity.get_sample(sample_name).udf.get('Analysis Type')
         return self.sample2analysis_type.get(sample_name)
-
 
     def get_analysis_files(self, sample_name, external_sample_name):
         species = self.get_sample_species(sample_name)
@@ -246,8 +243,10 @@ class DataDelivery(AppLogger):
                 if fastqs:
                     fastqs_files[run_element.get(ELEMENT_RUN_ELEMENT_ID)] = tuple(sorted(fastqs))
                 else:
-                    raise EGCGError('No Fastq files found for %s' % (str((local_fastq_dir, run_element.get(ELEMENT_PROJECT_ID),
-                                     sample.get(ELEMENT_SAMPLE_INTERNAL_ID), run_element.get(ELEMENT_LANE)))))
+                    raise EGCGError(
+                        'No Fastq files found for %s' % (str((local_fastq_dir, run_element.get(ELEMENT_PROJECT_ID),
+                                                              sample.get(ELEMENT_SAMPLE_INTERNAL_ID),
+                                                              run_element.get(ELEMENT_LANE)))))
         return fastqs_files
 
     def mark_samples_as_released(self, samples):
@@ -283,17 +282,17 @@ class DataDelivery(AppLogger):
     def run_aggregate_commands(self):
         if self.all_commands_for_cluster:
             _execute(
-                *self.all_commands_for_cluster,
-                job_name='concat_delivery',
-                working_dir=self.staging_dir,
-                cpus=1,
-                mem=2,
-                log_commands=False
+                    *self.all_commands_for_cluster,
+                    job_name='concat_delivery',
+                    working_dir=self.staging_dir,
+                    cpus=1,
+                    mem=2,
+                    log_commands=False
             )
 
     def generate_md5_summary(self, project, batch_folder):
-        all_md5_files = glob.glob(os.path.join(batch_folder,'*','*.md5'))
-        all_md5_files.extend(glob.glob(os.path.join(batch_folder,'*','raw_data','*.md5')))
+        all_md5_files = glob.glob(os.path.join(batch_folder, '*', '*.md5'))
+        all_md5_files.extend(glob.glob(os.path.join(batch_folder, '*', 'raw_data', '*.md5')))
         md5_summary = []
         for md5_file in all_md5_files:
             with open(md5_file) as open_file:
@@ -303,7 +302,7 @@ class DataDelivery(AppLogger):
             prefix, suffix = md5_file.strip('.md5').split(batch_name)
             with open(md5_file, 'w') as open_file:
                 open_file.write('%s  %s' % (md5, file_name))
-            md5_summary.append('%s  %s' % (md5, batch_name+suffix))
+            md5_summary.append('%s  %s' % (md5, batch_name + suffix))
         delivery_dest = cfg.query('delivery_dest')
         all_md5_files = os.path.join(delivery_dest, project, 'all_md5sums.txt')
         with open(all_md5_files, 'a') as open_file:
@@ -315,12 +314,11 @@ class DataDelivery(AppLogger):
         if os.path.exists(self.staging_dir):
             shutil.rmtree(self.staging_dir)
 
-
     def deliver_data(self, project_id=None, sample_id=None):
         delivery_dest = cfg.query('delivery_dest')
         project_to_samples = self.get_deliverable_projects_samples(project_id, sample_id)
         project_to_delivery_folder = {}
-        sample2stagedirectory={}
+        sample2stagedirectory = {}
         for project in project_to_samples:
             for sample in project_to_samples.get(project):
                 stage_directory = self.stage_data(sample)
@@ -334,7 +332,8 @@ class DataDelivery(AppLogger):
                 today = datetime.date.today().isoformat()
                 batch_delivery_folder = os.path.join(delivery_dest, project, today)
                 for sample in project_to_samples.get(project):
-                    print('%s --> %s'%(sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)), batch_delivery_folder))
+                    print('%s --> %s' % (
+                    sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)), batch_delivery_folder))
                 header, lines = self.summarise_metrics_per_sample(project, batch_delivery_folder)
                 print('\t'.join(header))
                 print('\n'.join(lines))
@@ -348,12 +347,12 @@ class DataDelivery(AppLogger):
                 # move all the staged sample directory
                 project_to_delivery_folder[project] = batch_delivery_folder
                 for sample in project_to_samples.get(project):
-                    shutil.move(sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)), batch_delivery_folder)
+                    shutil.move(sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)),
+                                batch_delivery_folder)
                 self.write_metrics_file(project, batch_delivery_folder)
                 self.generate_md5_summary(project, batch_delivery_folder)
 
             self.mark_samples_as_released(list(sample2stagedirectory))
-
 
         self.cleanup()
         # TODO: Generate project report

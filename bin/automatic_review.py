@@ -4,11 +4,9 @@ import yaml
 import argparse
 import logging
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from egcg_core.app_logging import logging_default as log_cfg
 from egcg_core import rest_communication, clarity
 from egcg_core.constants import ELEMENT_REVIEW_COMMENTS
-from egcg_core.config import cfg
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import load_config
 
