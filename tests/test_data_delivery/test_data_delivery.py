@@ -270,7 +270,7 @@ class TestDataDelivery(TestProjectManagement):
             self.delivery_real.deliver_data(project_id='test_project')
             assert os.listdir(self.dest_dir) == ['test_project']
             today = datetime.date.today().isoformat()
-            assert os.listdir(os.path.join(self.dest_dir, 'test_project')) == [today, 'all_md5sums.txt', 'summary_metrics.csv']
+            assert sorted(os.listdir(os.path.join(self.dest_dir, 'test_project'))) == sorted([today, 'all_md5sums.txt', 'summary_metrics.csv'])
             assert os.listdir(os.path.join(self.dest_dir, 'test_project', today)) == ['deliverable_sample']
             list_files = sorted(os.listdir(os.path.join(self.dest_dir, 'test_project', today, 'deliverable_sample')))
             assert sorted(list_files) == sorted(self.final_files_merged)
@@ -284,7 +284,7 @@ class TestDataDelivery(TestProjectManagement):
             self.delivery_real.deliver_data(project_id='test_project')
             assert os.listdir(self.dest_dir) == ['test_project']
             today = datetime.date.today().isoformat()
-            assert os.listdir(os.path.join(self.dest_dir, 'test_project')) == [today, 'all_md5sums.txt', 'summary_metrics.csv']
+            assert sorted(os.listdir(os.path.join(self.dest_dir, 'test_project'))) == sorted([today, 'all_md5sums.txt', 'summary_metrics.csv'])
             assert os.listdir(os.path.join(self.dest_dir, 'test_project', today)) == ['deliverable_sample']
             list_files = sorted(os.listdir(os.path.join(self.dest_dir, 'test_project', today, 'deliverable_sample')))
             assert sorted(list_files) == sorted(self.final_files_split)
