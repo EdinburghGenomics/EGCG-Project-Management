@@ -4,16 +4,11 @@ import yaml
 import argparse
 import logging
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from egcg_core.app_logging import logging_default as log_cfg
 from egcg_core import rest_communication, clarity
 from egcg_core.constants import ELEMENT_REVIEW_COMMENTS
-from egcg_core.config import cfg
-from config import default
-
-cfg.load_config_file(default.config_file)
-log_cfg.default_level = logging.DEBUG
-log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout), logging.DEBUG)
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import load_config
 
 cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'review_thresholds.yaml')
 review_thresholds = yaml.safe_load(open(cfg_path, 'r'))
@@ -21,6 +16,9 @@ review_thresholds = yaml.safe_load(open(cfg_path, 'r'))
 
 def main():
     args = _parse_args()
+    load_config()
+    log_cfg.default_level = logging.DEBUG
+    log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout), logging.DEBUG)
     if args.run_review:
         get_reviewable_runs()
     elif args.sample_review:

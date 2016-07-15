@@ -1,19 +1,17 @@
 from datetime import datetime
 from os import listdir
 from os.path import join, isdir
-
 from egcg_core import rest_communication, util, clarity
 from egcg_core.constants import ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_PROJECT_ID
-
-from config import default as cfg
+from egcg_core.config import cfg
 from data_deletion import Deleter
 
 
 class DeliveredDataDeleter(Deleter):
-    data_dir = cfg['delivered_data']
 
     def __init__(self, work_dir, dry_run=False, deletion_limit=None, manual_delete=None, sample_ids=None):
         super().__init__(work_dir, dry_run, deletion_limit)
+        self.data_dir = cfg['delivered_data']
         if manual_delete is None:
             manual_delete = []
         self.list_samples = manual_delete

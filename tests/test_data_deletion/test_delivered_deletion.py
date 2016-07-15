@@ -2,8 +2,12 @@ import os
 from shutil import rmtree
 from os.path import join
 from unittest.mock import patch
-from tests.test_data_deletion import TestDeleter, patches as p
+from config import load_config
+from tests.test_data_deletion import TestDeleter, patches
 from data_deletion.delivered_data import DeliveredDataDeleter
+
+
+patched_now = patch('data_deletion.Deleter._strnow', return_value='t')
 
 
 class TestDeliveredDataDeleter(TestDeleter):
@@ -33,6 +37,8 @@ class TestDeliveredDataDeleter(TestDeleter):
     )
 
     def setUp(self):
+        load_config(os.path.join(os.path.dirname(self.root_path), 'etc', 'example_data_deletion.yaml'))
+        os.chdir(os.path.dirname(self.root_path))
         for s in self.samples:
             for x in self.file_exts:
                 d = join(
@@ -44,10 +50,8 @@ class TestDeliveredDataDeleter(TestDeleter):
                 )
                 os.makedirs(d, exist_ok=True)
                 self.touch(join(d, s['sample_id'] + '.' + x))
-        patched_strnow = patch('data_deletion.Deleter._strnow', return_value='t')
-        with patched_strnow:
-            self.deleter = DeliveredDataDeleter(['a_sample', 'yet_another_sample'], self.assets_deletion)
-            self.deleter.local_execute_only = True
+        self.deleter = DeliveredDataDeleter(['a_sample', 'yet_another_sample'], self.assets_deletion)
+        self.deleter.local_execute_only = True
 
     def tearDown(self):
         super().tearDown()
@@ -59,7 +63,7 @@ class TestDeliveredDataDeleter(TestDeleter):
             os.remove(deletion_script)
 
     @patch('data_deletion.delivered_data.DeliveredDataDeleter.warning')
-    @p.patched_patch_entry
+    @patches.patched_patch_entry
     def test_mark_sample_as_deleted(self, mocked_patch, mocked_warning):
         self.deleter.mark_sample_as_deleted('a_sample_id', None)
         assert len(mocked_patch.call_args_list) == 0
@@ -70,7 +74,8 @@ class TestDeliveredDataDeleter(TestDeleter):
     def test_setup_sample_for_deletion(self):
         deletable_data = join(self.assets_deletion, 'delivered_data', '.data_deletion_t', 'a_project', 'a_sample')
         assert not os.path.isdir(deletable_data)
-        self.deleter._setup_sample_for_deletion('a_project', 'a_sample')
+        with patched_now:
+            self.deleter._setup_sample_for_deletion('a_project', 'a_sample')
         assert os.path.isdir(deletable_data)
         assert sorted(os.listdir(deletable_data)) == sorted(['a_sample.' + x for x in self.file_exts])
 
@@ -126,11 +131,11 @@ class TestDeliveredDataDeleter(TestDeleter):
                 'proc_status': 'aborted'
             }
         ]
-        with patched_release_date, patch(p.patch_get, return_value=test_payload), p.patched_now:
+        with patched_release_date, patch(patches.patch_get, return_value=test_payload), patches.patched_now:
             assert self.deleter._auto_deletable_samples() == test_payload[1:]
 
     def test_old_enough_for_deletion(self):
-        with p.patched_now:
+        with patches.patched_now:
             o = self.deleter._old_enough_for_deletion
             assert o('2000-10-01')
             assert not o('2000-10-01', 120)

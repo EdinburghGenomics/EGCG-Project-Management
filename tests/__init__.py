@@ -3,7 +3,8 @@ from unittest import TestCase
 
 
 class TestProjectManagement(TestCase):
-    assets_path = join(abspath(dirname(__file__)), 'assets')
+    root_path = abspath(dirname(__file__))
+    assets_path = join(root_path, 'assets')
     assets_deletion = join(assets_path, 'data_deletion')
 
     @staticmethod

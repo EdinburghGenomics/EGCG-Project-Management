@@ -4,16 +4,14 @@ from os.path import join, basename
 from egcg_core import rest_communication, clarity, util
 from egcg_core.constants import ELEMENT_DELIVERED, ELEMENT_FASTQS_DELETED, ELEMENT_USEABLE,\
     ELEMENT_PROJECT_ID, ELEMENT_RUN_NAME, ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_LANE
-
-from config import default as cfg
+from egcg_core.config import cfg
 from data_deletion import Deleter
 
 
 class FastqDeleter(Deleter):
-    data_dir = cfg['fastqs']
-
     def __init__(self, work_dir, dry_run=False, deletion_limit=None, project_id=None):
         super().__init__(work_dir, dry_run, deletion_limit)
+        self.data_dir = cfg['fastqs']
         self._samples_released_in_lims = None
         self._samples_released_in_app = None
         self.project_id = project_id

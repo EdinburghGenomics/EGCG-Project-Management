@@ -1,0 +1,16 @@
+default:
+    raw_data: tests/assets/data_deletion/raw
+    raw_archives: tests/assets/data_deletion/archive
+    fastqs: tests/assets/data_deletion/fastqs
+    delivered_data: tests/assets/data_deletion/delivered_data
+
+    ncbi_cache: ':memory:'
+
+    delivery_source: tests/assets/data_delivery/source
+    delivery_dest: tests/assets/data_delivery/dest
+    input_dir: tests/assets/data_delivery/runs
+
+    tools:
+        fastqc: fastqc
+    executor:
+        job_execution: local

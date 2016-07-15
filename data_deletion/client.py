@@ -6,6 +6,9 @@ from data_deletion.raw_data import RawDataDeleter
 from data_deletion.fastq import FastqDeleter
 from data_deletion.delivered_data import DeliveredDataDeleter
 
+from config import load_config
+load_config()
+
 
 def main():
     deleters = {
@@ -24,6 +27,7 @@ def main():
     p.add_argument('--manual_delete', type=str, nargs='+')
     p.add_argument('--sample_ids', nargs='+', default=[])
     args = p.parse_args()
+
 
     if args.__dict__.pop('debug', False):
         log_level = logging.DEBUG

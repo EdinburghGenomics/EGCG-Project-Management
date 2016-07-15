@@ -1,11 +1,9 @@
 from datetime import datetime
 from os import listdir
 from os.path import join
-
 from egcg_core import app_logging, executor
 from egcg_core.exceptions import EGCGError
-
-from config import default as cfg
+from egcg_core.config import cfg
 
 log_cfg = app_logging.LoggingConfiguration(cfg)
 
@@ -18,12 +16,19 @@ class Deleter(app_logging.AppLogger):
     log_cfg = log_cfg
     data_dir = ''
     local_execute_only = False
+    _deletion_dir = None
 
     def __init__(self, work_dir, dry_run=False, deletion_limit=None):
         self.work_dir = work_dir
         self.dry_run = dry_run
         self.deletion_limit = deletion_limit
-        self.deletion_dir = join(self.data_dir, '.data_deletion_' + self._strnow())
+
+    @property
+    def deletion_dir(self):
+        if self._deletion_dir is None:
+            # need caching because of reference to datetime.now
+            self._deletion_dir = join(self.data_dir, '.data_deletion_' + self._strnow())
+        return self._deletion_dir
 
     def delete_dir(self, d):
         self.debug('Removing deletion dir containing: %s', listdir(d))
