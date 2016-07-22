@@ -126,6 +126,10 @@ class DataDelivery(AppLogger):
                                          rename=rename + '_R1_fastqc.html')
         self._link_file_to_sample_folder(r2.replace('.fastq.gz', '_fastqc.html'), fastq_folder,
                                          rename=rename + '_R2_fastqc.html')
+        self._link_file_to_sample_folder(r1.replace('.fastq.gz', '_fastqc.zip'), fastq_folder,
+                                         rename=rename + '_R1_fastqc.zip')
+        self._link_file_to_sample_folder(r2.replace('.fastq.gz', '_fastqc.zip'), fastq_folder,
+                                         rename=rename + '_R2_fastqc.zip')
 
     def _stage_analysed_files(self, sample, sample_dir):
         sample_id = sample.get(ELEMENT_SAMPLE_INTERNAL_ID)
