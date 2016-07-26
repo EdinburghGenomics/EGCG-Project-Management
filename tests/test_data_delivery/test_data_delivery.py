@@ -140,7 +140,8 @@ class TestDataDelivery(TestProjectManagement):
         ]
         raw_data_files = [
             '{ext_sample_id}_R1.fastq.gz', '{ext_sample_id}_R1.fastq.gz.md5', '{ext_sample_id}_R1_fastqc.html',
-            '{ext_sample_id}_R2.fastq.gz', '{ext_sample_id}_R2.fastq.gz.md5', '{ext_sample_id}_R2_fastqc.html'
+            '{ext_sample_id}_R1_fastqc.zip', '{ext_sample_id}_R2.fastq.gz', '{ext_sample_id}_R2.fastq.gz.md5',
+            '{ext_sample_id}_R2_fastqc.html', '{ext_sample_id}_R2_fastqc.zip'
         ]
         self.final_files_merged = self._format_list( analysis_files + raw_data_files,  ext_sample_id='user_s_id')
         self.final_files_merged2 = self._format_list( analysis_files,  ext_sample_id='user_s_id2')
@@ -195,7 +196,8 @@ class TestDataDelivery(TestProjectManagement):
             os.makedirs(sample_dir, exist_ok=True)
             for t in [
                 'S1_L00%s_R1.fastq.gz', 'S1_L00%s_R2.fastq.gz',
-                'S1_L00%s_R1_fastqc.html', 'S1_L00%s_R2_fastqc.html'
+                'S1_L00%s_R1_fastqc.html', 'S1_L00%s_R2_fastqc.html',
+                'S1_L00%s_R1_fastqc.zip', 'S1_L00%s_R2_fastqc.zip'
             ]:
                 self._touch(os.path.join(sample_dir, t%run_element.get('lane')))
                 self._md5(os.path.join(sample_dir, t%run_element.get('lane')))
