@@ -45,7 +45,6 @@ def get_samples():
     tmp_samples = defaultdict(dict)
     print('get %s samples from lims'%len(sample_names))
     lims_samples = get_list_of_samples(sample_names)
-    print('get other info from lims')
     _get_artifacts_and_containers_from_samples(lims_samples)
     print('get other info from lims')
     for lims_sample in lims_samples:
@@ -105,7 +104,6 @@ def test_filter(row_head, col_values, filter):
     return True
 
 def aggregate_samples_per(samples, aggregation_key, filter=None):
-    print('%s samples to aggregate'%len(samples))
     samples_per_aggregate = defaultdict(Counter)
     aggregates = set()
     statuses = set()
