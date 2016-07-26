@@ -1,7 +1,6 @@
 import json
 import os
 import sys
-import logging
 import argparse
 from collections import defaultdict, Counter
 import re
@@ -123,7 +122,6 @@ def aggregate_samples_per(samples, aggregation_key, filter=None):
     return header, rows
 
 def format_table(header, rows):
-    table = [header] + rows
     column_sizes = [len(h) for h in header]
     for ci in range(len(column_sizes)):
         column_sizes[ci] = max([len(r[ci]) for r in rows] + [column_sizes[ci]])
@@ -150,9 +148,10 @@ def main():
 
     if not os.path.exists(cached_file) or args.pull:
         update_cache(cached_file)
-
-    create_report(args.report_type, cached_file, filter=args.filter)
-
+    if args.report_type:
+        create_report(args.report_type, cached_file, filter=args.filter)
+    else:
+        print('Provide a report type with --report_type [projects or plates]')
 
 def _parse_args():
     p = argparse.ArgumentParser()
