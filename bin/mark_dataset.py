@@ -1,17 +1,21 @@
-import os
 import sys
 import logging
 import argparse
+from os.path import dirname, abspath
 from egcg_core import rest_communication
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from analysis_driver.app_logging import log_cfg
-
-log_cfg.default_level = logging.DEBUG
-log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout), logging.DEBUG)
+from egcg_core.app_logging import logging_default as log_cfg
+from egcg_core.config import cfg
+sys.path.append(dirname(dirname(abspath(__file__))))
+from config import load_config
 
 
 def main():
+    load_config()
+
+    log_cfg.cfg = cfg.content
+    log_cfg.default_level = logging.DEBUG
+    log_cfg.add_stdout_handler()
+
     args = _parse_args()
     if args.run:
         end_point = 'run_elements'
