@@ -4,25 +4,56 @@ import sys
 import logging
 import argparse
 from collections import defaultdict, Counter
-
 import re
 from egcg_core import rest_communication
-from egcg_core.clarity import get_list_of_samples
+from egcg_core.clarity import get_list_of_samples, connection
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import load_config
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+STATUS_NEW = 'Not enough data'
+STATUS_READY = 'Queued for processing'
+STATUS_PROCESSING = 'In pipeline'
+STATUS_FAILED = 'Failed pipeline'
+STATUS_FINISHED = 'To review'
+STATUS_READY_DELIVERED = 'Ready to delivered'
+STATUS_SAMPLE_FAILED = 'Do not deliver'
+STATUS_DELIVERED = 'Delivered'
+
+STATUSES = [STATUS_NEW, STATUS_READY, STATUS_PROCESSING, STATUS_FAILED, STATUS_FINISHED, STATUS_SAMPLE_FAILED,
+            STATUS_READY_DELIVERED, STATUS_DELIVERED]
 
 def sanitize_user_id(user_id):
     if isinstance(user_id, str):
         return re.sub("[^\w_\-.]", "_", user_id)
 
+
+def _get_artifacts_and_containers_from_samples(samples):
+    artifacts = [s.artifact for s in samples]
+    lims = connection()
+    print('retrieve %s artifacts'%len(artifacts))
+    for start in range(0, len(artifacts), 100):
+        lims.get_batch(artifacts[start:start + 100])
+
+    #containers= list(set([a.container for a in artifacts]))
+    #print('retrieve %s containers'%len(containers))
+    #for start in range(0, len(containers), 100):
+    #    containers = lims.get_batch(containers[start:start + 100])
+
+
 def get_samples():
+    print('retrieve samples from REST API')
     samples = rest_communication.get_documents('aggregate/samples', paginate=False)
     sample_names = [s.get('sample_id') for s in samples]
-    tmp_samples = {}
-    for lims_sample in get_list_of_samples(sample_names):
-        req_yield = lims_sample.udf.get('Yield for Quoted Coverage (Gb)', 95) * 1000000000
+    tmp_samples = defaultdict(dict)
+    print('get %s samples from lims'%len(sample_names))
+    lims_samples = get_list_of_samples(sample_names)
+    print('get other info from lims')
+    _get_artifacts_and_containers_from_samples(lims_samples)
+    print('get other info from lims')
+    for lims_sample in lims_samples:
+        req_yield = lims_sample.udf.get('Yield for Quoted Coverage (Gb)', 95)
         tmp_samples[sanitize_user_id(lims_sample.name)]['req_yield'] = req_yield
         tmp_samples[sanitize_user_id(lims_sample.name)]['plate'] = lims_sample.artifact.container.name
 
@@ -30,9 +61,17 @@ def get_samples():
         s.update(tmp_samples[s.get('sample_id')])
     return samples
 
-def update_cache(cached_file):
-    samples = get_samples()
-    data = {'samples': samples}
+def get_runs():
+    return None
+
+def update_cache(cached_file, update_target='all'):
+    samples, runs = load_cache(cached_file)
+    if update_target in ['all', 'sample']:
+        samples = get_samples()
+    if update_target in ['all', 'run']:
+        runs = get_runs()
+
+    data = {'samples': samples, 'runs': runs}
     with open(cached_file, 'w') as open_cache:
         json.dump(data, open_cache)
 
@@ -40,19 +79,47 @@ def update_cache(cached_file):
 def load_cache(cached_file):
     with open(cached_file) as open_file:
         data = json.load(open_file)
-    data.get('samples'), data.get('runs')
+    return data.get('samples'), data.get('runs')
+
+
+def get_sample_status(sample):
+    if sample['delivered'] == 'yes':
+        return STATUS_DELIVERED
+    if sample['useable'] == 'yes':
+        return STATUS_READY_DELIVERED
+    if sample['useable'] == 'no':
+        return STATUS_SAMPLE_FAILED
+
+    status = sample.get('proc_status')
+    if not status or status == 'reprocessed':
+        if sample['req_yield'] < sample['clean_yield_q30']:
+            return STATUS_NEW
+        else:
+            return STATUS_READY
+    if status == 'processing':
+        return STATUS_PROCESSING
+    if status == 'failed':
+        return STATUS_FAILED
+    if status == 'finished':
+        return STATUS_FINISHED
+
 
 def aggregate_samples_per(samples, aggregation_key):
+    print('%s samples to aggregate'%len(samples))
     samples_per_aggregate = defaultdict(Counter)
     aggregates = set()
     statuses = set()
+    print('\t'.join([aggregation_key] + STATUSES))
     for sample in samples:
-        samples_per_aggregate[sample.get(aggregation_key)][sample.get('status')] += 1
+        status = get_sample_status(sample)
+        statuses.add(status)
+        aggregates.add(sample.get(aggregation_key))
+        samples_per_aggregate[sample.get(aggregation_key)][status] += 1
 
-    for project in sorted(aggregates):
-        out = [project]
-        for status in statuses:
-            out.append(samples_per_aggregate[project][status])
+    for aggregate in sorted(aggregates):
+        out = [aggregate]
+        for status in STATUSES:
+            out.append(str(samples_per_aggregate[aggregate][status]))
 
         print('\t'.join(out))
 
@@ -60,8 +127,8 @@ def create_report(report_type, cached_file):
     samples, runs = load_cache(cached_file)
     if report_type == 'projects':
         aggregate_samples_per(samples, 'project_id')
-    elif report_type == 'projects':
-        aggregate_samples_per(samples, 'plate_id')
+    elif report_type == 'plates':
+        aggregate_samples_per(samples, 'plate')
 
 def main():
     args = _parse_args()
@@ -69,7 +136,7 @@ def main():
 
     cached_file = os.path.join(os.path.expanduser('~'), '.report_cached.json')
 
-    if os.path.exists(cached_file) or args.pull:
+    if not os.path.exists(cached_file) or args.pull:
         update_cache(cached_file)
 
     create_report(args.report_type, cached_file)
