@@ -21,6 +21,8 @@ STATUS_READY_DELIVERED = 'Ready to delivered'
 STATUS_SAMPLE_FAILED = 'Do not deliver'
 STATUS_DELIVERED = 'Delivered'
 
+FILTER_FINISHED = 'all_finished'
+
 STATUSES = [STATUS_NEW, STATUS_READY, STATUS_PROCESSING, STATUS_FAILED, STATUS_FINISHED, STATUS_SAMPLE_FAILED,
             STATUS_READY_DELIVERED, STATUS_DELIVERED]
 
@@ -35,12 +37,6 @@ def _get_artifacts_and_containers_from_samples(samples):
     print('retrieve %s artifacts'%len(artifacts))
     for start in range(0, len(artifacts), 100):
         lims.get_batch(artifacts[start:start + 100])
-
-    #containers= list(set([a.container for a in artifacts]))
-    #print('retrieve %s containers'%len(containers))
-    #for start in range(0, len(containers), 100):
-    #    containers = lims.get_batch(containers[start:start + 100])
-
 
 def get_samples():
     print('retrieve samples from REST API')
@@ -89,7 +85,6 @@ def get_sample_status(sample):
         return STATUS_READY_DELIVERED
     if sample['useable'] == 'no':
         return STATUS_SAMPLE_FAILED
-
     status = sample.get('proc_status')
     if not status or status == 'reprocessed':
         if sample['req_yield'] < sample['clean_yield_q30']:
@@ -103,32 +98,51 @@ def get_sample_status(sample):
     if status == 'finished':
         return STATUS_FINISHED
 
+def test_filter(row_head, col_values, filter):
+    if filter == FILTER_FINISHED and \
+       sum(col_values.values()) == col_values[STATUS_DELIVERED] + col_values[STATUS_SAMPLE_FAILED]:
+        return False
+    return True
 
-def aggregate_samples_per(samples, aggregation_key):
+def aggregate_samples_per(samples, aggregation_key, filter=None):
     print('%s samples to aggregate'%len(samples))
     samples_per_aggregate = defaultdict(Counter)
     aggregates = set()
     statuses = set()
-    print('\t'.join([aggregation_key] + STATUSES))
+    header = [aggregation_key] + STATUSES
     for sample in samples:
         status = get_sample_status(sample)
         statuses.add(status)
         aggregates.add(sample.get(aggregation_key))
         samples_per_aggregate[sample.get(aggregation_key)][status] += 1
-
+    rows = []
     for aggregate in sorted(aggregates):
-        out = [aggregate]
-        for status in STATUSES:
-            out.append(str(samples_per_aggregate[aggregate][status]))
+        if test_filter(aggregate, samples_per_aggregate[aggregate], filter):
+            out = [aggregate]
+            for status in STATUSES:
+                out.append(str(samples_per_aggregate[aggregate][status]))
+            rows.append(out)
+    return header, rows
 
-        print('\t'.join(out))
+def format_table(header, rows):
+    table = [header] + rows
+    column_sizes = [len(h) for h in header]
+    for ci in range(len(column_sizes)):
+        column_sizes[ci] = max([len(r[ci]) for r in rows] + [column_sizes[ci]])
+    row_formatter = ' | '.join(['{:>%s}'%cs for cs in column_sizes])
 
-def create_report(report_type, cached_file):
+    print(row_formatter.format(*header))
+    for r in rows:
+        print(row_formatter.format(*r))
+
+def create_report(report_type, cached_file, filter):
     samples, runs = load_cache(cached_file)
     if report_type == 'projects':
-        aggregate_samples_per(samples, 'project_id')
+        header, rows = aggregate_samples_per(samples, 'project_id', filter)
     elif report_type == 'plates':
-        aggregate_samples_per(samples, 'plate')
+        header, rows = aggregate_samples_per(samples, 'plate', filter)
+    format_table(header, rows)
+
 
 def main():
     args = _parse_args()
@@ -139,12 +153,13 @@ def main():
     if not os.path.exists(cached_file) or args.pull:
         update_cache(cached_file)
 
-    create_report(args.report_type, cached_file)
+    create_report(args.report_type, cached_file, filter=args.filter)
 
 
 def _parse_args():
     p = argparse.ArgumentParser()
     p.add_argument('-r', '--report_type', dest='report_type', type=str, choices=['projects', 'plates'])
+    p.add_argument('--filter', type=str, help='set a filter', choices=[FILTER_FINISHED] )
     p.add_argument('--pull', action='store_true', help='Force download and update the cache')
     p.add_argument('--debug', action='store_true', help='override pipeline log level to debug')
     return p.parse_args()
