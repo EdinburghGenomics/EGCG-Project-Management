@@ -2,7 +2,9 @@ import os
 from shutil import rmtree
 from os.path import join
 from unittest.mock import patch
-from config import load_config
+
+from egcg_core.config import cfg
+
 from tests.test_data_deletion import TestDeleter, patches
 from data_deletion.delivered_data import DeliveredDataDeleter
 
@@ -37,7 +39,7 @@ class TestDeliveredDataDeleter(TestDeleter):
     )
 
     def setUp(self):
-        load_config(os.path.join(os.path.dirname(self.root_path), 'etc', 'example_data_deletion.yaml'))
+        cfg.load_config_file(os.path.join(os.path.dirname(self.root_path), 'etc', 'example_data_deletion.yaml'))
         os.chdir(os.path.dirname(self.root_path))
         for s in self.samples:
             for x in self.file_exts:
