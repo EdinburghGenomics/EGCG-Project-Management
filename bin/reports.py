@@ -21,6 +21,9 @@ STATUS_SAMPLE_FAILED = 'Do not deliver'
 STATUS_DELIVERED = 'Delivered'
 
 FILTER_FINISHED = 'all_finished'
+FILTER_PROJECT = 'project_id'
+FILTER_PLATE = 'plate'
+FILTERS = [FILTER_FINISHED, FILTER_PROJECT, FILTER_PLATE]
 
 STATUSES = [STATUS_NEW, STATUS_READY, STATUS_PROCESSING, STATUS_FAILED, STATUS_FINISHED, STATUS_SAMPLE_FAILED,
             STATUS_READY_DELIVERED, STATUS_DELIVERED]
@@ -84,8 +87,8 @@ def get_sample_status(sample):
     if sample['useable'] == 'no':
         return STATUS_SAMPLE_FAILED
     status = sample.get('proc_status')
-    if not status or status == 'reprocessed':
-        if sample['req_yield'] < sample['clean_yield_q30']:
+    if not status or status == 'reprocess':
+        if float(sample['req_yield']) > float(sample['clean_yield_q30']):
             return STATUS_NEW
         else:
             return STATUS_READY
@@ -95,6 +98,7 @@ def get_sample_status(sample):
         return STATUS_FAILED
     if status == 'finished':
         return STATUS_FINISHED
+    return status
 
 def test_filter(row_head, col_values, filter):
     if filter == FILTER_FINISHED and \
@@ -123,20 +127,42 @@ def aggregate_samples_per(samples, aggregation_key, filter=None):
 
 def format_table(header, rows):
     column_sizes = [len(h) for h in header]
+    column_total = [0 for x in range(len(column_sizes))]
     for ci in range(len(column_sizes)):
         column_sizes[ci] = max([len(r[ci]) for r in rows] + [column_sizes[ci]])
+        column_total[ci] = sum([int(r[ci]) for r in rows if str(r[ci]).isdigit() ])
     row_formatter = ' | '.join(['{:>%s}'%cs for cs in column_sizes])
 
+    line_length = sum(column_sizes) + (len(column_sizes)-1)*3
     print(row_formatter.format(*header))
     for r in rows:
         print(row_formatter.format(*r))
+    if sum(column_total) > 0 :
+        column_total[0]='TOTAL'
+        print('-' * line_length)
+        print(row_formatter.format(*column_total))
 
-def create_report(report_type, cached_file, filter):
+def summarize_sample(sample, header_to_report):
+    return [str(sample.get(k)) for k in header_to_report]
+
+
+def show_samples(samples, filter_key, filter_values):
+    header_to_report = ['project_id', 'plate', 'sample_id', 'status']
+    rows = []
+    for sample in samples:
+        if sample.get(filter_key) in filter_values:
+            sample['status'] = get_sample_status(sample)
+            rows.append(summarize_sample(sample, header_to_report))
+    return header_to_report, rows
+
+def create_report(report_type, cached_file, filter, filter_values):
     samples, runs = load_cache(cached_file)
     if report_type == 'projects':
         header, rows = aggregate_samples_per(samples, 'project_id', filter)
     elif report_type == 'plates':
         header, rows = aggregate_samples_per(samples, 'plate', filter)
+    elif report_type == 'samples':
+        header, rows = show_samples(samples, filter, filter_values)
     format_table(header, rows)
 
 
@@ -149,14 +175,15 @@ def main():
     if not os.path.exists(cached_file) or args.pull:
         update_cache(cached_file)
     if args.report_type:
-        create_report(args.report_type, cached_file, filter=args.filter)
+        create_report(args.report_type, cached_file, filter=args.filter_type, filter_values=args.filter_values)
     else:
         print('Provide a report type with --report_type [projects or plates]')
 
 def _parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument('-r', '--report_type', dest='report_type', type=str, choices=['projects', 'plates'])
-    p.add_argument('--filter', type=str, help='set a filter', choices=[FILTER_FINISHED] )
+    p.add_argument('-r', '--report_type', dest='report_type', type=str, choices=['projects', 'plates', 'samples'])
+    p.add_argument('--filter_type', type=str, help='set a filter', choices=FILTERS )
+    p.add_argument('--filter_values', type=str, nargs='+', help='Things to keep')
     p.add_argument('--pull', action='store_true', help='Force download and update the cache')
     p.add_argument('--debug', action='store_true', help='override pipeline log level to debug')
     return p.parse_args()
