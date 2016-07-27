@@ -3,8 +3,6 @@ from shutil import rmtree
 from os.path import join
 from unittest.mock import patch
 
-from egcg_core.config import cfg
-
 from data_deletion.raw_data import RawDataDeleter
 from tests.test_data_deletion import TestDeleter, patches as ptc
 
@@ -15,7 +13,6 @@ class TestRawDataDeleter(TestDeleter):
             os.makedirs(join(self.assets_deletion, 'raw', run_id, d), exist_ok=True)
 
     def setUp(self):
-        cfg.load_config_file(os.path.join(os.path.dirname(self.root_path), 'etc', 'example_data_deletion.yaml'))
         os.chdir(os.path.dirname(self.root_path))
         self.deleter = RawDataDeleter(join(self.assets_deletion, 'raw'))
         self.deleter.local_execute_only = True
