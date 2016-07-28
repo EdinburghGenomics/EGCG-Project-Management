@@ -100,25 +100,27 @@ def get_sample_status(sample):
         return STATUS_FINISHED
     return status
 
-def test_filter(row_head, col_values, filter):
+def test_filter_aggregate(row_head, col_values, filter, filter_values):
     if filter == FILTER_FINISHED and \
        sum(col_values.values()) == col_values[STATUS_DELIVERED] + col_values[STATUS_SAMPLE_FAILED]:
         return False
     return True
 
-def aggregate_samples_per(samples, aggregation_key, filter=None):
+
+def aggregate_samples_per(samples, aggregation_key, filter, filter_values):
     samples_per_aggregate = defaultdict(Counter)
     aggregates = set()
     statuses = set()
     header = [aggregation_key] + STATUSES
     for sample in samples:
-        status = get_sample_status(sample)
-        statuses.add(status)
-        aggregates.add(sample.get(aggregation_key))
-        samples_per_aggregate[sample.get(aggregation_key)][status] += 1
+        if filter not in [FILTER_PROJECT, FILTER_PLATE] or sample.get(filter) in filter_values:
+            status = get_sample_status(sample)
+            statuses.add(status)
+            aggregates.add(sample.get(aggregation_key))
+            samples_per_aggregate[sample.get(aggregation_key)][status] += 1
     rows = []
     for aggregate in sorted(aggregates):
-        if test_filter(aggregate, samples_per_aggregate[aggregate], filter):
+        if test_filter_aggregate(aggregate, samples_per_aggregate[aggregate], filter, filter_values):
             out = [aggregate]
             for status in STATUSES:
                 out.append(str(samples_per_aggregate[aggregate][status]))
@@ -150,7 +152,7 @@ def show_samples(samples, filter_key, filter_values):
     header_to_report = ['project_id', 'plate', 'sample_id', 'status']
     rows = []
     for sample in samples:
-        if sample.get(filter_key) in filter_values:
+        if not filter_key or sample.get(filter_key) in filter_values:
             sample['status'] = get_sample_status(sample)
             rows.append(summarize_sample(sample, header_to_report))
     return header_to_report, rows
@@ -158,9 +160,9 @@ def show_samples(samples, filter_key, filter_values):
 def create_report(report_type, cached_file, filter, filter_values):
     samples, runs = load_cache(cached_file)
     if report_type == 'projects':
-        header, rows = aggregate_samples_per(samples, 'project_id', filter)
+        header, rows = aggregate_samples_per(samples, 'project_id', filter, filter_values)
     elif report_type == 'plates':
-        header, rows = aggregate_samples_per(samples, 'plate', filter)
+        header, rows = aggregate_samples_per(samples, 'plate', filter, filter_values)
     elif report_type == 'samples':
         header, rows = show_samples(samples, filter, filter_values)
     format_table(header, rows)
