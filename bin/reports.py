@@ -62,7 +62,9 @@ def get_runs():
     return None
 
 def update_cache(cached_file, update_target='all'):
-    samples, runs = load_cache(cached_file)
+    samples, runs = (None, None)
+    if os.path.exists(cached_file):
+        samples, runs = load_cache(cached_file)
     if update_target in ['all', 'sample']:
         samples = get_samples()
     if update_target in ['all', 'run']:
