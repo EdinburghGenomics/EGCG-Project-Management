@@ -2,7 +2,7 @@ import os
 from shutil import rmtree
 from os.path import join
 from unittest.mock import patch
-from config import load_config
+
 from data_deletion.fastq import FastqDeleter, _FastqDeletionRecord
 from egcg_core.util import find_files, find_fastqs
 from tests.test_data_deletion import TestDeleter, patches as p
@@ -35,7 +35,6 @@ class TestFastqDeleter(TestDeleter):
                     self.touch(join(fastq_dir, 'fastq_L00%s_R%s.%s' % (str(lane + 1), read, file_ext)))
 
     def setUp(self):
-        load_config(os.path.join(os.path.dirname(self.root_path), 'etc', 'example_data_deletion.yaml'))
         os.chdir(os.path.dirname(self.root_path))
         self.deleter = FastqDeleter(self.assets_deletion)
         self.deleter.local_execute_only = True
