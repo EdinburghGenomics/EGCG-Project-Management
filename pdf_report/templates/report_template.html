@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style type="text/css">
+    </style>
+    <meta charset="UTF-8">
+    {% block head %}
+    <title> Project {{ project_name }} report</title>
+    {% endblock %}
+</head>
+<body>
+    <table>
+        <td width="200"> <img src="http://s29.postimg.org/8qp6u1agn/EG_logo_final_version_colourwhite_cropped.png"></td>
+        <td width="3000" align="center"> <h1 style="font-size:2.7em;"> Project {{ project_name }} report </h1>  </td>
+    </table>
+    <br/>
+    <div id="general_info">{% block general_info %}{% endblock %}</div>
+    <div id="method">{% block method %}{% endblock %}</div>
+    <div id="sample_qc">{% block sample_qc %}{% endblock %}</div>
+    <div id="library_prep">{% block library_prep %}{% endblock %}</div>
+    <div id="library_qc">{% block library_qc %}{% endblock %}</div>
+    <div id="sequencing">{% block sequencing %}{% endblock %}</div>
+    <div id="bioinformatics_analysis">{% block bioinformatics_analysis %}{% endblock %}</div>
+    <div> <pdf:nextpage /></div>
+    <div id="results">{% block results %}{% endblock %}</div>
+    <div id="formats">{% block formats %}{% endblock %}</div>
+
+</body>
+</html>

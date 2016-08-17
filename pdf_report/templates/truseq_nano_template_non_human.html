@@ -1,0 +1,93 @@
+{% extends 'report_template.html' %}
+
+
+{% block general_info %}
+<h2 style="font-size:2.0em;">General project information.</h2>
+    <table id="project">
+        {% for header in project_order %}
+        <tr>
+            <th align="left", width="60">{{ project_info[header].0 }}</th>
+            <td align="left"> {{ project_info[header].1 }} </td>
+        </tr>
+        {% endfor %}
+    </table>
+{% endblock %}
+
+
+{% block method %}
+<h2 style="font-size:2.0em;">Method</h2>
+Edinburgh Genomics:Clinical Genomics utilises Illumina SeqLab which integrates Illumina TruSeq Nano library
+preparation, cluster generation on Illumina cBot2 and sequencing using Illumina HiSeqX with Genologics
+Clarity LIMS X Edition and Hamilton Microlab STAR integrative automation.
+{% endblock %}
+
+{% block sample_qc %}
+<h3 style="font-size:1.3em;">Sample QC</h3>
+Genomic DNA (gDNA) samples are evaluated for quantity and quality using an AATI, Fragment Analyzer and the DNF-487
+Standard Sensitivity Genomic DNA Analysis Kit.  The AATI ProSize 2.0 software provides a quantification value and a
+quality (integrity) score for each gDNA sample.
+Genomic DNA samples found to have a quality score <7 and have little or no high molecular weight material fails
+Sample QC and replacement samples are requested.  Based on the quantification results, gDNA samples are
+pre-normalised to fall within the acceptable range of the Illumina SeqLab TruSeq Nano library preparation method
+using the Hamilton MicroLab STAR.
+{% endblock %}
+
+{% block library_prep %}
+<h3 style="font-size:1.3em;">Library Preparation</h3>
+Next Generation sequencing libraries are prepared using Illumina SeqLab specific TruSeq Nano High Throughput library
+preparation kits in conjunction with the Hamilton MicroLab STAR and Clarity LIMS X Edition. The gDNA samples are
+normalisedto the concentration and volume required for the Illumina TruSeq Nano library preparation kits then sheared
+to a 450bp mean insert size using a Covaris LE220 focused-ultrasonicator. The inserts are ligated with blunt ended,
+A-tailed, size selected, TruSeq adapters and enriched using 8 cycles of PCR amplification.
+{% endblock %}
+
+{% block library_qc %}
+<h3 style="font-size:1.3em;">Library QC</h3>
+The libraries are evaluated for mean peak size and quantity using the Caliper GX Touch with a HT DNA 1k/12K/HI SENS
+LabChip and HT DNA HI SENS Reagent Kit. The libraries are normalised to 5nM using the GX data and the actual
+concentration was established using a Roche LightCycler 480 and a Kapa Illumina Library Quantification kit and Standards.
+{% endblock %}
+
+{% block sequencing %}
+<h3 style="font-size:1.3em;">Sequencing</h3>
+The libraries are normalised, denatured, and pooled in eights for clustering and sequencing using a Hamilton MicroLab
+STAR with Genologics Clarity LIMS X Edition.  Libraries are clustered onto HiSeqX Flow cell v2.5 on cBot2s and the
+clustered flow cell is transferred to a HiSeqX for sequencing using a HiSeqX Ten Reagent kit v2.5.
+{% endblock %}
+
+{% block bioinformatics_analysis %}
+<h3 style="font-size:1.3em;">Bioinformatics analysis</h3>
+The demultiplexing is performed using bcl2fastq ({{bcl2fastq_version}}) allowing 1 mismatch when assigning reads to a
+barcodes. Adapters (Read1: {{adapter1}}, Read2: {{adapter2}}) are trimmed during the demultiplexing process.
+{% endblock %}
+
+{% block results %}
+<h2 style="font-size:2.0em;">Results</h2>
+<table id="results">
+    {% for header in results_order %}
+    <tr>
+        <th align="left", width="200">{{ results[header].0 }}</th>
+        <td align="left"> {{ results[header].1 }} </td>
+    </tr>
+{% endfor %}
+</table>
+{% endblock %}
+
+
+{% block formats %}
+<h2 style="font-size:2.0em;">Files</h2>
+<table id="formats">
+    <tr>
+        <th align="left", width="50"> Format</th>
+        <th align="left", width="1000"> Description</th>
+        <th align="left", width="100"> Link</th>
+    </tr>
+    <tr>
+        <td align="left"> Fastq</td>
+        <td align="left"> Files ending in fastq.gz are in gzipped Sanger fastq format and it contains the raw data
+            after demultiplexing. Each sample has two files; the file ending in R1.fastq.gz contains the first reads
+            in the pair, the file ending in R2.fastq.gz contains the second reads in the pair. </td>
+        <td align="left">  <a href="https://en.wikipedia.org/wiki/FASTQ_format">fastq format</a> </td>
+    </tr>
+</table>
+{% endblock %}
