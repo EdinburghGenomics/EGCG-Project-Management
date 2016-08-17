@@ -4,26 +4,12 @@ import csv
 import yaml
 import logging
 from os import path, listdir
-from cStringIO import StringIO
 from argparse import ArgumentParser
-from xhtml2pdf import pisa
+from weasyprint import HTML
 from jinja2 import Environment, FileSystemLoader
-# from egcg_core.util import find_file
-from glob import glob
-# from egcg_core.clarity import connection
-# from config import cfg
-
-cfg = {
-    'sample': {
-        'delivery_source': '',
-        'delivery_dest': '/Users/mwham/Desktop/test_project_report'
-    }
-}
-
-
-def find_file(*parts):
-    return glob(path.join(parts))
-
+from egcg_core.util import find_file
+from egcg_core.clarity import connection
+from config import cfg, load_config
 
 app_logger = logging.getLogger(__name__)
 
@@ -44,10 +30,9 @@ class ProjectReport:
 
     def __init__(self, project_name):
         self.project_name = project_name
-        self.project_source = path.join(cfg['sample']['delivery_source'], project_name)
-        self.project_delivery = path.join(cfg['sample']['delivery_dest'], project_name)
-        # self.lims = connection()
-        #        self.get_sample_info()
+        self.project_source = path.join(cfg.query('sample', 'delivery_source'), project_name)
+        self.project_delivery = path.join(cfg.query('sample', 'delivery_dest'), project_name)
+        self.lims = connection()
         self.params = {
             'project_name': project_name,
             'adapter1': 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCA',
@@ -106,8 +91,7 @@ class ProjectReport:
         with open(summary_yaml, 'r') as open_file:
             full_yaml = yaml.safe_load(open_file)
         sample_yaml = full_yaml['samples'][0]
-        path_to_bcbio = path.basename(path.dirname(sample_yaml['dirs']['galaxy']))
-        self.params['bcbio_version'] = path_to_bcbio.split('/')[-2]
+        self.params['bcbio_version'] = path.basename(path.dirname(sample_yaml['dirs']['galaxy']))
         if sample_yaml['genome_build'] == 'hg38':
             self.params['genome_version'] = 'GRCh38 (with alt, decoy and HLA sequences)'
 
@@ -176,23 +160,15 @@ class ProjectReport:
         return template_base + '_non_human.html'
 
     def generate_report(self):
-        pdf = self.get_pdf(self.get_html_content())
         project_file = path.join(self.project_delivery, 'project_%s_report.pdf' % self.project_name)
-        with open(project_file, 'w') as open_pdf:
-            open_pdf.write(pdf.getvalue())
+        h = HTML(string=self.get_html_content())
+        h.write_pdf(project_file)
 
     def get_html_content(self):
         template_dir = path.join(path.dirname(path.abspath(__file__)), 'templates')
         env = Environment(loader=FileSystemLoader(template_dir))
         template = env.get_template(self.get_html_template())
         return template.render(results=self.get_sample_info(), project_info=self.get_project_info(), **self.params)
-
-    @staticmethod
-    def get_pdf(html_string):
-        pdf = StringIO()
-        html_string = html_string.encode('utf-8')
-        pisa.CreatePDF(StringIO(html_string), pdf)
-        return pdf
 
     @classmethod
     def get_folder_size(cls, folder):
@@ -207,6 +183,7 @@ class ProjectReport:
 
 
 def main():
+    load_config()
     args = _parse_args()
     handler = logging.StreamHandler(stream=sys.stdout)
     handler.setLevel(logging.DEBUG)
@@ -214,80 +191,6 @@ def main():
     app_logger.addHandler(handler)
     pr = ProjectReport(args.project_name)
     pr.generate_report()
-
-
-class FakeResearcher:
-    first_name = 'Ooji'
-    last_name = 'Madooji'
-    email = 'ooji.madooji@thingy.com'
-
-
-class FakeProject:
-    udf = {
-        'Project Title': 'a_project_title',
-        'Enquiry Number': 'an_enquiry',
-        'Quote No.': 'a_quote_no'
-    }
-    researcher = FakeResearcher()
-
-
-class FakeSample:
-    udf = {'Prep Workflow': None, 'Species': 'Homo sapiens'}
-
-    def __init__(self, name):
-        self.name = name
-
-
-class FakeLims:
-    def get_projects(self, name):
-        return [FakeProject()]
-
-    def get_samples(self, projectname):
-        return (
-            FakeSample('sample_1'),
-            FakeSample('sample_2'),
-            FakeSample('sample_3')
-        )
-
-
-class FakeReport(ProjectReport):
-    def __init__(self, project_name):
-        self.project_name = project_name
-        self.project_source = path.join(cfg['sample']['delivery_source'], project_name)
-        self.project_delivery = path.join(cfg['sample']['delivery_dest'], project_name)
-        # self.lims = connection()
-        #        self.get_sample_info()
-        self.params = {
-            'project_name': project_name,
-            'adapter1': 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCA',
-            'adapter2': 'AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT'
-        }
-        self.lims = FakeLims()
-
-    def get_sample_info(self):
-        return (
-            ('Number of samples:', 3),
-            ('Number of samples delivered:', 3),
-            ('Total yield Gb:', 62.2),
-            ('Average yield Gb:', 20),
-            ('Average coverage per samples:', 30.3),
-            ('Total folder size:', 0.5)
-        )
-
-
-def _test():
-    p = FakeReport('a_project_name')
-    p.lims = FakeLims()
-    p.params = {
-        'bcl2fastq_version': '1.0',
-        'bcbio_version': '1.0',
-        'bwa_version': '1.0',
-        'genome_name': 'Thingius thingy',
-        'genome_version': '1',
-        'samblaster_version': '1.0',
-        'gatk_version': '1.0'
-    }
-    p.generate_report()
 
 
 def _parse_args():
@@ -303,5 +206,4 @@ def _parse_args():
 
 
 if __name__ == '__main__':
-    _test()
-    # main()
+    main()
