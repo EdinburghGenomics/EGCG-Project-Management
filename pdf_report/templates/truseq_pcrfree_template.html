@@ -4,10 +4,10 @@
 {% block general_info %}
 <h2 style="font-size:2.0em;">General project information.</h2>
     <table id="project">
-        {% for header in project_order %}
+        {% for title, data in project_info %}
         <tr>
-            <th align="left", width="60">{{ project_info[header].0 }}</th>
-            <td align="left"> {{ project_info[header].1 }} </td>
+            <th align="left" width="60">{{ title }}</th>
+            <td align="left"> {{ data }} </td>
         </tr>
         {% endfor %}
     </table>
@@ -68,10 +68,10 @@ for the indel realignment and base recalibration. The genotype likelihoods are c
 {% block results %}
 <h2 style="font-size:2.0em;">Results</h2>
 <table id="results">
-    {% for header in results_order %}
+    {% for title, data in results %}
     <tr>
-        <th align="left", width="200">{{ results[header].0 }}</th>
-        <td align="left"> {{ results[header].1 }} </td>
+        <th align="left" width="200">{{ title }}</th>
+        <td align="left"> {{ data }} </td>
     </tr>
 {% endfor %}
 </table>
