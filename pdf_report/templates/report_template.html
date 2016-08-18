@@ -1,7 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" crossorigin="anonymous">
     <style type="text/css">
+        #edgen_logo {
+            width: 150px;
+        }
+        .row {
+            width: 100%;
+        }
+        h1 { font-size: 2.7em; }
+        h2 { font-size: 2.0em; }
+        h3 { font-size: 1.3em; }
     </style>
     <meta charset="UTF-8">
     {% block head %}
@@ -9,21 +20,61 @@
     {% endblock %}
 </head>
 <body>
-    <table>
-        <td width="200"> <img src="http://s29.postimg.org/8qp6u1agn/EG_logo_final_version_colourwhite_cropped.png"></td>
-        <td width="3000" align="center"> <h1 style="font-size:2.7em;"> Project {{ project_name }} report </h1>  </td>
-    </table>
-    <br/>
-    <div id="general_info">{% block general_info %}{% endblock %}</div>
-    <div id="method">{% block method %}{% endblock %}</div>
-    <div id="sample_qc">{% block sample_qc %}{% endblock %}</div>
-    <div id="library_prep">{% block library_prep %}{% endblock %}</div>
-    <div id="library_qc">{% block library_qc %}{% endblock %}</div>
-    <div id="sequencing">{% block sequencing %}{% endblock %}</div>
-    <div id="bioinformatics_analysis">{% block bioinformatics_analysis %}{% endblock %}</div>
-    <div> <pdf:nextpage /></div>
-    <div id="results">{% block results %}{% endblock %}</div>
-    <div id="formats">{% block formats %}{% endblock %}</div>
+    <div class="container">
+        <div class="page-header">
+            <img id="edgen_logo" src="http://s29.postimg.org/8qp6u1agn/EG_logo_final_version_colourwhite_cropped.png"/>
+            <h1>Report for project {{ project_name }}</h1>
+        </div>
+        <div id="general_info">
+            {% block general_info %}
+            <h2>General project information</h2>
+            {% for title, data in project_info %}
+            <div class="row">
+                <div class="col-xs-3">{{ title }}</div>
+                <div class="col-xs-9 ">{{ data }}</div>
+            </div>
+            {% endfor %}
+            {% endblock %}
+        </div>
 
+        <div id="method">
+            {% block method %}
+            <h2>Method</h2>
+            Edinburgh Genomics: Clinical Genomics utilises Illumina SeqLab, which integrates Illumina TruSeq
+            Nano library preparation, Illumina cBot2 cluster generation, Illumina HiSeqX sequencing, Hamilton
+            Microlab STAR integrative automation, and Genologics Clarity LIMS X Edition.
+            {% endblock %}
+        </div>
+
+        <div id="sample_qc">
+            {% block sample_qc %}
+            <h3>Sample QC</h3>
+            Genomic DNA (gDNA) samples are evaluated for quantity and quality using an AATI Fragment Analyzer
+            and the DNF-487 Standard Sensitivity Genomic DNA Analysis Kit. The AATI ProSize 2.0 software
+            provides a quantification value and a quality (integrity) score for each gDNA sample. Genomic DNA
+            samples found to have a quality score <7 and have little or no high molecular weight material
+            fails Sample QC and replacement samples are requested. Based on the quantification results, gDNA
+            samples are pre-normalised to fall within the acceptable range of the Illumina SeqLab TruSeq Nano
+            library preparation method using the Hamilton MicroLab STAR.
+            {% endblock %}
+        </div>
+        <div id="library_prep">{% block library_prep %}{% endblock %}</div>
+        <div id="library_qc">{% block library_qc %}{% endblock %}</div>
+        <div id="sequencing">{% block sequencing %}{% endblock %}</div>
+        <div id="bioinformatics_analysis">{% block bioinformatics_analysis %}{% endblock %}</div>
+        <div><pdf:nextpage/></div>
+        <div id="results">
+            {% block results %}
+            <h2>Results</h2>
+            {% for title, data in results %}
+            <div class="row">
+                <div class="col-xs-4">{{ title }}</div>
+                <div class="col-xs-8">{{ data }}</div>
+            </div>
+            {% endfor %}
+            {% endblock %}
+        </div>
+        <div id="formats">{% block formats %}{% endblock %}</div>
+    </div>
 </body>
 </html>

@@ -1,4 +1,3 @@
-import sys
 import re
 import csv
 import yaml
@@ -9,6 +8,7 @@ from weasyprint import HTML
 from jinja2 import Environment, FileSystemLoader
 from egcg_core.util import find_file
 from egcg_core.clarity import connection
+from egcg_core.app_logging import logging_default as log_cfg
 from config import cfg, load_config
 
 app_logger = logging.getLogger(__name__)
@@ -159,10 +159,14 @@ class ProjectReport:
             return template_base + '.html'
         return template_base + '_non_human.html'
 
-    def generate_report(self):
-        project_file = path.join(self.project_delivery, 'project_%s_report.pdf' % self.project_name)
-        h = HTML(string=self.get_html_content())
-        h.write_pdf(project_file)
+    def generate_report(self, output_format):
+        project_file = path.join(self.project_delivery, 'project_%s_report.%s' % (self.project_name, output_format))
+        h = self.get_html_content()
+        if output_format == 'html':
+            with open(project_file, 'w') as f:
+                f.write(h)
+        else:
+            HTML(string=h).write_pdf(project_file)
 
     def get_html_content(self):
         template_dir = path.join(path.dirname(path.abspath(__file__)), 'templates')
@@ -185,23 +189,18 @@ class ProjectReport:
 def main():
     load_config()
     args = _parse_args()
-    handler = logging.StreamHandler(stream=sys.stdout)
-    handler.setLevel(logging.DEBUG)
-    logging.getLogger('xhtml2pdf').addHandler(handler)
-    app_logger.addHandler(handler)
+    log_level = 10 if args.debug else 20
+    log_cfg.add_stdout_handler(log_level)
     pr = ProjectReport(args.project_name)
-    pr.generate_report()
+    pr.generate_report(args.output_format)
 
 
 def _parse_args():
     a = ArgumentParser()
-    a.add_argument(
-        '-p',
-        '--project_name',
-        dest='project_name',
-        type=str,
-        help='The name of the project for which a report should be generated.'
-    )
+    a.add_argument('-p', '--project_name', dest='project_name', type=str,
+                   help='The name of the project for which a report should be generated.')
+    a.add_argument('-o', '--output_format', type=str, choices=('html', 'pdf'), default='pdf')
+    a.add_argument('-d', '--debug', action='store_true')
     return a.parse_args()
 
 
