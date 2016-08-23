@@ -4,26 +4,22 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" crossorigin="anonymous">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" crossorigin="anonymous">
     <style type="text/css">
-        #edgen_logo {
-            width: 150px;
-        }
-        .row {
-            width: 100%;
-        }
+        #edgen_logo { width: 150px; }
         h1 { font-size: 2.7em; }
         h2 { font-size: 2.0em; }
         h3 { font-size: 1.3em; }
+        .pagebreak { page-break-before: always; }
     </style>
     <meta charset="UTF-8">
     {% block head %}
-    <title> Project {{ project_name }} report</title>
+    <title>Summary for project {{ project_name }}</title>
     {% endblock %}
 </head>
 <body>
     <div class="container">
         <div class="page-header">
             <img id="edgen_logo" src="http://s29.postimg.org/8qp6u1agn/EG_logo_final_version_colourwhite_cropped.png"/>
-            <h1>Report for project {{ project_name }}</h1>
+            <h1>Summary for project {{ project_name }}</h1>
         </div>
         <div id="general_info">
             {% block general_info %}
@@ -62,14 +58,13 @@
         <div id="library_qc">{% block library_qc %}{% endblock %}</div>
         <div id="sequencing">{% block sequencing %}{% endblock %}</div>
         <div id="bioinformatics_analysis">{% block bioinformatics_analysis %}{% endblock %}</div>
-        <div><pdf:nextpage/></div>
+        <p class="pagebreak"></p>
         <div id="results">
             {% block results %}
             <h2>Results</h2>
             {% for title, data in results %}
             <div class="row">
-                <div class="col-xs-4">{{ title }}</div>
-                <div class="col-xs-8">{{ data }}</div>
+                <div class="col-xs-4">{{ title }}</div><div class="col-xs-8">{{ data }}</div>
             </div>
             {% endfor %}
             {% endblock %}

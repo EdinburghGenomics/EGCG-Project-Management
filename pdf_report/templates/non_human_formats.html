@@ -1,16 +1,11 @@
 
-<h2>Files</h2>
-<div class="row">
-    <div class="col-xs-4"><b>Format</b></div>
-    <div class="col-xs-4"><b>Description</b></div>
-    <div class="col-xs-4"><b>Link</b></div>
+<h2>File formats</h2>
+{% block file_formats %}
+<h3>Fastq</h3>
+<div>
+    Files ending in 'fastq.gz' are in gzipped Sanger fastq format, and contain the raw sequence data after
+    demultiplexing. Each sample has two files: an 'R1.fastq.gz' and an 'R2.fastq.gz', respectively containing
+    the first and second reads of each read pair.
 </div>
-<div class="row">
-    <div class="col-xs-1">Fastq</div>
-    <div class="col-xs-8">
-        Files ending in 'fastq.gz' are in gzipped Sanger fastq format, and contain the raw sequence data after
-        demultiplexing. Each sample has two files: the file ending in 'R1.fastq.gz' contains the first reads
-        in the pair, the file ending in R2.fastq.gz contains the second reads in the pair.
-    </div>
-    <div class="col-xs-3"><a href="https://en.wikipedia.org/wiki/FASTQ_format">Fastq specification</a></div>
-</div>
+<a href="https://en.wikipedia.org/wiki/FASTQ_format">Fastq specification</a>
+{% endblock %}
