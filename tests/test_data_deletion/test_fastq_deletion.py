@@ -35,7 +35,7 @@ class TestFastqDeleter(TestDeleter):
                     self.touch(join(fastq_dir, 'fastq_L00%s_R%s.%s' % (str(lane + 1), read, file_ext)))
 
     def setUp(self):
-        os.chdir(os.path.dirname(self.root_path))
+        os.chdir(os.path.dirname(self.root_test_path))
         self.deleter = FastqDeleter(self.assets_deletion)
         self.deleter.local_execute_only = True
         for run_id in ('a_run', 'another_run'):

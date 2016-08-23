@@ -3,13 +3,11 @@ import csv
 import yaml
 import logging
 from os import path, listdir
-from argparse import ArgumentParser
 from weasyprint import HTML
 from jinja2 import Environment, FileSystemLoader
 from egcg_core.util import find_file
 from egcg_core.clarity import connection
-from egcg_core.app_logging import logging_default as log_cfg
-from config import cfg, load_config
+from config import cfg
 
 app_logger = logging.getLogger(__name__)
 
@@ -185,24 +183,3 @@ class ProjectReport:
                 total_size += cls.get_folder_size(itempath)
         return total_size
 
-
-def main():
-    load_config()
-    args = _parse_args()
-    log_level = 10 if args.debug else 20
-    log_cfg.add_stdout_handler(log_level)
-    pr = ProjectReport(args.project_name)
-    pr.generate_report(args.output_format)
-
-
-def _parse_args():
-    a = ArgumentParser()
-    a.add_argument('-p', '--project_name', dest='project_name', type=str,
-                   help='The name of the project for which a report should be generated.')
-    a.add_argument('-o', '--output_format', type=str, choices=('html', 'pdf'), default='pdf')
-    a.add_argument('-d', '--debug', action='store_true')
-    return a.parse_args()
-
-
-if __name__ == '__main__':
-    main()

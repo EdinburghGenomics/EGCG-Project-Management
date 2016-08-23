@@ -1,0 +1,4 @@
+samples:
+- dirs:
+    galaxy: path/to/bcbio/bcbio-0.9.4/galaxy
+  genome_build: hg38
