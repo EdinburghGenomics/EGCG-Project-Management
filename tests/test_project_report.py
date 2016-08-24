@@ -1,4 +1,4 @@
-from os.path import join
+import os
 from unittest.mock import Mock
 from project_report import ProjectReport
 from egcg_core.config import cfg
@@ -11,22 +11,43 @@ class FakeSample:
         self.name = name
         self.udf = udf
 
-fake_samples = [
-    FakeSample(
-        name='sample:1',
-        udf={
-            'Prep Workflow': 'a_workflow',
-            'Species': 'Thingius thingy'
-        }
-    ),
-    FakeSample(
-        name='sample:2',
-        udf={
-            'Prep Workflow': 'a_workflow',
-            'Species': 'Thingius thingy'
-        }
-    )
-]
+
+fake_samples = {
+    'a_project_name': [
+        FakeSample(
+            name='sample:1',
+            udf={'Prep Workflow': 'a_workflow', 'Species': 'Thingius thingy'}
+        ),
+        FakeSample(
+            name='sample:2',
+            udf={'Prep Workflow': 'a_workflow', 'Species': 'Thingius thingy'}
+        )
+    ],
+    'human_truseq_nano': [
+        FakeSample(
+            name='human_truseq_nano_sample_1',
+            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Homo sapiens'}
+        )
+    ],
+    'non_human_truseq_nano': [
+        FakeSample(
+            name='non_human_truseq_nano_sample_1',
+            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy'}
+        )
+    ],
+    'human_pcr_free': [
+        FakeSample(
+            name='human_pcr_free_sample_1',
+            udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Homo sapiens'}
+        )
+    ],
+    'non_human_pcr_free': [
+        FakeSample(
+            name='non_human_pcr_free_sample_1',
+            udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Thingius thingy'}
+        )
+    ]
+}
 
 
 class FakeLims:
@@ -35,7 +56,7 @@ class FakeLims:
         return [
             Mock(
                 udf={
-                    'Project Title': name,
+                    'Project Title': 'a_research_title_for_' + name,
                     'Enquiry Number': '1337',
                     'Quote No.': '1338'
                 },
@@ -49,18 +70,19 @@ class FakeLims:
 
     @staticmethod
     def get_samples(projectname):
-        return fake_samples
+        return fake_samples[projectname]
 
 
 class TestProjectReport(TestProjectManagement):
     def setUp(self):
         self.pr = ProjectReport('a_project_name')
         self.pr.lims = FakeLims()
+        self.fake_samples = fake_samples['a_project_name']
 
     def test_get_project_info(self):
         exp = (
             ('Project name:', self.pr.project_name),
-            ('Project title:', 'a_project_name'),
+            ('Project title:', 'a_research_title_for_a_project_name'),
             ('Enquiry no:', '1337'),
             ('Quote no:', '1338'),
             ('Researcher:', 'First Last (first.last@email.com)')
@@ -69,11 +91,11 @@ class TestProjectReport(TestProjectManagement):
 
     def test_samples_for_project(self):
         assert self.pr._samples_for_project is None
-        assert self.pr.samples_for_project == fake_samples
-        assert self.pr._samples_for_project == fake_samples
+        assert self.pr.samples_for_project == self.fake_samples
+        assert self.pr._samples_for_project == self.fake_samples
 
     def test_get_sample(self):
-        assert self.pr.get_sample('sample:1') == fake_samples[0]
+        assert self.pr.get_sample('sample:1') == self.fake_samples[0]
 
     def test_get_all_sample_names(self):
         assert self.pr.get_all_sample_names() == ['sample:1', 'sample:2']
@@ -87,7 +109,7 @@ class TestProjectReport(TestProjectManagement):
 
     def test_update_program_from_csv(self):
         assert len(self.pr.params) == 3
-        program_csv = join(
+        program_csv = os.path.join(
             TestProjectManagement.assets_path,
             'project_report',
             'source',
@@ -108,7 +130,7 @@ class TestProjectReport(TestProjectManagement):
     def test_update_from_project_summary(self):
         assert 'bcbio_version' not in self.pr.params
         assert 'genome_version' not in self.pr.params
-        summary_yaml = join(
+        summary_yaml = os.path.join(
             TestProjectManagement.assets_path,
             'project_report',
             'source',
@@ -139,7 +161,7 @@ class TestProjectReport(TestProjectManagement):
                 'Callable bases rate': '90',
                 'Delivery folder': '2016-03-08'
             }
-        metrics_csv = join(
+        metrics_csv = os.path.join(
             TestProjectManagement.assets_path,
             'project_report',
             'dest',
@@ -162,6 +184,15 @@ class TestProjectReport(TestProjectManagement):
         pass
 
     def test_get_folder_size(self):
-        dest_dir = join(TestProjectManagement.assets_path, 'project_report', 'dest')
-        obs = self.pr.get_folder_size(dest_dir)
-        assert obs == 573
+        d = os.path.join(TestProjectManagement.assets_path, 'project_report', 'folder_sizing')
+        obs = self.pr.get_folder_size(d)
+        assert obs == 317
+
+
+def test_project_types():
+    os.chdir(TestProjectManagement.root_path)
+    projects = ('human_truseq_nano', 'human_pcr_free', 'non_human_truseq_nano', 'non_human_pcr_free')
+    for p in projects:
+        pr = ProjectReport(p)
+        pr.lims = FakeLims()
+        pr.generate_report('html')
