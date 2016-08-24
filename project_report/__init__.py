@@ -1,15 +1,20 @@
 import re
 import csv
 import yaml
-import logging
 from os import path, listdir
-from weasyprint import HTML
 from jinja2 import Environment, FileSystemLoader
 from egcg_core.util import find_file
 from egcg_core.clarity import connection
+from egcg_core.app_logging import logging_default as log_cfg
 from config import cfg
 
-app_logger = logging.getLogger(__name__)
+app_logger = log_cfg.get_logger(__name__)
+
+try:
+    from weasyprint import HTML
+except ImportError:
+    app_logger.info('WeasyPrint is not installed. PDF output will be unavailable')
+    HTML = None
 
 species_alias = {
     'Homo sapiens': 'Human',
@@ -161,8 +166,7 @@ class ProjectReport:
         project_file = path.join(self.project_delivery, 'project_%s_report.%s' % (self.project_name, output_format))
         h = self.get_html_content()
         if output_format == 'html':
-            with open(project_file, 'w') as f:
-                f.write(h)
+            open(project_file, 'w').write(h)
         else:
             HTML(string=h).write_pdf(project_file)
 
@@ -182,4 +186,3 @@ class ProjectReport:
             elif path.isdir(itempath):
                 total_size += cls.get_folder_size(itempath)
         return total_size
-
