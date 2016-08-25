@@ -1,0 +1,11 @@
+
+<h2>File formats</h2>
+{% block file_formats %}
+<h3>Fastq</h3>
+<div>
+    Files ending in 'fastq.gz' are in gzipped Sanger fastq format, and contain the raw sequence data after
+    demultiplexing. Each sample has two files: an 'R1.fastq.gz' and an 'R2.fastq.gz', respectively containing
+    the first and second reads of each read pair.
+</div>
+<a href="https://en.wikipedia.org/wiki/FASTQ_format">Fastq specification</a>
+{% endblock %}

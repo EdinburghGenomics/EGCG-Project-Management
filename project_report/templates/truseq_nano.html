@@ -1,0 +1,32 @@
+{% extends 'report_base.html' %}
+
+{% block library_prep %}
+<h3>Library Preparation</h3>
+Next Generation sequencing libraries are prepared using Illumina SeqLab specific TruSeq Nano High Throughput library
+preparation kits in conjunction with the Hamilton MicroLab STAR and Clarity LIMS X Edition. The gDNA samples are
+normalised to the concentration and volume required for the Illumina TruSeq Nano library preparation kits, then sheared
+to a 450bp mean insert size using a Covaris LE220 focused-ultrasonicator. The inserts are ligated with blunt ended,
+A-tailed, size selected, TruSeq adapters and enriched using 8 cycles of PCR amplification.
+{% endblock %}
+
+{% block library_qc %}
+<h3>Library QC</h3>
+The libraries are evaluated for mean peak size and quantity using the Caliper GX Touch with a HT DNA 1k/12K/HI SENS
+LabChip and HT DNA HI SENS Reagent Kit. The libraries are normalised to 5nM using the GX data and the actual
+concentration was established using a Roche LightCycler 480 and a Kapa Illumina Library Quantification kit and Standards.
+{% endblock %}
+
+{% block sequencing %}
+<h3>Sequencing</h3>
+The libraries are normalised, denatured, and pooled in eights for clustering and sequencing using a Hamilton MicroLab
+STAR with Genologics Clarity LIMS X Edition.  Libraries are clustered onto HiSeqX Flow cell v2.5 on cBot2s and the
+clustered flow cell is transferred to a HiSeqX for sequencing using a HiSeqX Ten Reagent kit v2.5.
+{% endblock %}
+
+{% block bioinformatics_analysis %}
+{% include 'human_bioinf.html' %}
+{% endblock %}
+
+{% block formats %}
+{% include 'human_formats.html' %}
+{% endblock %}

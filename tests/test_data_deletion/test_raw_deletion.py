@@ -13,7 +13,7 @@ class TestRawDataDeleter(TestDeleter):
             os.makedirs(join(self.assets_deletion, 'raw', run_id, d), exist_ok=True)
 
     def setUp(self):
-        os.chdir(os.path.dirname(self.root_path))
+        os.chdir(os.path.dirname(self.root_test_path))
         self.deleter = RawDataDeleter(join(self.assets_deletion, 'raw'))
         self.deleter.local_execute_only = True
         self._setup_run('deletable_run', self.deleter.deletable_sub_dirs)

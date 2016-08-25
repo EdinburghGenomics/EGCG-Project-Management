@@ -37,7 +37,7 @@ class TestDeliveredDataDeleter(TestDeleter):
     )
 
     def setUp(self):
-        os.chdir(os.path.dirname(self.root_path))
+        os.chdir(os.path.dirname(self.root_test_path))
         for s in self.samples:
             for x in self.file_exts:
                 d = join(

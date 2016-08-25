@@ -2,8 +2,7 @@ language: python
 python:
   - "3.3"
   - "3.4"
-# command to install dependencies
-install: "pip install -r requirements.txt"
+install: "pip install -r requirements_no_pdf.txt"
 script: py.test
 # branches:
 #   only:
@@ -12,7 +11,3 @@ notifications:
   email:
     on_success: change # default: change
     on_failure: change # default: always
-env:
-  global:
-    DATADELETIONCONFIG=etc/example_data_deletion.yaml
-    EGCGCONFIG=etc/example_data_deletion.yaml

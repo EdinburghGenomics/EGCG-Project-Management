@@ -3,8 +3,10 @@ from unittest import TestCase
 
 
 class TestProjectManagement(TestCase):
-    root_path = abspath(dirname(__file__))
-    assets_path = join(root_path, 'assets')
+    root_path = abspath(dirname(dirname(__file__)))
+    etc_config = join(root_path, 'etc', 'example_project_management.yaml')
+    root_test_path = join(root_path, 'tests')
+    assets_path = join(root_test_path, 'assets')
     assets_deletion = join(assets_path, 'data_deletion')
 
     @staticmethod

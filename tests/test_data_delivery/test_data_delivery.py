@@ -128,8 +128,8 @@ class TestDataDelivery(TestProjectManagement):
 
     def __init__(self, *args, **kwargs):
         super(TestDataDelivery, self).__init__(*args, **kwargs)
-        cfg.load_config_file(os.path.join(os.path.dirname(self.root_path), 'etc', 'example_data_delivery.yaml'))
-        os.chdir(os.path.dirname(self.root_path))
+        cfg.load_config_file(os.path.join(os.path.dirname(self.root_test_path), 'etc', 'example_data_delivery.yaml'))
+        os.chdir(os.path.dirname(self.root_test_path))
         self.assets_delivery = os.path.join(self.assets_path, 'data_delivery')
         analysis_files = [
             '{ext_sample_id}.bam', '{ext_sample_id}.bam.bai', '{ext_sample_id}.bam.bai.md5', '{ext_sample_id}.bam.md5',
