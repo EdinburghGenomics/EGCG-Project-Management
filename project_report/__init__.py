@@ -9,6 +9,7 @@ from egcg_core.app_logging import logging_default as log_cfg
 from config import cfg
 
 app_logger = log_cfg.get_logger(__name__)
+log_cfg.get_logger('weasyprint', 40)
 
 try:
     from weasyprint import HTML

@@ -195,4 +195,4 @@ def test_project_types():
     for p in projects:
         pr = ProjectReport(p)
         pr.lims = FakeLims()
-        pr.generate_report('html')
+        pr.generate_report('pdf')
