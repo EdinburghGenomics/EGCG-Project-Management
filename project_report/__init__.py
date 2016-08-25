@@ -81,7 +81,7 @@ class ProjectReport:
 
     def update_from_program_csv(self, program_csv):
         all_programs = {}
-        if path.exists(program_csv):
+        if program_csv and path.exists(program_csv):
             with open(program_csv) as open_prog:
                 for row in csv.reader(open_prog):
                     all_programs[row[0]] = row[1]
