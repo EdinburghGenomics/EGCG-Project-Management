@@ -2,9 +2,7 @@ language: python
 python:
   - "3.3"
   - "3.4"
-before_install:
-  - sudo apt-get install libffi-dev
-install: "pip install -r requirements.txt"
+install: "pip install -r requirements_no_pdf.txt"
 script: py.test
 # branches:
 #   only:
