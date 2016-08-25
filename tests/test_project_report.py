@@ -1,9 +1,13 @@
 import os
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from project_report import ProjectReport
 from egcg_core.config import cfg
 from tests import TestProjectManagement
 cfg.load_config_file(TestProjectManagement.etc_config)
+
+
+def ppath(ext):
+    return 'project_report.' + ext
 
 
 class FakeSample:
@@ -16,11 +20,11 @@ fake_samples = {
     'a_project_name': [
         FakeSample(
             name='sample:1',
-            udf={'Prep Workflow': 'a_workflow', 'Species': 'Thingius thingy'}
+            udf={'Prep Workflow': None, 'Species': 'Thingius thingy'}
         ),
         FakeSample(
             name='sample:2',
-            udf={'Prep Workflow': 'a_workflow', 'Species': 'Thingius thingy'}
+            udf={'Prep Workflow': None, 'Species': 'Thingius thingy'}
         )
     ],
     'human_truseq_nano': [
@@ -78,6 +82,7 @@ class TestProjectReport(TestProjectManagement):
         self.pr = ProjectReport('a_project_name')
         self.pr.lims = FakeLims()
         self.fake_samples = fake_samples['a_project_name']
+        os.chdir(TestProjectManagement.root_path)
 
     def test_get_project_info(self):
         exp = (
@@ -102,7 +107,7 @@ class TestProjectReport(TestProjectManagement):
         assert self.pr.get_all_sample_names(modify_names=True) == ['sample_1', 'sample_2']
 
     def test_get_library_workflow(self):
-        assert self.pr.get_library_workflow_from_sample('sample:1') == 'a_workflow'
+        assert self.pr.get_library_workflow_from_sample('sample:1') is None
 
     def test_get_species(self):
         assert self.pr.get_species_from_sample('sample:1') == 'Thingius thingy'
@@ -171,22 +176,36 @@ class TestProjectReport(TestProjectManagement):
         obs = self.pr.read_metrics_csv(metrics_csv)
         assert obs == exp
 
-    def test_get_sample_info(self):
-        pass
+    @patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
+    def test_get_sample_info(self, mocked_project_size):
+        assert self.pr.get_sample_info() == [
+            ('Number of samples:', 2),
+            ('Number of samples delivered:', 2),
+            ('Total yield (Gb):', '200.00'),
+            ('Average yield (Gb):', '100.0'),
+            ('Average coverage per sample:', '30.00'),
+            ('Total folder size:', '1.34Tb')
+        ]
+        assert self.pr.params == {
+            'project_name': 'a_project_name',
+            'adapter1': 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCA',
+            'adapter2': 'AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT',
+            'bcbio_version': 'bcbio-0.9.4',
+            'bcl2fastq_version': '2.17.1.14',
+            'bwa_version': '1.2',
+            'gatk_version': '1.3',
+            'genome_version': 'GRCh38 (with alt, decoy and HLA sequences)',
+            'samblaster_version': '1.4'
+        }
 
     def test_get_html_template(self):
-        pass
+        assert self.pr.get_html_template() == 'truseq_nano_non_human.html'
 
-    def test_generate_report(self):
-        pass
-
-    def test_get_html_content(self):
-        pass
-
-    def test_get_folder_size(self):
-        d = os.path.join(TestProjectManagement.assets_path, 'project_report', 'folder_sizing')
+    @patch(ppath('path.getsize'), return_value=1)
+    def test_get_folder_size(self, mocked_getsize):
+        d = os.path.join(TestProjectManagement.root_path, 'project_report', 'templates')
         obs = self.pr.get_folder_size(d)
-        assert obs == 317
+        assert obs == 10
 
 
 def test_project_types():

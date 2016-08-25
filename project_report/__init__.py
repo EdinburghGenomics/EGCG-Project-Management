@@ -26,10 +26,10 @@ species_alias = {
 class ProjectReport:
     _samples_for_project = None
     template_alias = {
-        'TruSeq Nano DNA Sample Prep': 'truseq_nano_template',
-        None: 'truseq_nano_template',
-        'TruSeq PCR-Free DNA Sample Prep': 'truseq_pcrfree_template',
-        'TruSeq PCR-Free Sample Prep': 'truseq_pcrfree_template'
+        'TruSeq Nano DNA Sample Prep': 'truseq_nano',
+        None: 'truseq_nano',
+        'TruSeq PCR-Free DNA Sample Prep': 'truseq_pcrfree',
+        'TruSeq PCR-Free Sample Prep': 'truseq_pcrfree'
     }
 
     def __init__(self, project_name):
@@ -128,13 +128,13 @@ class ProjectReport:
         results = [
             ('Number of samples:', len(modified_samples)),
             ('Number of samples delivered:', len(samples_delivered)),
-            ('Total yield Gb:', '%.2f' % sum(yields)),
-            ('Average yield Gb:', '%.1f' % (sum(yields)/max(len(yields), 1)))
+            ('Total yield (Gb):', '%.2f' % sum(yields)),
+            ('Average yield (Gb):', '%.1f' % (sum(yields)/max(len(yields), 1)))
         ]
 
         try:
             coverage = [float(samples_delivered[s]['Mean coverage']) for s in samples_delivered]
-            results.append(('Average coverage per samples:', '%.2f' % (sum(coverage)/max(len(coverage), 1))))
+            results.append(('Average coverage per sample:', '%.2f' % (sum(coverage)/max(len(coverage), 1))))
         except KeyError:
             app_logger.warning('Not adding mean coverage')
 
