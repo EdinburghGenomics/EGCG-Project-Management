@@ -11,7 +11,7 @@ from data_deletion import Deleter
 class FastqDeleter(Deleter):
     def __init__(self, work_dir, dry_run=False, deletion_limit=None, project_id=None):
         super().__init__(work_dir, dry_run, deletion_limit)
-        self.data_dir = cfg['fastqs']
+        self.data_dir = cfg['data_deletion']['fastqs']
         self._samples_released_in_lims = None
         self._samples_released_in_app = None
         self.project_id = project_id

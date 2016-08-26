@@ -12,8 +12,8 @@ class RawDataDeleter(Deleter):
     def __init__(self, work_dir, dry_run=False, deletion_limit=None, manual_delete=None):
         super().__init__(work_dir, dry_run, deletion_limit)
         self.deletable_sub_dirs = ('Data', 'Logs', 'Thumbnail_Images')
-        self.data_dir = cfg['raw_data']
-        self.archive_dir = cfg['raw_archives']
+        self.data_dir = cfg['data_deletion']['raw_data']
+        self.archive_dir = cfg['data_deletion']['raw_archives']
         self.list_runs = manual_delete
 
     def deletable_runs(self):

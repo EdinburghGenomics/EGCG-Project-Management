@@ -11,7 +11,7 @@ class DeliveredDataDeleter(Deleter):
 
     def __init__(self, work_dir, dry_run=False, deletion_limit=None, manual_delete=None, sample_ids=None):
         super().__init__(work_dir, dry_run, deletion_limit)
-        self.data_dir = cfg['delivered_data']
+        self.data_dir = cfg['data_deletion']['delivered_data']
         if manual_delete is None:
             manual_delete = []
         self.list_samples = manual_delete
