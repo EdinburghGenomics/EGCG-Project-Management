@@ -29,7 +29,8 @@ class ProjectReport:
         'TruSeq Nano DNA Sample Prep': 'truseq_nano',
         None: 'truseq_nano',
         'TruSeq PCR-Free DNA Sample Prep': 'truseq_pcrfree',
-        'TruSeq PCR-Free Sample Prep': 'truseq_pcrfree'
+        'TruSeq PCR-Free Sample Prep': 'truseq_pcrfree',
+        'TruSeq DNA PCR-Free Sample Prep': 'truseq_pcrfree'
     }
 
     def __init__(self, project_name):
