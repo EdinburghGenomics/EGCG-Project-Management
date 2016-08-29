@@ -301,7 +301,7 @@ class DataDelivery(AppLogger):
         for md5_file in all_md5_files:
             with open(md5_file) as open_file:
                 md5, file_path = open_file.readline().strip().split()
-            file_name = os.path.basename(md5_file).strip('.md5')
+            file_name = os.path.basename(md5_file)[:-len('.md5')]
             batch_name = os.path.basename(batch_folder)
             prefix, suffix = md5_file.strip('.md5').split(batch_name)
             with open(md5_file, 'w') as open_file:
