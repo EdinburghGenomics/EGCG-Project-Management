@@ -303,7 +303,7 @@ class DataDelivery(AppLogger):
                 md5, file_path = open_file.readline().strip().split()
             file_name = os.path.basename(md5_file)[:-len('.md5')]
             batch_name = os.path.basename(batch_folder)
-            prefix, suffix = md5_file.strip('.md5').split(batch_name)
+            prefix, suffix = md5_file[:-len('.md5')].split(batch_name)
             with open(md5_file, 'w') as open_file:
                 open_file.write('%s  %s' % (md5, file_name))
             md5_summary.append('%s  %s' % (md5, batch_name + suffix))
