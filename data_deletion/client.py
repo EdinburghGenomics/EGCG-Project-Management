@@ -4,7 +4,7 @@ import logging
 from data_deletion import log_cfg
 from data_deletion.raw_data import RawDataDeleter
 from data_deletion.fastq import FastqDeleter
-from data_deletion.delivered_data import DeliveredDataDeleter
+from data_deletion.expired_data import DeliveredDataDeleter
 
 from config import load_config
 load_config()
