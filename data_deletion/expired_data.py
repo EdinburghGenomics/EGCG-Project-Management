@@ -1,3 +1,4 @@
+import glob
 import os
 from datetime import datetime
 from os import listdir
@@ -42,6 +43,8 @@ class ProcessedSample(app_logging.AppLogger):
         self.delivered_data_dir = cfg['data_deletion']['delivered_data']
         self.sample_data = sample_data
         self._release_date = None
+        self._release_folders = None
+        self._run_elements = None
         self._list_of_files = None
         self._size_of_files = None
 
@@ -70,13 +73,17 @@ class ProcessedSample(app_logging.AppLogger):
             run_element[ELEMENT_SAMPLE_INTERNAL_ID],
             lane=run_element[ELEMENT_LANE]
         )
+    @property
+    def run_elements(self):
+        if self._run_elements is None:
+            self._run_elements = rest_communication.get_documents(
+                'run_elements', quiet=True, where={ELEMENT_SAMPLE_INTERNAL_ID: self.sample_id}, all_pages=True
+            )
+        return self._run_elements
 
     def _raw_data_files(self):
         all_fastqs = []
-        run_elements = rest_communication.get_documents(
-            'run_elements', quiet=True, where={ELEMENT_SAMPLE_INTERNAL_ID: self.sample_id}, all_pages=True
-        )
-        for e in run_elements:
+        for e in self.run_elements:
             assert e[ELEMENT_SAMPLE_INTERNAL_ID] == self.sample_id
             fastqs = self._find_fastqs_for_run_element(e)
             if fastqs:
@@ -110,17 +117,19 @@ class ProcessedSample(app_logging.AppLogger):
                 files_to_delete.append(file_to_delete)
         return files_to_delete
 
-    def _released_data_folder(self, project_id, sample_id):
-        release_folders = util.find_files(self.delivered_data_dir, project_id, '*', sample_id)
-        if len(release_folders) != 1:
+    @property
+    def released_data_folder(self):
+        if self._release_folders is None:
+            self._release_folders = util.find_files(self.delivered_data_dir, self.project_id, '*', self.sample_id)
+        if len(self._release_folders) != 1:
             self.warning(
                 'Found %s deletable directories for sample %s: %s',
-                len(release_folders),
-                sample_id,
-                release_folders
+                len(self._release_folders),
+                self.sample_id,
+                self._release_folders
             )
         else:
-            return release_folders[0]
+            return self._release_folders[0]
 
     @property
     def list_of_files(self):
@@ -134,7 +143,7 @@ class ProcessedSample(app_logging.AppLogger):
             if processed_files:
                 self._list_of_files.extend(processed_files)
 
-            release_folder = self._released_data_folder(self.project_id, self.sample_id)
+            release_folder = self.released_data_folder
             if release_folder:
                 self._list_of_files.append(release_folder)
         return self._list_of_files
@@ -166,8 +175,9 @@ class DeliveredDataDeleter(Deleter):
 
     def __init__(self, work_dir, dry_run=False, deletion_limit=None, manual_delete=None, sample_ids=None):
         super().__init__(work_dir, dry_run, deletion_limit)
-        self.data_dir = cfg['jobs_dir']
+        self.data_dir = self.work_dir
         self.raw_data_dir = cfg['data_deletion']['fastqs']
+        self.raw_archive_dir = cfg['data_deletion']['fastq_archives']
         self.processed_data_dir = cfg['data_deletion']['processed_data']
         self.delivered_data_dir = cfg['data_deletion']['delivered_data']
         self.list_samples = []
@@ -192,20 +202,19 @@ class DeliveredDataDeleter(Deleter):
         samples = []
         # FIXME: _auto_deletable_samples is disabled until we create a deletion step in the LIMS
         # as the date is not enough to be sure data can be deleted.
-        # return samples
+        return samples
         sample_records = rest_communication.get_documents(
             'aggregate/samples',
             quiet=True,
-            match={'proc_status': 'finished', 'delivered': 'yes'},
+            match={'proc_status': 'finished', 'useable': 'yes', 'delivered': 'yes'},
             paginate=False
         )
-        for r in sample_records[:-10]:
+        for r in sample_records:
             s = ProcessedSample(r)
             # TODO: check that the sample went through the deletion workflow in the LIMS
             if s.release_date and self._old_enough_for_deletion(s.release_date):
                 samples.append(s)
         return samples
-
 
     def setup_samples_for_deletion(self, samples, dry_run):
         total_size_to_delete = 0
@@ -239,11 +248,20 @@ class DeliveredDataDeleter(Deleter):
         if isdir(d) and not listdir(d):
             self._execute('rm -r ' + d)
 
-    def _cleanup_empty_dirs(self, project_id):
-        project_folder = join(self.data_dir, project_id)
-        for release_dir in listdir(project_folder):
-            self._try_delete_empty_dir(join(project_folder, release_dir))
-        self._try_delete_empty_dir(project_folder)
+    def try_archive_run(self, run_name):
+        #look for any fastq files in any project/sample directory
+        all_fastqs = glob.glob(join(self.raw_data_dir, run_name, '*', '*', '*.fastq.gz'))
+        if all_fastqs:
+            return
+        # There are no fastqs in that run
+        self.info('Archive '+ run_name)
+        # Find the undetermined
+        undetermined_fastqs = glob.glob(join(self.raw_data_dir, run_name, 'Undetermined_*.fastq.gz'))
+        for f in undetermined_fastqs:
+            self._execute('rm '+ f)
+        self._execute('mv %s %s'%(join(self.raw_data_dir, run_name), self.raw_archive_dir))
+
+
 
     def delete_data(self):
         deletable_samples = self.deletable_samples()
@@ -252,18 +270,21 @@ class DeliveredDataDeleter(Deleter):
 
         sample_ids = [str(e.sample_id) for e in deletable_samples]
         self.debug('Found %s samples for deletion: %s' % (len(deletable_samples), sample_ids))
-
         self.setup_samples_for_deletion(deletable_samples, self.dry_run)
-        if self.dry_run:
+
+        if not self.deletable_samples or self.dry_run :
             return 0
-        #samples_to_delete = []
-        #for p in listdir(self.deletion_dir):
-        #    samples_to_delete.extend(listdir(join(self.deletion_dir, p)))
-        #self._compare_lists(samples_to_delete, sample_ids)
 
-        #for s in deletable_samples:
-        #    s.mark_as_deleted()
+        for s in deletable_samples:
+            s.mark_as_deleted()
 
-        #self.delete_dir(self.deletion_dir)
-        #for p in set([e[ELEMENT_PROJECT_ID] for e in deletable_samples]):
-        #    self._cleanup_empty_dirs(p)
+        self.delete_dir(self.deletion_dir)
+        #data has been deleted now clean up empty directories
+
+        #Remove release batch directories if they are empty
+        for folder in set([s.released_data_folder for s in deletable_samples]):
+            self._try_delete_empty_dir(folder)
+
+        #Archive run folders if they do not contain any fastq file anymore
+        for run_name in set([s.run_elements[ELEMENT_RUN_NAME] for s in deletable_samples]):
+            self.try_archive_run(run_name)

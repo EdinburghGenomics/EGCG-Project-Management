@@ -30,7 +30,7 @@ def main():
 
     load_config()
 
-    if args.debug:
+    if args.__dict__.pop('debug'):
         log_level = logging.DEBUG
     else:
         log_level = logging.INFO
