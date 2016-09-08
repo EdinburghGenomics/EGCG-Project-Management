@@ -3,9 +3,6 @@ from os import listdir
 from os.path import join
 from egcg_core import app_logging, executor
 from egcg_core.exceptions import EGCGError
-from egcg_core.config import cfg
-
-log_cfg = app_logging.LoggingConfiguration(cfg)
 
 
 class DataDeletionError(EGCGError):
@@ -13,7 +10,6 @@ class DataDeletionError(EGCGError):
 
 
 class Deleter(app_logging.AppLogger):
-    log_cfg = log_cfg
     data_dir = ''
     local_execute_only = False
     _deletion_dir = None

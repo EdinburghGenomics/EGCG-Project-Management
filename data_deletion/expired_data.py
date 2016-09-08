@@ -37,7 +37,6 @@ def get_file_list_size(file_list):
 class ProcessedSample(app_logging.AppLogger):
 
     def __init__(self, sample_data):
-        self.log_cfg = app_logging.LoggingConfiguration(cfg)
         self.raw_data_dir = cfg['data_deletion']['fastqs']
         self.processed_data_dir = cfg['data_deletion']['processed_data']
         self.delivered_data_dir = cfg['data_deletion']['delivered_data']
@@ -123,6 +122,7 @@ class ProcessedSample(app_logging.AppLogger):
         else:
             return release_folders[0]
 
+    @property
     def list_of_files(self):
         if not self._list_of_files:
             self._list_of_files = []
@@ -139,9 +139,10 @@ class ProcessedSample(app_logging.AppLogger):
                 self._list_of_files.append(release_folder)
         return self._list_of_files
 
+    @property
     def size_of_files(self):
         if not self._size_of_files:
-            self._size_of_files = get_file_list_size(self.list_of_files())
+            self._size_of_files = get_file_list_size(self.list_of_files)
         return self._size_of_files
 
     def mark_as_deleted(self):
@@ -191,7 +192,7 @@ class DeliveredDataDeleter(Deleter):
         samples = []
         # FIXME: _auto_deletable_samples is disabled until we create a deletion step in the LIMS
         # as the date is not enough to be sure data can be deleted.
-        return samples
+        # return samples
         sample_records = rest_communication.get_documents(
             'aggregate/samples',
             quiet=True,
@@ -209,22 +210,21 @@ class DeliveredDataDeleter(Deleter):
     def setup_samples_for_deletion(self, samples, dry_run):
         total_size_to_delete = 0
         for s in samples:
-            size_of_files = s.size_of_file_to_delete()
-            total_size_to_delete += size_of_files
+            total_size_to_delete += s.size_of_files
             deletable_data = join(self.deletion_dir, s.sample_id)
             if not dry_run:
-                s.list_of_file_for_deletion()
+                s.list_of_files
                 self._execute('mkdir -p ' + deletable_data)
-                self._execute('mv %s %s' % (' '.join(s.list_of_file_for_deletion()), deletable_data))
+                self._execute('mv %s %s' % (' '.join(s.list_of_files), deletable_data))
             else:
                 self.info(
                     'Sample %s has %s files to delete (%.2f G)\n%s',
                     s,
-                    len(s.list_of_file_for_deletion()),
-                    size_of_files/1000000000,
-                    '\n'.join(s.list_of_file_for_deletion())
+                    len(s.list_of_files),
+                    s.size_of_files/1000000000,
+                    '\n'.join(s.list_of_files)
                 )
-                self.info('Will run: mv %s %s' % (' '.join(s.list_of_file_for_deletion()), deletable_data))
+                self.info('Will run: mv %s %s' % (' '.join(s.list_of_files), deletable_data))
         self.info('Will delete %.2f G of data' % (total_size_to_delete / 1000000000))
 
 
