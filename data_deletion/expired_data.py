@@ -248,7 +248,7 @@ class DeliveredDataDeleter(Deleter):
         if isdir(d) and not listdir(d):
             self._execute('rm -r ' + d)
 
-    def try_archive_run(self, run_name):
+    def _try_archive_run(self, run_name):
         #look for any fastq files in any project/sample directory
         all_fastqs = glob.glob(join(self.raw_data_dir, run_name, '*', '*', '*.fastq.gz'))
         if all_fastqs:
@@ -282,9 +282,9 @@ class DeliveredDataDeleter(Deleter):
         #data has been deleted now clean up empty directories
 
         #Remove release batch directories if they are empty
-        for folder in set([s.released_data_folder for s in deletable_samples]):
+        for folder in set([os.path.dirname(s.released_data_folder) for s in deletable_samples]):
             self._try_delete_empty_dir(folder)
 
         #Archive run folders if they do not contain any fastq file anymore
-        for run_name in set([s.run_elements[ELEMENT_RUN_NAME] for s in deletable_samples]):
-            self.try_archive_run(run_name)
+        for run_name in set([r[ELEMENT_RUN_NAME] for r in s.run_elements for s in deletable_samples]):
+            self._try_archive_run(run_name)

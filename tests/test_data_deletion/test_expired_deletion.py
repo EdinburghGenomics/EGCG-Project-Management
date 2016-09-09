@@ -12,7 +12,7 @@ from data_deletion.expired_data import ProcessedSample, DeliveredDataDeleter
 
 patched_now = patch('data_deletion.Deleter._strnow', return_value='t')
 
-run_elements = [
+run_elements1 = [
     {
         'run_id': 'a_run',
         'project_id': 'a_project',
@@ -32,7 +32,7 @@ sample1 = {
     'release_dir': 'release_1',
     'project_id': 'a_project',
     'user_sample_id': 'a_user_sample_id',
-    'most_recent_proc': {'proc_id': 'a_proc_id'}
+    'most_recent_proc': {'proc_id': 'a_proc_id'},
 }
 sample2 = {
     'sample_id': 'yet_another_sample',
@@ -55,6 +55,9 @@ def fake_find_files(*parts):
 def fake_find_file(*parts):
     return fake_find_files(*parts)[0]
 
+def fake_run_elements(*args):
+    return []
+
 class TestProcessedSample(TestProjectManagement):
 
     def __init__(self, *args, **kwargs):
@@ -67,12 +70,12 @@ class TestProcessedSample(TestProjectManagement):
         self.sample2 = ProcessedSample(sample_data=sample2)
 
     def test_find_fastqs_for_run_element(self):
-        self.sample1._find_fastqs_for_run_element(run_elements[0])
+        self.sample1._find_fastqs_for_run_element(run_elements1[0])
 
     @patch.object(ProcessedSample, 'run_elements', new_callable=PropertyMock)
     @patch.object(ProcessedSample, '_find_fastqs_for_run_element', return_value = ['path_2_fastq1', 'path_2_fastq2'])
     def test_raw_data_files(self, mocked_find_fastqs, mocked_run_elements):
-        mocked_run_elements.return_value = run_elements
+        mocked_run_elements.return_value = run_elements1
         raw_data_files = self.sample1._raw_data_files()
         assert raw_data_files == ['path_2_fastq1', 'path_2_fastq2', 'path_2_fastq1', 'path_2_fastq2']
 
@@ -122,6 +125,7 @@ class TestDeliveredDataDeleter(TestDeleter):
             'R1_fastqc.html', 'R2_fastqc.html'
         )
     def setUp(self):
+        #set up the data delivered directories
         os.chdir(os.path.dirname(self.root_test_path))
         for s in [sample1, sample2, sample3]:
             for x in self.file_exts:
@@ -137,15 +141,23 @@ class TestDeliveredDataDeleter(TestDeleter):
         self.deleter = DeliveredDataDeleter(self.assets_deletion)
         self.deleter.local_execute_only = True
 
+        #Set up the raw data
+        self.mkdir(join(self.assets_deletion, 'fastqs', 'a_run'))
+        self.mkdir(join(self.assets_deletion, 'fastqs', 'a_pooling_run'))
+        self.touch(join(self.assets_deletion, 'fastqs', 'a_pooling_run', 'Undetermined_test1_R1.fastq.gz'))
+        self.touch(join(self.assets_deletion, 'fastqs', 'a_pooling_run', 'Undetermined_test1_R2.fastq.gz'))
+
     def tearDown(self):
         super().tearDown()
+        #Remove the delivered data
         for p in ('a_project', 'another_project'):
             rmtree(join(self.assets_deletion, 'delivered_data', p))
 
-        deletion_script = join(self.assets_deletion, 'data_deletion.pbs')
-        if os.path.isfile(deletion_script):
-            os.remove(deletion_script)
-
+        # Remove the raw data
+        for t in (('a_run',), ('a_pooling_run',), ('archive', 'a_run'), ('archive', 'a_pooling_run')):
+            path = join(*((self.assets_deletion, 'fastqs') + t))
+            if os.path.exists(path):
+                rmtree(path)
 
     def test_deletable_samples(self):
         pass
@@ -164,20 +176,28 @@ class TestDeliveredDataDeleter(TestDeleter):
             assert args[0] == 'mv file1 file2 ' + expected_deletion_dir
 
     def test_try_archive_run(self):
-        pass
+        assert os.path.exists(join(self.assets_deletion, 'fastqs', 'a_run'))
+        self.deleter._try_archive_run('a_run')
+        assert not os.path.exists(join(self.assets_deletion, 'fastqs', 'a_run'))
+        assert os.path.exists(join(self.assets_deletion, 'fastqs', 'archive', 'a_run'))
+
+        assert os.path.exists(join(self.assets_deletion, 'fastqs', 'a_pooling_run'))
+        self.deleter._try_archive_run('a_pooling_run')
+        assert not os.path.exists(join(self.assets_deletion, 'fastqs', 'a_pooling_run'))
+        assert os.path.exists(join(self.assets_deletion, 'fastqs', 'archive', 'a_pooling_run'))
+        assert not os.path.exists(join(self.assets_deletion, 'fastqs', 'archive', 'a_pooling_run', 'Undetermined_test1_R1.fastq.gz'))
 
 
     @patch.object(ProcessedSample, 'mark_as_deleted')
-    def test_delete_data(self, mocked_mark):
-        return 0
+    @patched_now
+    def test_delete_data(self, mocked_now, mocked_mark):
         patched_deletables = patch.object(DeliveredDataDeleter, 'deletable_samples', return_value=self.samples[0:2])
-        patched_deletables = patch.object(DeliveredDataDeleter, 'deletable_samples', return_value=self.samples[0:2])
-
         with patched_deletables:
-            self.deleter.dry_run = True
-            assert self.deleter.delete_data() == 0
-            self.deleter.dry_run = False
+            with patch.object(DeliveredDataDeleter, 'setup_samples_for_deletion'):
+                self.deleter.dry_run = True
+                assert self.deleter.delete_data() == 0
 
+            self.deleter.dry_run = False
             for s in [sample1, sample2, sample3]:
                 assert os.listdir(
                     join(
@@ -189,44 +209,15 @@ class TestDeliveredDataDeleter(TestDeleter):
                     )
                 )
             assert not os.path.isdir(join(self.assets_deletion, '.data_deletion_t'))
-            self.deleter.delete_data()
-
-        mocked_mark.assert_any_call('a_sample', 'a_proc_id')
-        mocked_mark.assert_any_call('yet_another_sample', 'yet_another_proc_id')
-        assert not os.path.isdir(join(self.assets_deletion, 'delivered_data', 'another_project'))
-        assert not os.path.isdir(join(self.assets_deletion, 'delivered_data', 'a_project', 'release_1'))
-        assert os.path.isdir(join(self.assets_deletion, 'delivered_data', 'a_project', 'release_2', 'another_sample'))
-        os.makedirs(join(self.assets_deletion, 'delivered_data', 'another_project'))
+            with patch.object(ProcessedSample, 'run_elements', new_callable=PropertyMock, side_effect=fake_run_elements):
+                self.deleter.delete_data()
+                assert mocked_mark.call_count == 2
+                assert not os.path.isdir(join(self.assets_deletion, 'delivered_data', 'a_project', 'release_1'))
+                assert os.path.isdir(join(self.assets_deletion, 'delivered_data', 'a_project', 'release_2', 'another_sample'))
 
     def test_auto_deletable_samples(self):
-        fake_release_map = {
-            'this': '2000-12-01',
-            'that': '2000-10-01',
-            'other': '2000-09-01'
-        }
-        patched_release_date = patch(
-            'data_deletion.delivered_data.clarity.get_sample_release_date',
-            new=lambda sample_id: fake_release_map[sample_id]
-        )
-        test_payload = [
-            {
-                'sample_id': 'this',
-                'proc_status': 'finished'
-            },
-            {
-                'sample_id': 'that',
-                'proc_status': 'finished'
-            },
-            {
-                'sample_id': 'other',
-                'proc_status': 'aborted'
-            }
-        ]
-        with patched_release_date, patch(patches.patch_get, return_value=test_payload), patches.patched_now:
-            # FIXME: The test is commented out because the function is disable
-            #assert self.deleter._auto_deletable_samples() == test_payload[1:]
-            pass
-
+        # FIXME: The test is commented out because the function is disable
+        pass
 
     def test_old_enough_for_deletion(self):
         with patches.patched_now:
