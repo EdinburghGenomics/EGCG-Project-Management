@@ -1,2 +1,2 @@
-git+https://github.com/EdinburghGenomics/EGCG-Core.git@v0.4.5
+git+https://github.com/EdinburghGenomics/EGCG-Core.git@v0.5
 jinja2==2.8

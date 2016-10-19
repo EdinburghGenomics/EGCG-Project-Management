@@ -5,7 +5,7 @@ from unittest.mock import patch, PropertyMock, MagicMock
 
 from egcg_core.config import cfg
 
-from data_deletion.expired_data import ProcessedSample, DeliveredDataDeleter
+from data_deletion.delivered_data import ProcessedSample, DeliveredDataDeleter
 from tests import TestProjectManagement
 from tests.test_data_deletion import TestDeleter, patches
 
