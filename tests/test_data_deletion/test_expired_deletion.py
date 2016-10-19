@@ -187,12 +187,15 @@ class TestDeliveredDataDeleter(TestDeleter):
         self.deleter.setup_samples_for_deletion(self.samples[0:1], dry_run=True)
         with patch('egcg_core.executor.local_execute', return_value=MagicMock(join=lambda: 0)) as mock_execute:
             self.deleter.setup_samples_for_deletion(self.samples[0:1], dry_run=False)
-            assert mock_execute.call_count == 2
+            assert mock_execute.call_count == 3
             (args, kwargs) = mock_execute.call_args_list[0]
             expected_deletion_dir = self.deleter.deletion_dir + '/' + self.samples[0].sample_id
             assert args[0] == 'mkdir -p ' + expected_deletion_dir
+            #Can't predict exactly the output file name but we can test that the input file and output dir are right
             (args, kwargs) = mock_execute.call_args_list[1]
-            assert args[0] == 'mv file1 file2 ' + expected_deletion_dir
+            assert args[0].startswith('mv file1 ' + expected_deletion_dir)
+            (args, kwargs) = mock_execute.call_args_list[2]
+            assert args[0].startswith('mv file2 ' + expected_deletion_dir)
 
     def test_try_archive_run(self):
         assert os.path.exists(join(self.assets_deletion, 'fastqs', 'a_run'))

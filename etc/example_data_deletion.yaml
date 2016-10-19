@@ -5,5 +5,6 @@ default:
         fastqs: tests/assets/data_deletion/fastqs
         fastq_archives: tests/assets/data_deletion/fastqs/archive
         processed_data: tests/assets/data_deletion/projects
+        processed_archives: tests/assets/data_deletion/projects/archive
         delivered_data: tests/assets/data_deletion/delivered_data
 
