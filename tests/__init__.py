@@ -1,3 +1,4 @@
+import os
 from os.path import join, abspath, dirname
 from unittest import TestCase
 
@@ -12,6 +13,10 @@ class TestProjectManagement(TestCase):
     @staticmethod
     def touch(file_path):
         open(file_path, 'w').close()
+
+    @staticmethod
+    def mkdir(file_path):
+        os.makedirs(file_path, exist_ok=True)
 
     def compare_lists(self, obs, exp):
         obs = sorted(obs)
