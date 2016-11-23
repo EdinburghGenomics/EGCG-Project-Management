@@ -40,33 +40,42 @@ def _get_artifacts_and_containers_from_samples(samples):
     for start in range(0, len(artifacts), 100):
         lims.get_batch(artifacts[start:start + 100])
 
-def get_samples():
-    print('retrieve samples from REST API')
-    samples = rest_communication.get_documents('aggregate/samples', paginate=False)
-    sample_names = [s.get('sample_id') for s in samples]
-    tmp_samples = defaultdict(dict)
-    print('get %s samples from lims'%len(sample_names))
-    lims_samples = get_list_of_samples(sample_names)
-    _get_artifacts_and_containers_from_samples(lims_samples)
-    print('get other info from lims')
-    for lims_sample in lims_samples:
-        req_yield = lims_sample.udf.get('Yield for Quoted Coverage (Gb)', 95)
-        tmp_samples[sanitize_user_id(lims_sample.name)]['req_yield'] = req_yield
-        tmp_samples[sanitize_user_id(lims_sample.name)]['plate'] = lims_sample.artifact.container.name
 
+def update_samples(cached_samples):
+    tmp_samples = defaultdict(dict)
+    for s in cached_samples:
+        tmp_samples[s.get('sample_id')] = s
+    print('Update samples from REST API')
+    samples = rest_communication.get_documents('aggregate/samples', paginate=False)
     for s in samples:
-        s.update(tmp_samples[s.get('sample_id')])
-    return samples
+        tmp_samples[s.get('sample_id')].update(s)
+
+    required_fields = ['expected_yield', 'plate_name']
+    sample_to_update = []
+    for s in tmp_samples.values():
+        if len(set(s.keys()).intersection(set(required_fields))) < len(required_fields):
+            sample_to_update.append(s.get('sample_id'))
+
+    print('get %s samples from lims' % len(sample_to_update))
+    lims_samples = get_list_of_samples(sample_to_update)
+    _get_artifacts_and_containers_from_samples(lims_samples)
+    for lims_sample in lims_samples:
+        expected_yield = lims_sample.udf.get('Yield for Quoted Coverage (Gb)', 95)
+        tmp_samples[sanitize_user_id(lims_sample.name)]['expected_yield'] = expected_yield
+        tmp_samples[sanitize_user_id(lims_sample.name)]['plate_name'] = lims_sample.artifact.container.name
+
+    return list(tmp_samples.values())
+
 
 def get_runs():
     return None
 
 def update_cache(cached_file, update_target='all'):
-    samples, runs = (None, None)
+    samples, runs = ([], [])
     if os.path.exists(cached_file):
         samples, runs = load_cache(cached_file)
     if update_target in ['all', 'sample']:
-        samples = get_samples()
+        samples = update_samples(samples)
     if update_target in ['all', 'run']:
         runs = get_runs()
 
@@ -90,7 +99,7 @@ def get_sample_status(sample):
         return STATUS_SAMPLE_FAILED
     status = sample.get('proc_status')
     if not status or status == 'reprocess':
-        if float(sample['req_yield']) > float(sample['clean_yield_q30']):
+        if float(sample['expected_yield']) > float(sample['clean_yield_q30']):
             return STATUS_NEW
         else:
             return STATUS_READY
@@ -164,7 +173,7 @@ def create_report(report_type, cached_file, filter, filter_values):
     if report_type == 'projects':
         header, rows = aggregate_samples_per(samples, 'project_id', filter, filter_values)
     elif report_type == 'plates':
-        header, rows = aggregate_samples_per(samples, 'plate', filter, filter_values)
+        header, rows = aggregate_samples_per(samples, 'plate_name', filter, filter_values)
     elif report_type == 'samples':
         header, rows = show_samples(samples, filter, filter_values)
     format_table(header, rows)
