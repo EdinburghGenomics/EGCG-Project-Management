@@ -47,7 +47,7 @@ def query(content, parts, top_level=None, ret_default=None):
 
 
 def sample_config(sample, species):
-    coverage_values = {95: (120, 30), 120: (160, 40), 190: (240, 60)}
+    coverage_values = {30: (40, 30), 95: (120, 30), 120: (160, 40), 190: (240, 60), 270: (360, 90)}
 
     sample_cfg = {}
     default_cfg = review_thresholds.get('sample').get('default')
@@ -127,6 +127,29 @@ def metrics(dataset, cfg):
         return_failed_metrics = ('fail', failed_metrics)
     return return_failed_metrics
 
+class AutomaticReview():
+
+    def __init__(self, cfg, endpoint):
+        self.cfg = cfg
+        self.endpoint = endpoint
+
+    def patch_entries(self, payload):
+        rest_communication.patch_entries(self.enpoint, payload=payload, update_lists=None,
+                                         where={"run_id": self.run_name, "lane": lane_number})
+
+        for lane in self.run_element_by_lane:
+            lane_number = (lane.get('lane_number'))
+            lane_review, reasons = metrics(lane, self.cfg)
+            rest_communication.patch_entries('run_elements', payload={'reviewed': lane_review}, update_lists=None,
+                                             where={"run_id": self.run_name, "lane": lane_number})
+            if reasons:
+                rest_communication.patch_entries('run_elements', payload={
+                    ELEMENT_REVIEW_COMMENTS: 'failed due to ' + ', '.join(reasons)}, update_lists=None,
+                                                 where={"run_id": self.run_name, "lane": lane_number})
+
+            return lane_review
+
+
 
 class AutomaticRunReview():
     def __init__(self, run_name, run_element_by_lane, cfg):
@@ -145,7 +168,6 @@ class AutomaticRunReview():
                 rest_communication.patch_entries('run_elements', payload={
                     ELEMENT_REVIEW_COMMENTS: 'failed due to ' + ', '.join(reasons)}, update_lists=None,
                                                  where={"run_id": self.run_name, "lane": lane_number})
-
             return lane_review
 
 
@@ -170,8 +192,20 @@ class AutomaticSampleReview():
         return sample_review
 
 
+def get_reviewable(endpoint, object_id):
+    objs = rest_communication.get_documents(endpoint, paginate=False,
+                                            match={"proc_status": "finished", "review_statuses": "not%20reviewed"})
+    if objs:
+        for obj in objs:
+            obj_id = obj.get(object_id)
+            run_elements_by_lane = rest_communication.get_documents('aggregate/run_elements_by_lane',
+                                                                    match={"run_id": obj_id})
+            run_cfg = review_thresholds.get('run')
+            r = AutomaticRunReview(run_id, run_elements_by_lane, run_cfg)
+            r.patch_entry()
+
 def get_reviewable_runs():
-    runs = rest_communication.get_documents('aggregate/all_runs', depaginate=True,
+    runs = rest_communication.get_documents('aggregate/all_runs', paginate=False,
                                             match={"proc_status": "finished", "review_statuses": "not%20reviewed"})
     if runs:
         for run in runs:
@@ -184,7 +218,7 @@ def get_reviewable_runs():
 
 
 def get_reviewable_samples():
-    samples = rest_communication.get_documents('aggregate/samples', depaginate=True,
+    samples = rest_communication.get_documents('aggregate/samples', paginate=False,
                                                match={"proc_status": "finished", "reviewed": "not%20reviewed"})
     if samples:
         for sample in samples:
