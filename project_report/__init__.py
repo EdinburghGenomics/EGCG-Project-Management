@@ -4,6 +4,7 @@ import yaml
 from os import path, listdir
 from jinja2 import Environment, FileSystemLoader
 from egcg_core.util import find_file
+from egcg_core.rest_communication import get_documents
 from egcg_core.clarity import connection
 from egcg_core.app_logging import logging_default as log_cfg
 from config import cfg
@@ -62,6 +63,14 @@ class ProjectReport:
             self._samples_for_project = self.lims.get_samples(projectname=self.project_name)
         return self._samples_for_project
 
+
+    @property
+    def samples_for_project_from_db(self):
+        if self._samples_for_project is None:
+            self._samples_for_project = get_documents('samples', where={'project_id': self.project_name})
+        return self._samples_for_project
+
+
     def get_sample(self, sample_name):
         samples = [s for s in self.samples_for_project if s.name == sample_name]
         if len(samples) == 1:
@@ -72,6 +81,15 @@ class ProjectReport:
         if modify_names:
             return [re.sub(r'[: ]', '_', s.name) for s in self.samples_for_project]
         return [s.name for s in self.samples_for_project]
+
+
+
+    def get_all_sample_names_from_db(self, modify_names=False):
+        if modify_names:
+            return [re.sub(r'[: ]', '_', s.get('sample_id')) for s in self.samples_for_project_from_db]
+        return [s.get('sample_id') for s in self.samples_for_project_from_db]
+
+
 
     def get_library_workflow_from_sample(self, sample_name):
         return self.get_sample(sample_name).udf.get('Prep Workflow')
@@ -109,11 +127,38 @@ class ProjectReport:
                 samples_to_info[row['Sample Id']] = row
         return samples_to_info
 
-    def get_sample_info(self):
-        modified_samples = self.get_all_sample_names(modify_names=True)
-        for sample in set(modified_samples):
-            sample_source = path.join(self.project_source, sample)
+    def per_project_sample_basic_stats(self):
+        samples_for_project = get_documents('aggregate/samples', where={'project_id': self.project_name})
+        sample_yields = [s.get('clean_yield_in_gb') for s in samples_for_project]
+        coverage_per_sample = [s.get('coverage', {}).get('mean') for s in samples_for_project]
+        samples_in_project = len(sample_yields)
+        return sample_yields, samples_in_project, coverage_per_sample
 
+    def per_project_sample_qc_stats(self):
+        samples_for_project = get_documents('aggregate/samples', where={'project_id': self.project_name})
+        pc_duplicate_reads = [s.get('pc_duplicate_reads') for s in samples_for_project]
+        evenness = [s.get('evenness') for s in samples_for_project]
+        freemix = [s.get('freemix') for s in samples_for_project]
+        pc_properly_mapped_reads = [s.get('pc_properly_mapped_reads') for s in samples_for_project]
+        clean_pc_q30 = [s.get('clean_pc_q30') for s in samples_for_project]
+        mean_bases_covered_at_15X = [s.get('coverage_statistics', {})
+                                         .get('bases_at_coverage', {})
+                                         .get('bases_at_15X')
+                                     for s in samples_for_project]
+
+        return sum(pc_duplicate_reads)/len(pc_duplicate_reads), \
+               sum(evenness)/len(evenness), \
+               max(freemix), \
+               sum(pc_properly_mapped_reads)/len(pc_properly_mapped_reads), \
+               sum(clean_pc_q30)/len(clean_pc_q30), \
+               sum(mean_bases_covered_at_15X)/len(mean_bases_covered_at_15X)
+
+    def get_sample_info(self):
+
+        # basic statisticss
+        modified_samples_from_db = self.get_all_sample_names_from_db(modify_names=True)
+        for sample in set(modified_samples_from_db):
+            sample_source = path.join(self.project_source, sample)
             program_csv = find_file(sample_source, 'programs.txt')
             if not program_csv:
                 program_csv = find_file(sample_source, '.qc', 'programs.txt')
@@ -124,24 +169,36 @@ class ProjectReport:
             if summary_yaml:
                 self.update_from_project_summary_yaml(summary_yaml)
 
-        samples_delivered = self.read_metrics_csv(path.join(self.project_delivery, 'summary_metrics.csv'))
-        yields = [float(samples_delivered[s]['Yield']) for s in samples_delivered]
-        results = [
-            ('Number of samples:', len(modified_samples)),
-            ('Number of samples delivered:', len(samples_delivered)),
+        yields, samples_delivered, coverage = self.per_project_sample_basic_stats()
+
+        basic_stats_results = [
+            ('Number of samples:', len(modified_samples_from_db)),
+            ('Number of samples delivered:', samples_delivered),
             ('Total yield (Gb):', '%.2f' % sum(yields)),
             ('Average yield (Gb):', '%.1f' % (sum(yields)/max(len(yields), 1)))
         ]
 
-        try:
-            coverage = [float(samples_delivered[s]['Mean coverage']) for s in samples_delivered]
-            results.append(('Average coverage per sample:', '%.2f' % (sum(coverage)/max(len(coverage), 1))))
-        except KeyError:
-            app_logger.warning('Not adding mean coverage')
+        basic_stats_results.append(('Average coverage per sample:', '%.2f' % (sum(coverage)/max(len(coverage), 1))))
 
         project_size = self.get_folder_size(self.project_delivery)
-        results.append(('Total folder size:', '%.2fTb' % (project_size/1000000000000.0)))
-        return results
+        basic_stats_results.append(('Total folder size:', '%.2fTb' % (project_size/1000000000000.0)))
+
+        # QC
+        pc_duplicate_reads, \
+        evenness, \
+        freemix, \
+        pc_properly_mapped_reads, \
+        clean_pc_q30, \
+        mean_bases_covered_at_15X = self.per_project_sample_qc_stats()
+        qc_results = [('Average percent duplicate reads: %s' % (pc_duplicate_reads)),
+                      ('Average evenness: %s' % (evenness)),
+                      ('Maximum freemix value : %s' % (freemix)),
+                      ('Average percent mapped reads : %s' % (pc_properly_mapped_reads)),
+                      ('Average percent Q30 : %s' % (clean_pc_q30)),
+                      ('Average bases covered at 15X: %s' % (pc_duplicate_reads))]
+
+        return basic_stats_results, qc_results
+
 
     def get_html_template(self):
         samples = self.get_all_sample_names(modify_names=False)
@@ -176,7 +233,8 @@ class ProjectReport:
         template_dir = path.join(path.dirname(path.abspath(__file__)), 'templates')
         env = Environment(loader=FileSystemLoader(template_dir))
         template = env.get_template(self.get_html_template())
-        return template.render(results=self.get_sample_info(), project_info=self.get_project_info(), **self.params)
+        basic_stats_results, qc_results = self.get_sample_info()
+        return template.render(basic_stats_results=basic_stats_results, qc_results=qc_results, project_info=self.get_project_info(), **self.params)
 
     @classmethod
     def get_folder_size(cls, folder):
