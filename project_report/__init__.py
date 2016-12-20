@@ -2,6 +2,7 @@ import re
 import csv
 import yaml
 from os import path, listdir
+from collections import OrderedDict
 from jinja2 import Environment, FileSystemLoader
 from egcg_core.util import find_file
 from egcg_core.clarity import connection
@@ -110,14 +111,30 @@ class ProjectReport:
                 samples_to_info[row['Sample Id']] = row
         return samples_to_info
 
-    def per_project_sample_basic_stats(self):
+    def per_project_sample_basic_stats(self, number_of_samples, project_size):
+
         samples_for_project = get_documents('aggregate/samples', where={'project_id': self.project_name})
         sample_yields = [s.get('clean_yield_in_gb') for s in samples_for_project if s.get('clean_yield_in_gb')]
         coverage_per_sample = [s.get('coverage', {}).get('mean') for s in samples_for_project if s.get('coverage')]
         samples_in_project = len(sample_yields)
-        return sample_yields, samples_in_project, coverage_per_sample
+
+        basic_stats_to_report = OrderedDict()
+        basic_stats_to_report['Number of samples:'] = number_of_samples
+
+        if samples_in_project:
+            basic_stats_to_report['Number of samples delivered:'] = samples_in_project
+        if sample_yields:
+            basic_stats_to_report['Total yield (Gb):'] = '%.2f' % sum(sample_yields)
+            basic_stats_to_report['Average yield (Gb):'] = '%.1f' % (sum(sample_yields)/max(len(sample_yields), 1))
+        if coverage_per_sample:
+            basic_stats_to_report['Average coverage per sample:'] = '%.2f' % (sum(coverage_per_sample)/max(len(coverage_per_sample), 1))
+
+        basic_stats_to_report['Total folder size:'] = '%.2fTb' % (project_size/1000000000000.0)
+
+        return basic_stats_to_report
 
     def per_project_sample_qc_stats(self):
+
         samples_for_project = get_documents('aggregate/samples', where={'project_id': self.project_name})
         pc_duplicate_reads = [s.get('pc_duplicate_reads') for s in samples_for_project if s.get('pc_duplicate_reads')]
         evenness = [s.get('evenness') for s in samples_for_project if s.get('evenness')]
@@ -129,76 +146,57 @@ class ProjectReport:
                                          .get('bases_at_15X')
                                      for s in samples_for_project if s.get('coverage_statistics')]
 
-        average_pc_duplicates = None
-        average_evenness = None
-        max_freemix = None
-        average_pc_properly_mapped_reads = None
-        average_clean_pc_q30 = None
-        average_mean_bases_covered_at_15X = None
+        qc_stats_to_report = OrderedDict()
 
         if pc_duplicate_reads:
-            average_pc_duplicates = sum(pc_duplicate_reads)/len(pc_duplicate_reads)
+            qc_stats_to_report['Average percent duplicate reads:'] = sum(pc_duplicate_reads)/len(pc_duplicate_reads)
         if evenness:
-            average_evenness = sum(evenness)/len(evenness)
+            qc_stats_to_report['Average evenness:'] = sum(evenness)/len(evenness)
         if freemix:
-            max_freemix = max(freemix)
+            qc_stats_to_report['Maximum freemix value:'] = max(freemix)
         if pc_properly_mapped_reads:
-            average_pc_properly_mapped_reads = sum(pc_properly_mapped_reads)/len(pc_properly_mapped_reads)
+            qc_stats_to_report['Average percent mapped reads:'] = sum(pc_properly_mapped_reads)/len(pc_properly_mapped_reads)
         if clean_pc_q30:
-            average_clean_pc_q30 = sum(clean_pc_q30)/len(clean_pc_q30)
+            qc_stats_to_report['Average percent Q30:'] = sum(clean_pc_q30)/len(clean_pc_q30)
         if mean_bases_covered_at_15X:
-            average_mean_bases_covered_at_15X = sum(mean_bases_covered_at_15X)/len(mean_bases_covered_at_15X)
+            qc_stats_to_report['Average bases covered at 15X:'] = sum(mean_bases_covered_at_15X)/len(mean_bases_covered_at_15X)
 
-        return average_pc_duplicates, \
-               average_evenness, \
-               max_freemix, \
-               average_pc_properly_mapped_reads, \
-               average_clean_pc_q30, \
-               average_mean_bases_covered_at_15X
+        return qc_stats_to_report
 
     def get_sample_info(self):
 
         # basic statisticss
         modified_samples = self.get_all_sample_names(modify_names=True)
+
         for sample in set(modified_samples):
             sample_source = path.join(self.project_source, sample)
             program_csv = find_file(sample_source, 'programs.txt')
             if not program_csv:
                 program_csv = find_file(sample_source, '.qc', 'programs.txt')
             self.update_from_program_csv(program_csv)
+
             summary_yaml = find_file(sample_source, 'project-summary.yaml')
             if not summary_yaml:
                 summary_yaml = find_file(sample_source, '.qc', 'project-summary.yaml')
             if summary_yaml:
                 self.update_from_project_summary_yaml(summary_yaml)
 
-        yields, samples_delivered, coverage = self.per_project_sample_basic_stats()
-
-        basic_stats_results = [
-            ('Number of samples:', len(modified_samples)),
-            ('Number of samples delivered:', samples_delivered),
-            ('Total yield (Gb):', '%.2f' % sum(yields)),
-            ('Average yield (Gb):', '%.1f' % (sum(yields)/max(len(yields), 1)))
-        ]
-
-        basic_stats_results.append(('Average coverage per sample:', '%.2f' % (sum(coverage)/max(len(coverage), 1))))
-
+        number_of_samples = len(modified_samples)
         project_size = self.get_folder_size(self.project_delivery)
-        basic_stats_results.append(('Total folder size:', '%.2fTb' % (project_size/1000000000000.0)))
+        basic_stats = self.per_project_sample_basic_stats(number_of_samples, project_size)
+        basic_stats_results = []
+
+        for stat in basic_stats:
+            if basic_stats[stat]:
+                basic_stats_results.append((stat, basic_stats[stat]))
 
         # QC
-        pc_duplicate_reads, \
-        evenness, \
-        freemix, \
-        pc_properly_mapped_reads, \
-        clean_pc_q30, \
-        mean_bases_covered_at_15X = self.per_project_sample_qc_stats()
-        qc_results = [('Average percent duplicate reads:', pc_duplicate_reads),
-                      ('Average evenness: %s', evenness),
-                      ('Maximum freemix value: %s', freemix),
-                      ('Average percent mapped reads:', pc_properly_mapped_reads),
-                      ('Average percent Q30:', clean_pc_q30),
-                      ('Average bases covered at 15X:', pc_duplicate_reads)]
+        qc_stats = self.per_project_sample_qc_stats()
+        qc_results = []
+
+        for stat in qc_stats:
+            if qc_stats[stat]:
+                qc_results.append((stat, qc_stats[stat]))
 
         return basic_stats_results, qc_results
 
