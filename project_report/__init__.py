@@ -112,8 +112,8 @@ class ProjectReport:
 
     def per_project_sample_basic_stats(self):
         samples_for_project = get_documents('aggregate/samples', where={'project_id': self.project_name})
-        sample_yields = [s.get('clean_yield_in_gb') for s in samples_for_project]
-        coverage_per_sample = [s.get('coverage', {}).get('mean') for s in samples_for_project]
+        sample_yields = [s.get('clean_yield_in_gb') for s in samples_for_project if s.get('clean_yield_in_gb')]
+        coverage_per_sample = [s.get('coverage', {}).get('mean') for s in samples_for_project if s.get('coverage')]
         samples_in_project = len(sample_yields)
         return sample_yields, samples_in_project, coverage_per_sample
 
@@ -193,12 +193,12 @@ class ProjectReport:
         pc_properly_mapped_reads, \
         clean_pc_q30, \
         mean_bases_covered_at_15X = self.per_project_sample_qc_stats()
-        qc_results = [('Average percent duplicate reads: %s' % (pc_duplicate_reads)),
-                      ('Average evenness: %s' % (evenness)),
-                      ('Maximum freemix value : %s' % (freemix)),
-                      ('Average percent mapped reads : %s' % (pc_properly_mapped_reads)),
-                      ('Average percent Q30 : %s' % (clean_pc_q30)),
-                      ('Average bases covered at 15X: %s' % (pc_duplicate_reads))]
+        qc_results = [('Average percent duplicate reads:', pc_duplicate_reads),
+                      ('Average evenness: %s', evenness),
+                      ('Maximum freemix value: %s', freemix),
+                      ('Average percent mapped reads:', pc_properly_mapped_reads),
+                      ('Average percent Q30:', clean_pc_q30),
+                      ('Average bases covered at 15X:', pc_duplicate_reads)]
 
         return basic_stats_results, qc_results
 
