@@ -4,10 +4,10 @@ import yaml
 from os import path, listdir
 from jinja2 import Environment, FileSystemLoader
 from egcg_core.util import find_file
-from egcg_core.rest_communication import get_documents
 from egcg_core.clarity import connection
 from egcg_core.app_logging import logging_default as log_cfg
 from config import cfg
+from egcg_core.rest_communication import get_documents
 
 app_logger = log_cfg.get_logger(__name__)
 log_cfg.get_logger('weasyprint', 40)
@@ -63,14 +63,6 @@ class ProjectReport:
             self._samples_for_project = self.lims.get_samples(projectname=self.project_name)
         return self._samples_for_project
 
-
-    @property
-    def samples_for_project_from_db(self):
-        if self._samples_for_project is None:
-            self._samples_for_project = get_documents('samples', where={'project_id': self.project_name})
-        return self._samples_for_project
-
-
     def get_sample(self, sample_name):
         samples = [s for s in self.samples_for_project if s.name == sample_name]
         if len(samples) == 1:
@@ -81,15 +73,6 @@ class ProjectReport:
         if modify_names:
             return [re.sub(r'[: ]', '_', s.name) for s in self.samples_for_project]
         return [s.name for s in self.samples_for_project]
-
-
-
-    def get_all_sample_names_from_db(self, modify_names=False):
-        if modify_names:
-            return [re.sub(r'[: ]', '_', s.get('sample_id')) for s in self.samples_for_project_from_db]
-        return [s.get('sample_id') for s in self.samples_for_project_from_db]
-
-
 
     def get_library_workflow_from_sample(self, sample_name):
         return self.get_sample(sample_name).udf.get('Prep Workflow')
@@ -136,28 +119,48 @@ class ProjectReport:
 
     def per_project_sample_qc_stats(self):
         samples_for_project = get_documents('aggregate/samples', where={'project_id': self.project_name})
-        pc_duplicate_reads = [s.get('pc_duplicate_reads') for s in samples_for_project]
-        evenness = [s.get('evenness') for s in samples_for_project]
-        freemix = [s.get('freemix') for s in samples_for_project]
-        pc_properly_mapped_reads = [s.get('pc_properly_mapped_reads') for s in samples_for_project]
-        clean_pc_q30 = [s.get('clean_pc_q30') for s in samples_for_project]
+        pc_duplicate_reads = [s.get('pc_duplicate_reads') for s in samples_for_project if s.get('pc_duplicate_reads')]
+        evenness = [s.get('evenness') for s in samples_for_project if s.get('evenness')]
+        freemix = [s.get('freemix') for s in samples_for_project if s.get('freemix')]
+        pc_properly_mapped_reads = [s.get('pc_properly_mapped_reads') for s in samples_for_project if s.get('pc_properly_mapped_reads')]
+        clean_pc_q30 = [s.get('clean_pc_q30') for s in samples_for_project if s.get('clean_pc_q30')]
         mean_bases_covered_at_15X = [s.get('coverage_statistics', {})
                                          .get('bases_at_coverage', {})
                                          .get('bases_at_15X')
-                                     for s in samples_for_project]
+                                     for s in samples_for_project if s.get('coverage_statistics')]
 
-        return sum(pc_duplicate_reads)/len(pc_duplicate_reads), \
-               sum(evenness)/len(evenness), \
-               max(freemix), \
-               sum(pc_properly_mapped_reads)/len(pc_properly_mapped_reads), \
-               sum(clean_pc_q30)/len(clean_pc_q30), \
-               sum(mean_bases_covered_at_15X)/len(mean_bases_covered_at_15X)
+        average_pc_duplicates = None
+        average_evenness = None
+        max_freemix = None
+        average_pc_properly_mapped_reads = None
+        average_clean_pc_q30 = None
+        average_mean_bases_covered_at_15X = None
+
+        if pc_duplicate_reads:
+            average_pc_duplicates = sum(pc_duplicate_reads)/len(pc_duplicate_reads)
+        if evenness:
+            average_evenness = sum(evenness)/len(evenness)
+        if freemix:
+            max_freemix = max(freemix)
+        if pc_properly_mapped_reads:
+            average_pc_properly_mapped_reads = sum(pc_properly_mapped_reads)/len(pc_properly_mapped_reads)
+        if clean_pc_q30:
+            average_clean_pc_q30 = sum(clean_pc_q30)/len(clean_pc_q30)
+        if mean_bases_covered_at_15X:
+            average_mean_bases_covered_at_15X = sum(mean_bases_covered_at_15X)/len(mean_bases_covered_at_15X)
+
+        return average_pc_duplicates, \
+               average_evenness, \
+               max_freemix, \
+               average_pc_properly_mapped_reads, \
+               average_clean_pc_q30, \
+               average_mean_bases_covered_at_15X
 
     def get_sample_info(self):
 
         # basic statisticss
-        modified_samples_from_db = self.get_all_sample_names_from_db(modify_names=True)
-        for sample in set(modified_samples_from_db):
+        modified_samples = self.get_all_sample_names(modify_names=True)
+        for sample in set(modified_samples):
             sample_source = path.join(self.project_source, sample)
             program_csv = find_file(sample_source, 'programs.txt')
             if not program_csv:
@@ -172,7 +175,7 @@ class ProjectReport:
         yields, samples_delivered, coverage = self.per_project_sample_basic_stats()
 
         basic_stats_results = [
-            ('Number of samples:', len(modified_samples_from_db)),
+            ('Number of samples:', len(modified_samples)),
             ('Number of samples delivered:', samples_delivered),
             ('Total yield (Gb):', '%.2f' % sum(yields)),
             ('Average yield (Gb):', '%.1f' % (sum(yields)/max(len(yields), 1)))
