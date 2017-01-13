@@ -120,8 +120,10 @@ class TestProcessedSample(TestProjectManagement):
     @patch('os.stat', return_value=MagicMock(st_ino='123456', st_size=10000))
     @patch('os.path.isdir', return_value=False)
     def test_size_of_files(self, mock_is_dir, mock_os_stat):
-        with patch.object(ProcessedSample, 'list_of_files', new_callable=PropertyMock) as mocked_list:
-            mocked_list.return_value = ['file1', 'file2']
+        with patch.object(ProcessedSample, 'files_to_purge', new_callable=PropertyMock) as mocked_purge,\
+            patch.object(ProcessedSample, 'files_to_remove_from_lustre', new_callable=PropertyMock) as mocked_remove_from_lustre:
+            mocked_purge.return_value = ['file1', 'file2']
+            mocked_remove_from_lustre.return_value = []
             assert self.sample1.size_of_files == 10000
 
     @patch.object(ProcessedSample, 'warning')
@@ -182,8 +184,9 @@ class TestDeliveredDataDeleter(TestDeleter):
         pass
 
     @patch.object(ProcessedSample, 'size_of_files', new_callable=PropertyMock, return_value=1000000000)
-    @patch.object(ProcessedSample, 'list_of_files', new_callable=PropertyMock, return_value=['file1', 'file2'])
-    def test_setup_samples_for_deletion(self, mocked_get_files, mocked_get_size):
+    @patch.object(ProcessedSample, 'files_to_purge', new_callable=PropertyMock, return_value=['file1', 'file2'])
+    @patch.object(ProcessedSample, 'files_to_remove_from_lustre', new_callable=PropertyMock, return_value=[])
+    def test_setup_samples_for_deletion(self, mocked_files_to_remove_from_lustre, mocked_files_to_purge, mocked_get_size):
         self.deleter.setup_samples_for_deletion(self.samples[0:1], dry_run=True)
         with patch('egcg_core.executor.local_execute', return_value=MagicMock(join=lambda: 0)) as mock_execute:
             self.deleter.setup_samples_for_deletion(self.samples[0:1], dry_run=False)

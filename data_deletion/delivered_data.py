@@ -144,6 +144,7 @@ class ProcessedSample(app_logging.AppLogger):
                 self._files_to_purge.append(release_folder)
         return self._files_to_purge
 
+    @property
     def files_to_remove_from_lustre(self):
         if not self._files_to_remove_from_lustre:
             self._files_to_remove_from_lustre = []
@@ -181,7 +182,6 @@ class ProcessedSample(app_logging.AppLogger):
 
     def __repr__(self):
         return self.sample_id + ' (%s)'%self.release_date
-
 
 
 class DeliveredDataDeleter(Deleter):
