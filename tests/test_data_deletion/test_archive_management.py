@@ -15,6 +15,10 @@ class TestArchiveManagement(TestProjectManagement):
             assert archive_states('testfile') == ['released', 'exists', 'archived']
 
         with patch('data_deletion.archive_management._get_stdout',
+                   return_value='testfile: (0x00000009) exists archived, archive_id:1'):
+            assert archive_states('testfile') == ['exists', 'archived']
+
+        with patch('data_deletion.archive_management._get_stdout',
                    return_value = 'testfile: (0x00000001) exists, archive_id:1'):
             assert archive_states('testfile') == ['exists']
 
@@ -24,11 +28,20 @@ class TestArchiveManagement(TestProjectManagement):
 
     def test_release_file_from_lustre(self):
         with patch('data_deletion.archive_management._get_stdout',
-                   side_effect = [
+                   side_effect=[
+                       'testfile: (0x00000009) exists archived, archive_id:1',
                        'testfile: (0x00000009) exists archived, archive_id:1',
                        ''
                    ]):
             assert release_file_from_lustre('testfile')
+
+        with patch('data_deletion.archive_management._get_stdout',
+                   side_effect=[
+                       'testfile: (0x0000000d) released exists archived, archive_id:1',
+                       'testfile: (0x0000000d) released exists archived, archive_id:1',
+                       ''
+                   ]):
+            assert release_file_from_lustre('testfile') == None
 
         with patch('data_deletion.archive_management._get_stdout',
                    side_effect = [
