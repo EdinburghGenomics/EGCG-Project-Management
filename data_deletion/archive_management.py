@@ -45,12 +45,18 @@ def archive_states(file_path):
 def is_archived(file_path):
     return 'archived' in archive_states(file_path)
 
+def is_released(file_path):
+    return 'released' in archive_states(file_path)
+
 def release_file_from_lustre(file_path):
     if is_archived(file_path):
-        cmd = 'lfs hsm_release %s'%file_path
-        val = _get_stdout(cmd)
-        if val is not None :
-            return True
+        if not is_released(file_path):
+            cmd = 'lfs hsm_release %s'%file_path
+            val = _get_stdout(cmd)
+            if val is not None :
+                return True
+        else:
+            app_logger.warning('Trying to release a %s already released from lustre'%file_path)
     else:
         raise ArchivingError('Cannot release %s from lustre because it is not archive to tape'%file_path)
 

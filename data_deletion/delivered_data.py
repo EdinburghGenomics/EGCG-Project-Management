@@ -307,7 +307,7 @@ class DeliveredDataDeleter(Deleter):
             match={'project_id': project_id},
             paginate=False
         )
-        status = list(set([s.status for s in sample_records]))
+        status = list(set([s.get('status') for s in sample_records]))
         if len(status) != 1 or status[0] != 'deleted':
             return
         self.info('Archive project '+ project_id)
