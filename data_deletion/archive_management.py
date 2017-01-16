@@ -6,7 +6,7 @@ from egcg_core.app_logging import logging_default as log_cfg
 from egcg_core.exceptions import EGCGError
 
 app_logger = log_cfg.get_logger('archive_management')
-state_re = re.compile('^(.+): \((0x\d+)\)(.+)?')
+state_re = re.compile('^(.+): \((0x\w+)\)(.+)?')
 
 class ArchivingError(EGCGError):
     pass
