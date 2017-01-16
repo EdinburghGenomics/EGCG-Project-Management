@@ -28,7 +28,7 @@ def archive_states(file_path):
     match = state_re.match(val)
     if match:
         file_name = match.group(1)
-        assert file_name == os.path.basename(file_path)
+        assert file_name == file_path
         flag = match.group(2)
         state_and_id = match.group(3)
         if state_and_id:
