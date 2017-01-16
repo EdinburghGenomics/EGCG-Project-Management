@@ -169,16 +169,11 @@ class ProcessedSample(app_logging.AppLogger):
         return self._size_of_files
 
     def mark_as_deleted(self):
-        proc_id = self.sample_data.get('most_recent_proc', {}).get('proc_id')
-        if not proc_id:
-            self.warning('No pipeline process found for ' + self.sample_id)
-        else:
-            rest_communication.patch_entry(
-                'analysis_driver_procs',
-                {'status': 'deleted'},
-                'proc_id', proc_id
-            )
-
+        rest_communication.patch_entry(
+            'samples',
+            {'data_deleted': 'on lustre'},
+            'sample_id', self.sample_data.get('sample_id')
+        )
 
     def __repr__(self):
         return self.sample_id + ' (%s)'%self.release_date
@@ -229,7 +224,7 @@ class DeliveredDataDeleter(Deleter):
         sample_records = rest_communication.get_documents(
             'aggregate/samples',
             quiet=True,
-            match={'proc_status': 'finished', 'useable': 'yes', 'delivered': 'yes'},
+            match={'proc_status': 'finished', 'useable': 'yes', 'delivered': 'yes', 'data_deleted': 'none'},
             paginate=False
         )
         for r in sample_records:
