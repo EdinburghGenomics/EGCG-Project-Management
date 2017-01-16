@@ -32,7 +32,7 @@ def archive_states(file_path):
         flag = match.group(2)
         state_and_id = match.group(3)
         if state_and_id:
-            state, id = state_and_id.split(',')
+            state, archive_id = state_and_id.split(',')
             states = state.strip().split()
             return states
         else:

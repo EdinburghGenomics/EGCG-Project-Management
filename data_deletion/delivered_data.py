@@ -333,11 +333,13 @@ class DeliveredDataDeleter(Deleter):
         for folder in set([os.path.dirname(s.released_data_folder) for s in deletable_samples if s.released_data_folder]):
             self._try_delete_empty_dir(folder)
 
+        # This script only release file from lustre and leave the files on tape.
+        # This means no archiving is required.
         # Archive run folders if they do not contain any fastq file anymore
-        for run_name in set([r[ELEMENT_RUN_NAME] for r in s.run_elements for s in deletable_samples]):
-            self._try_archive_run(run_name)
+        #for run_name in set([r[ELEMENT_RUN_NAME] for r in s.run_elements for s in deletable_samples]):
+        #    self._try_archive_run(run_name)
 
         # Archive project folders if their samples have been deleted
-        for project_id in set([r[ELEMENT_PROJECT_ID] for r in s.run_elements for s in deletable_samples]):
-            self._try_archive_project(project_id)
+        #for project_id in set([r[ELEMENT_PROJECT_ID] for r in s.run_elements for s in deletable_samples]):
+        #    self._try_archive_project(project_id)
 
