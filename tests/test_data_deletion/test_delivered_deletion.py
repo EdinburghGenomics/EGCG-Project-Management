@@ -126,14 +126,10 @@ class TestProcessedSample(TestProjectManagement):
             mocked_remove_from_lustre.return_value = []
             assert self.sample1.size_of_files == 10000
 
-    @patch.object(ProcessedSample, 'warning')
     @patches.patched_patch_entry
-    def test_mark_as_deleted(self, mocked_patch, mocked_warning):
-        self.sample2.mark_as_deleted()
-        assert len(mocked_patch.call_args_list) == 0
-        mocked_warning.assert_called_with('No pipeline process found for ' + self.sample2.sample_id)
+    def test_mark_as_deleted(self, mocked_patch):
         self.sample1.mark_as_deleted()
-        mocked_patch.assert_called_with('analysis_driver_procs', {'status': 'deleted'}, 'proc_id', 'a_proc_id')
+        mocked_patch.assert_called_with('samples', {'data_deleted': 'on lustre'}, 'sample_id', 'a_sample')
 
 
 class TestDeliveredDataDeleter(TestDeleter):

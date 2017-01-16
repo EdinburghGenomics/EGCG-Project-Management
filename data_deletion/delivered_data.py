@@ -172,7 +172,7 @@ class ProcessedSample(app_logging.AppLogger):
         rest_communication.patch_entry(
             'samples',
             {'data_deleted': 'on lustre'},
-            'sample_id', self.sample_data.get('sample_id')
+            'sample_id', self.sample_id
         )
 
     def __repr__(self):
