@@ -62,11 +62,19 @@
         <div id="results">
             {% block results %}
             <h2>Results</h2>
+            <h3>Basic Statistics</h3><br/>
             {% for title, data in basic_stats_results %}
             <div class="row">
                 <div class="col-xs-4">{{ title }}</div><div class="col-xs-8">{{ data }}</div>
             </div>
             {% endfor %}
+            <h3>QC Statistics</h3><br/>
+            {% for title, data in qc_results %}
+            <div class="row">
+                <div class="col-xs-4">{{ title }}</div><div class="col-xs-8">{{ data }}</div>
+            </div>
+            {% endfor %}
+            <img id="chart" src="{% charts %}" />
             {% endblock %}
         </div>
         <div id="formats">{% block formats %}{% endblock %}</div>

@@ -1,8 +1,11 @@
 import re
 import csv
 import yaml
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 from os import path, listdir
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict, Counter
 from jinja2 import Environment, FileSystemLoader
 from egcg_core.util import find_file
 from egcg_core.clarity import connection
@@ -200,6 +203,11 @@ class ProjectReport:
 
         return basic_stats_results, qc_results
 
+    def chart_data(self):
+        plt.plot([1, 2, 3, 4], [1, 4, 9, 16])
+        plot_outfile = path.join(self.project_source, 'a-simple-plot.png')
+        plt.savefig(plot_outfile)
+        return plot_outfile
 
     def get_html_template(self):
         samples = self.get_all_sample_names(modify_names=False)
@@ -235,7 +243,9 @@ class ProjectReport:
         env = Environment(loader=FileSystemLoader(template_dir))
         template = env.get_template(self.get_html_template())
         basic_stats_results, qc_results = self.get_sample_info()
-        return template.render(basic_stats_results=basic_stats_results, qc_results=qc_results, project_info=self.get_project_info(), **self.params)
+        chart_file = self.chart_data()
+        chart_full_uri = 'file://' + chart_file
+        return template.render(basic_stats_results=basic_stats_results, qc_results=qc_results, project_info=self.get_project_info(), charts=chart_full_uri, **self.params)
 
     @classmethod
     def get_folder_size(cls, folder):
