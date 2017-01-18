@@ -297,17 +297,21 @@ class DeliveredDataDeleter(Deleter):
 
     def _try_archive_project(self, project_id):
         sample_records = rest_communication.get_documents(
-            'aggregate/samples',
+            'samples',
             quiet=True,
-            match={'project_id': project_id},
-            paginate=False
+            where={'project_id': project_id},
+            all_pages=True
         )
-        status = list(set([s.get('status') for s in sample_records]))
-        if len(status) != 1 or status[0] != 'deleted':
+        deletion_status = list(set([s.get('data_deleted') for s in sample_records]))
+        if len(deletion_status) != 1 or deletion_status[0] != 'deleted':
             return
-        self.info('Archive project '+ project_id)
-        if os.path.exists(join(self.processed_data_dir, project_id)):
-            self._execute('mv %s %s' % (join(self.processed_data_dir, project_id), self.processed_archive_dir))
+
+        #if the project has a finished date it mean all the samples required are done
+        project_status = rest_communication.get_documents('lims/status/project_status', match={'project_id': project_id})
+        if project_status.get('date_finished'):
+            self.info('Archive project '+ project_id)
+            if os.path.exists(join(self.processed_data_dir, project_id)):
+                self._execute('mv %s %s' % (join(self.processed_data_dir, project_id), self.processed_archive_dir))
 
 
     def delete_data(self):
