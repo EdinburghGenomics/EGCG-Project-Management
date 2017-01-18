@@ -120,18 +120,16 @@ class TestProcessedSample(TestProjectManagement):
     @patch('os.stat', return_value=MagicMock(st_ino='123456', st_size=10000))
     @patch('os.path.isdir', return_value=False)
     def test_size_of_files(self, mock_is_dir, mock_os_stat):
-        with patch.object(ProcessedSample, 'list_of_files', new_callable=PropertyMock) as mocked_list:
-            mocked_list.return_value = ['file1', 'file2']
+        with patch.object(ProcessedSample, 'files_to_purge', new_callable=PropertyMock) as mocked_purge,\
+            patch.object(ProcessedSample, 'files_to_remove_from_lustre', new_callable=PropertyMock) as mocked_remove_from_lustre:
+            mocked_purge.return_value = ['file1', 'file2']
+            mocked_remove_from_lustre.return_value = []
             assert self.sample1.size_of_files == 10000
 
-    @patch.object(ProcessedSample, 'warning')
     @patches.patched_patch_entry
-    def test_mark_as_deleted(self, mocked_patch, mocked_warning):
-        self.sample2.mark_as_deleted()
-        assert len(mocked_patch.call_args_list) == 0
-        mocked_warning.assert_called_with('No pipeline process found for ' + self.sample2.sample_id)
+    def test_mark_as_deleted(self, mocked_patch):
         self.sample1.mark_as_deleted()
-        mocked_patch.assert_called_with('analysis_driver_procs', {'status': 'deleted'}, 'proc_id', 'a_proc_id')
+        mocked_patch.assert_called_with('samples', {'data_deleted': 'on lustre'}, 'sample_id', 'a_sample')
 
 
 class TestDeliveredDataDeleter(TestDeleter):
@@ -166,6 +164,8 @@ class TestDeliveredDataDeleter(TestDeleter):
         self.touch(join(self.assets_deletion, 'fastqs', 'another_run', 'Undetermined_test1_R1.fastq.gz'))
         self.touch(join(self.assets_deletion, 'fastqs', 'another_run', 'Undetermined_test1_R2.fastq.gz'))
 
+        os.makedirs(join(self.assets_deletion, 'fastqs', 'archive'), exist_ok=True)
+
     def tearDown(self):
         super().tearDown()
         # Remove the delivered data
@@ -182,8 +182,9 @@ class TestDeliveredDataDeleter(TestDeleter):
         pass
 
     @patch.object(ProcessedSample, 'size_of_files', new_callable=PropertyMock, return_value=1000000000)
-    @patch.object(ProcessedSample, 'list_of_files', new_callable=PropertyMock, return_value=['file1', 'file2'])
-    def test_setup_samples_for_deletion(self, mocked_get_files, mocked_get_size):
+    @patch.object(ProcessedSample, 'files_to_purge', new_callable=PropertyMock, return_value=['file1', 'file2'])
+    @patch.object(ProcessedSample, 'files_to_remove_from_lustre', new_callable=PropertyMock, return_value=[])
+    def test_setup_samples_for_deletion(self, mocked_files_to_remove_from_lustre, mocked_files_to_purge, mocked_get_size):
         self.deleter.setup_samples_for_deletion(self.samples[0:1], dry_run=True)
         with patch('egcg_core.executor.local_execute', return_value=MagicMock(join=lambda: 0)) as mock_execute:
             self.deleter.setup_samples_for_deletion(self.samples[0:1], dry_run=False)
@@ -198,12 +199,13 @@ class TestDeliveredDataDeleter(TestDeleter):
             assert args[0].startswith('mv file2 ' + expected_deletion_dir)
 
     def test_try_archive_run(self):
+        assert os.path.exists(join(self.assets_deletion, 'fastqs', 'archive'))
         assert os.path.exists(join(self.assets_deletion, 'fastqs', 'a_run'))
         self.deleter._try_archive_run('a_run')
         assert not os.path.exists(join(self.assets_deletion, 'fastqs', 'a_run'))
         assert os.path.exists(join(self.assets_deletion, 'fastqs', 'archive', 'a_run'))
-
         assert os.path.exists(join(self.assets_deletion, 'fastqs', 'another_run'))
+
         self.deleter._try_archive_run('another_run')
         assert not os.path.exists(join(self.assets_deletion, 'fastqs', 'another_run'))
         assert os.path.exists(join(self.assets_deletion, 'fastqs', 'archive', 'another_run'))

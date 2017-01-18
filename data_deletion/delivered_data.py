@@ -4,12 +4,14 @@ import uuid
 from datetime import datetime
 from os import listdir
 from os.path import join, isdir
+
 from egcg_core import rest_communication, util, clarity, app_logging
 from egcg_core.constants import ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_PROJECT_ID, ELEMENT_RUN_NAME, ELEMENT_LANE, \
     ELEMENT_SAMPLE_EXTERNAL_ID
 from egcg_core.config import cfg
 
 from data_deletion import Deleter
+from data_deletion.archive_management import is_archived, ArchivingError, release_file_from_lustre
 
 
 def get_file_list_size(file_list):
@@ -46,7 +48,8 @@ class ProcessedSample(app_logging.AppLogger):
         self._release_date = None
         self._release_folders = None
         self._run_elements = None
-        self._list_of_files = None
+        self._files_to_purge = None
+        self._files_to_remove_from_lustre = None
         self._size_of_files = None
 
     @property
@@ -133,43 +136,47 @@ class ProcessedSample(app_logging.AppLogger):
             return self._release_folders[0]
 
     @property
-    def list_of_files(self):
-        if not self._list_of_files:
-            self._list_of_files = []
+    def files_to_purge(self):
+        if not self._files_to_purge:
+            self._files_to_purge = []
+            release_folder = self.released_data_folder
+            if release_folder:
+                self._files_to_purge.append(release_folder)
+        return self._files_to_purge
+
+    @property
+    def files_to_remove_from_lustre(self):
+        if not self._files_to_remove_from_lustre:
+            self._files_to_remove_from_lustre = []
             raw_files = self._raw_data_files()
             if raw_files:
-                self._list_of_files.extend(raw_files)
+                self._files_to_remove_from_lustre.extend(raw_files)
 
             processed_files = self._processed_data_files()
             if processed_files:
-                self._list_of_files.extend(processed_files)
+                self._files_to_remove_from_lustre.extend(processed_files)
+            for f in self._files_to_remove_from_lustre:
+                if not is_archived(f):
+                    raise ArchivingError('File %s is not archived and thus cannot be released from Lustre' % f)
+        return self._files_to_remove_from_lustre
 
-            release_folder = self.released_data_folder
-            if release_folder:
-                self._list_of_files.append(release_folder)
-        return self._list_of_files
 
     @property
     def size_of_files(self):
         if not self._size_of_files:
-            self._size_of_files = get_file_list_size(self.list_of_files)
+            self._size_of_files = get_file_list_size(self.files_to_purge)
+            self._size_of_files += get_file_list_size(self.files_to_remove_from_lustre)
         return self._size_of_files
 
     def mark_as_deleted(self):
-        proc_id = self.sample_data.get('most_recent_proc', {}).get('proc_id')
-        if not proc_id:
-            self.warning('No pipeline process found for ' + self.sample_id)
-        else:
-            rest_communication.patch_entry(
-                'analysis_driver_procs',
-                {'status': 'deleted'},
-                'proc_id', proc_id
-            )
-
+        rest_communication.patch_entry(
+            'samples',
+            {'data_deleted': 'on lustre'},
+            'sample_id', self.sample_id
+        )
 
     def __repr__(self):
         return self.sample_id + ' (%s)'%self.release_date
-
 
 
 class DeliveredDataDeleter(Deleter):
@@ -217,7 +224,7 @@ class DeliveredDataDeleter(Deleter):
         sample_records = rest_communication.get_documents(
             'aggregate/samples',
             quiet=True,
-            match={'proc_status': 'finished', 'useable': 'yes', 'delivered': 'yes'},
+            match={'proc_status': 'finished', 'useable': 'yes', 'delivered': 'yes', 'data_deleted': 'none'},
             paginate=False
         )
         for r in sample_records:
@@ -232,26 +239,34 @@ class DeliveredDataDeleter(Deleter):
         dest = join(dest_dir, str(uuid.uuid4()) + '_' + source_name)
         self._execute('mv %s %s'%(source, dest))
 
+
     def setup_samples_for_deletion(self, samples, dry_run):
         total_size_to_delete = 0
         for s in samples:
             total_size_to_delete += s.size_of_files
             deletable_data_dir = join(self.deletion_dir, s.sample_id)
             if not dry_run:
-                if len(s.list_of_files):
+                if len(s.files_to_purge):
                     self._execute('mkdir -p ' + deletable_data_dir)
-                    for f in s.list_of_files:
+                    for f in s.files_to_purge:
                         self._move_to_unique_file_name(f, deletable_data_dir)
+                if len(s.files_to_remove_from_lustre):
+                    for f in s.files_to_remove_from_lustre:
+                        release_file_from_lustre(f)
             else:
                 self.info(
-                    'Sample %s has %s files to delete (%.2f G)\n%s',
+                    'Sample %s has %s files to delete and %s file to remove from lustre (%.2f G)\n%s\n%s',
                     s,
-                    len(s.list_of_files),
+                    len(s.files_to_purge),
+                    len(s.files_to_remove_from_lustre),
                     s.size_of_files/1000000000,
-                    '\n'.join(s.list_of_files)
+                    '\n'.join(s.files_to_purge),
+                    '\n'.join(s.files_to_remove_from_lustre)
                 )
-                if len(s.list_of_files):
-                    self.info('Will run: mv %s %s' % (' '.join(s.list_of_files), deletable_data_dir))
+                if len(s.files_to_purge):
+                    self.info('Will run: mv %s %s' % (' '.join(s.files_to_purge), deletable_data_dir))
+                if len(s.files_to_remove_from_lustre):
+                    self.info('Will run: %s' % ('\n'.join(['lfs hsm_release %s' % f for f in s.files_to_remove_from_lustre])))
         self.info('Will delete %.2f G of data' % (total_size_to_delete / 1000000000))
 
 
@@ -282,17 +297,21 @@ class DeliveredDataDeleter(Deleter):
 
     def _try_archive_project(self, project_id):
         sample_records = rest_communication.get_documents(
-            'aggregate/samples',
+            'samples',
             quiet=True,
-            match={'project_id': project_id},
-            paginate=False
+            where={'project_id': project_id},
+            all_pages=True
         )
-        status = list(set([s.status for s in sample_records]))
-        if len(status) != 1 or status[0] != 'deleted':
+        deletion_status = list(set([s.get('data_deleted') for s in sample_records]))
+        if len(deletion_status) != 1 or deletion_status[0] != 'deleted':
             return
-        self.info('Archive project '+ project_id)
-        if os.path.exists(join(self.processed_data_dir, project_id)):
-            self._execute('mv %s %s' % (join(self.processed_data_dir, project_id), self.processed_archive_dir))
+
+        #if the project has a finished date it mean all the samples required are done
+        project_status = rest_communication.get_documents('lims/status/project_status', match={'project_id': project_id})
+        if project_status.get('date_finished'):
+            self.info('Archive project '+ project_id)
+            if os.path.exists(join(self.processed_data_dir, project_id)):
+                self._execute('mv %s %s' % (join(self.processed_data_dir, project_id), self.processed_archive_dir))
 
 
     def delete_data(self):
@@ -318,11 +337,13 @@ class DeliveredDataDeleter(Deleter):
         for folder in set([os.path.dirname(s.released_data_folder) for s in deletable_samples if s.released_data_folder]):
             self._try_delete_empty_dir(folder)
 
+        # This script only release file from lustre and leave the files on tape.
+        # This means no archiving is required.
         # Archive run folders if they do not contain any fastq file anymore
-        for run_name in set([r[ELEMENT_RUN_NAME] for r in s.run_elements for s in deletable_samples]):
-            self._try_archive_run(run_name)
+        #for run_name in set([r[ELEMENT_RUN_NAME] for r in s.run_elements for s in deletable_samples]):
+        #    self._try_archive_run(run_name)
 
         # Archive project folders if their samples have been deleted
-        for project_id in set([r[ELEMENT_PROJECT_ID] for r in s.run_elements for s in deletable_samples]):
-            self._try_archive_project(project_id)
+        #for project_id in set([r[ELEMENT_PROJECT_ID] for r in s.run_elements for s in deletable_samples]):
+        #    self._try_archive_project(project_id)
 
