@@ -164,6 +164,8 @@ class TestDeliveredDataDeleter(TestDeleter):
         self.touch(join(self.assets_deletion, 'fastqs', 'another_run', 'Undetermined_test1_R1.fastq.gz'))
         self.touch(join(self.assets_deletion, 'fastqs', 'another_run', 'Undetermined_test1_R2.fastq.gz'))
 
+        os.makedirs(join(self.assets_deletion, 'fastqs', 'archive'), exist_ok=True)
+
     def tearDown(self):
         super().tearDown()
         # Remove the delivered data
