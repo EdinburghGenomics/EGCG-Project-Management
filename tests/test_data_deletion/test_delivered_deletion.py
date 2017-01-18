@@ -197,6 +197,7 @@ class TestDeliveredDataDeleter(TestDeleter):
             assert args[0].startswith('mv file2 ' + expected_deletion_dir)
 
     def test_try_archive_run(self):
+        assert os.path.exists(join(self.assets_deletion, 'fastqs', 'archive'))
         assert os.path.exists(join(self.assets_deletion, 'fastqs', 'a_run'))
         self.deleter._try_archive_run('a_run')
         assert not os.path.exists(join(self.assets_deletion, 'fastqs', 'a_run'))
