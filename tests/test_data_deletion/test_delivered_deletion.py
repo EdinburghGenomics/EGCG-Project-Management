@@ -201,8 +201,8 @@ class TestDeliveredDataDeleter(TestDeleter):
         self.deleter._try_archive_run('a_run')
         assert not os.path.exists(join(self.assets_deletion, 'fastqs', 'a_run'))
         assert os.path.exists(join(self.assets_deletion, 'fastqs', 'archive', 'a_run'))
-
         assert os.path.exists(join(self.assets_deletion, 'fastqs', 'another_run'))
+
         self.deleter._try_archive_run('another_run')
         assert not os.path.exists(join(self.assets_deletion, 'fastqs', 'another_run'))
         assert os.path.exists(join(self.assets_deletion, 'fastqs', 'archive', 'another_run'))
