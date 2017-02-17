@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from data_deletion.archive_management import archive_states, release_file_from_lustre, ArchivingError
+from egcg_core.archive_management import archive_states, release_file_from_lustre, ArchivingError
 from tests import TestProjectManagement
 
 
