@@ -9,7 +9,6 @@ from data_deletion.delivered_data import DeliveredDataDeleter
 from config import load_config
 
 
-
 def main():
     deleters = {
         'raw': RawDataDeleter,
@@ -39,7 +38,7 @@ def main():
     log_cfg.add_stdout_handler(log_level)
 
     deleter_type = args.__dict__.pop('deleter')
-    deleter_args = dict([(k, v) for k, v in args.__dict__.items() if v])
+    deleter_args = {k: v for k, v in args.__dict__.items() if v}
 
     d = deleters[deleter_type](**deleter_args)
     d.delete_data()

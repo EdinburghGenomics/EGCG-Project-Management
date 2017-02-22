@@ -1,43 +1,19 @@
 import os
 from os.path import join
 from shutil import rmtree
-from unittest.mock import patch, PropertyMock, MagicMock
-
+from unittest.mock import patch, Mock
 from egcg_core.config import cfg
-
 from data_deletion.delivered_data import ProcessedSample, DeliveredDataDeleter
 from tests import TestProjectManagement
 from tests.test_data_deletion import TestDeleter, patches
 
-patched_now = patch('data_deletion.Deleter._strnow', return_value='t')
-
 run_elements1 = [
-    {
-        'run_id': 'a_run',
-        'project_id': 'a_project',
-        'sample_id': 'a_sample',
-        'lane': '2'
-    },
-    {
-        'run_id': 'another_run',
-        'project_id': 'a_project',
-        'sample_id': 'a_sample',
-        'lane': '3'
-    }
+    {'run_id': 'a_run', 'project_id': 'a_project', 'sample_id': 'a_sample', 'lane': '2'},
+    {'run_id': 'another_run', 'project_id': 'a_project', 'sample_id': 'a_sample', 'lane': '3'}
 ]
 run_elements2 = [
-    {
-        'run_id': 'a_run',
-        'project_id': 'another_project',
-        'sample_id': 'yet_another_sample',
-        'lane': '4'
-    },
-    {
-        'run_id': 'another_run',
-        'project_id': 'another_project',
-        'sample_id': 'yet_another_sample',
-        'lane': '5'
-    }
+    {'run_id': 'a_run', 'project_id': 'another_project', 'sample_id': 'yet_another_sample', 'lane': '4'},
+    {'run_id': 'another_run', 'project_id': 'another_project', 'sample_id': 'yet_another_sample', 'lane': '5'}
 ]
 
 sample1 = {
@@ -90,12 +66,11 @@ class TestProcessedSample(TestProjectManagement):
     def test_find_fastqs_for_run_element(self):
         self.sample1._find_fastqs_for_run_element(run_elements1[0])
 
-    @patch.object(ProcessedSample, 'run_elements', new_callable=PropertyMock)
-    @patch.object(ProcessedSample, '_find_fastqs_for_run_element', return_value=['path_2_fastq1', 'path_2_fastq2'])
-    def test_raw_data_files(self, mocked_find_fastqs, mocked_run_elements):
-        mocked_run_elements.return_value = run_elements1
-        raw_data_files = self.sample1._raw_data_files()
-        assert raw_data_files == ['path_2_fastq1', 'path_2_fastq2', 'path_2_fastq1', 'path_2_fastq2']
+    def test_raw_data_files(self):
+        with patch('data_deletion.delivered_data.ProcessedSample.run_elements', new=run_elements1),\
+             patch('data_deletion.delivered_data.ProcessedSample._find_fastqs_for_run_element', return_value=['path_2_fastq1', 'path_2_fastq2']):
+            raw_data_files = self.sample1._raw_data_files()
+            assert raw_data_files == ['path_2_fastq1', 'path_2_fastq2', 'path_2_fastq1', 'path_2_fastq2']
 
     @patch('data_deletion.delivered_data.util.find_file', side_effect=fake_find_file)
     def test_processed_data_files(self, mocked_find_file):
@@ -117,13 +92,11 @@ class TestProcessedSample(TestProjectManagement):
         released_data_folder = self.sample1.released_data_folder
         assert released_data_folder == 'tests/assets/data_deletion/delivered_data/a_project/star/a_sample'
 
-    @patch('os.stat', return_value=MagicMock(st_ino='123456', st_size=10000))
+    @patch('os.stat', return_value=Mock(st_ino='123456', st_size=10000))
     @patch('os.path.isdir', return_value=False)
     def test_size_of_files(self, mock_is_dir, mock_os_stat):
-        with patch.object(ProcessedSample, 'files_to_purge', new_callable=PropertyMock) as mocked_purge,\
-            patch.object(ProcessedSample, 'files_to_remove_from_lustre', new_callable=PropertyMock) as mocked_remove_from_lustre:
-            mocked_purge.return_value = ['file1', 'file2']
-            mocked_remove_from_lustre.return_value = []
+        with patch.object(ProcessedSample, 'files_to_purge', new=['file1', 'file2']),\
+             patch.object(ProcessedSample, 'files_to_remove_from_lustre', new=[]):
             assert self.sample1.size_of_files == 10000
 
     @patches.patched_patch_entry
@@ -181,22 +154,19 @@ class TestDeliveredDataDeleter(TestDeleter):
     def test_deletable_samples(self):
         pass
 
-    @patch.object(ProcessedSample, 'size_of_files', new_callable=PropertyMock, return_value=1000000000)
-    @patch.object(ProcessedSample, 'files_to_purge', new_callable=PropertyMock, return_value=['file1', 'file2'])
-    @patch.object(ProcessedSample, 'files_to_remove_from_lustre', new_callable=PropertyMock, return_value=[])
-    def test_setup_samples_for_deletion(self, mocked_files_to_remove_from_lustre, mocked_files_to_purge, mocked_get_size):
+    @patch.object(ProcessedSample, 'size_of_files', new=1000000000)
+    @patch.object(ProcessedSample, 'files_to_purge', new=['file1', 'file2'])
+    @patch.object(ProcessedSample, 'files_to_remove_from_lustre', new=[])
+    def test_setup_samples_for_deletion(self):
         self.deleter.setup_samples_for_deletion(self.samples[0:1], dry_run=True)
-        with patch('egcg_core.executor.local_execute', return_value=MagicMock(join=lambda: 0)) as mock_execute:
+        with patch('egcg_core.executor.local_execute', return_value=Mock(join=lambda: 0)) as mocked_execute:
             self.deleter.setup_samples_for_deletion(self.samples[0:1], dry_run=False)
-            assert mock_execute.call_count == 3
-            (args, kwargs) = mock_execute.call_args_list[0]
+            assert mocked_execute.call_count == 3
             expected_deletion_dir = self.deleter.deletion_dir + '/' + self.samples[0].sample_id
-            assert args[0] == 'mkdir -p ' + expected_deletion_dir
-            #Can't predict exactly the output file name but we can test that the input file and output dir are right
-            (args, kwargs) = mock_execute.call_args_list[1]
-            assert args[0].startswith('mv file1 ' + expected_deletion_dir)
-            (args, kwargs) = mock_execute.call_args_list[2]
-            assert args[0].startswith('mv file2 ' + expected_deletion_dir)
+            assert mocked_execute.call_args_list[0][0][0] == 'mkdir -p ' + expected_deletion_dir
+            # Can't predict exactly the output file name but can test the input file and output dir
+            assert mocked_execute.call_args_list[1][0][0].startswith('mv file1 ' + expected_deletion_dir)
+            assert mocked_execute.call_args_list[2][0][0].startswith('mv file2 ' + expected_deletion_dir)
 
     def test_try_archive_run(self):
         assert os.path.exists(join(self.assets_deletion, 'fastqs', 'archive'))
@@ -213,10 +183,9 @@ class TestDeliveredDataDeleter(TestDeleter):
             join(self.assets_deletion, 'fastqs', 'archive', 'another_run', 'Undetermined_test1_R1.fastq.gz'))
 
     @patch.object(ProcessedSample, 'mark_as_deleted')
-    @patched_now
+    @patch('data_deletion.Deleter._strnow', return_value='t')
     def test_delete_data(self, mocked_now, mocked_mark):
-        patched_deletables = patch.object(DeliveredDataDeleter, 'deletable_samples', return_value=self.samples[0:2])
-        with patched_deletables:
+        with patch.object(DeliveredDataDeleter, 'deletable_samples', return_value=self.samples[0:2]):
             with patch.object(DeliveredDataDeleter, 'setup_samples_for_deletion'):
                 self.deleter.dry_run = True
                 assert self.deleter.delete_data() == 0

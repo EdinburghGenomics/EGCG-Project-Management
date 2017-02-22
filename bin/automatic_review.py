@@ -3,7 +3,6 @@ import sys
 import yaml
 import argparse
 import logging
-
 from egcg_core.app_logging import logging_default as log_cfg
 from egcg_core import rest_communication, clarity
 from egcg_core.constants import ELEMENT_REVIEW_COMMENTS
@@ -20,9 +19,9 @@ def main():
     log_cfg.default_level = logging.DEBUG
     log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout), logging.DEBUG)
     if args.run_review:
-        get_reviewable_runs()
+        review_runs()
     elif args.sample_review:
-        get_reviewable_samples()
+        review_samples()
 
 
 def _parse_args():
@@ -33,201 +32,144 @@ def _parse_args():
     return parser.parse_args()
 
 
-def query(content, parts, top_level=None, ret_default=None):
-    if top_level is None:
-        top_level = content
+def query(content, parts, ret_default=None):
+    top_level = content.copy()
     item = None
     for p in parts:
         item = top_level.get(p)
-        if item != None:
-            top_level = item
-        else:
+        if item is None:
             return ret_default
+        top_level = item
     return item
 
 
 def sample_config(sample, species):
     coverage_values = {30: (40, 30), 95: (120, 30), 120: (160, 40), 190: (240, 60), 270: (360, 90)}
 
-    sample_cfg = {}
-    default_cfg = review_thresholds.get('sample').get('default')
-    human_cfg = review_thresholds.get('sample').get('homo_sapiens')
+    default_cfg = review_thresholds['sample']['default']
+    sample_cfg = default_cfg.copy()
+
     if species == 'Homo sapiens':
-        sample_cfg.update(default_cfg)
-        sample_cfg.update(human_cfg)
-
+        sample_cfg.update(review_thresholds['sample']['homo_sapiens'])
         if sample.get('genotype_validation') is None:
-            del sample_cfg['genotype_validation,mismatching_snps']
-            del sample_cfg['genotype_validation,no_call_seq']
+            del sample_cfg['genotype_validation.mismatching_snps']
+            del sample_cfg['genotype_validation.no_call_seq']
 
-    else:
-        sample_cfg.update(default_cfg)
-    sample_id = sample.get('sample_id')
-    yieldq30 = clarity.get_expected_yield_for_sample(sample_id)
-    if yieldq30:
-        yieldq30 = int(yieldq30 / 1000000000)
-        expected_yield, coverage = coverage_values.get(yieldq30)
-        sample_cfg['clean_yield_q30']['value'] = yieldq30
-        sample_cfg['clean_yield_in_gb']['value'] = expected_yield
-        sample_cfg['median_coverage']['value'] = coverage
-        return sample_cfg
+    yieldq30 = clarity.get_expected_yield_for_sample(sample['sample_id'])
+    if not yieldq30:
+        return None
 
-
-def morethan(a, b):
-    if a is not None:
-        return a >= b
-    else:
-        return False
+    yieldq30 = int(yieldq30 / 1000000000)
+    expected_yield, coverage = coverage_values.get(yieldq30)
+    sample_cfg['clean_yield_q30']['value'] = yieldq30
+    sample_cfg['clean_yield_in_gb']['value'] = expected_yield
+    sample_cfg['median_coverage']['value'] = coverage
+    return sample_cfg
 
 
-def lessthan(a, b):
-    if a is not None:
-        return a <= b
-    else:
-        return False
+def get_failing_metrics(metrics, cfg):
+    passfails = {}
+
+    for metric in cfg:
+        metric_value = query(metrics, metric.split('.'))
+        comparison = cfg[metric]['comparison']
+        compare_value = cfg[metric]['value']
+
+        check = None
+        if metric_value is None:
+            check = False
+
+        elif comparison == '>':
+            check = metric_value >= compare_value
+
+        elif comparison == '<':
+            check = metric_value <= compare_value
+
+        elif comparison == 'agreeswith':
+            check = metric_value in (metrics[compare_value['key']], compare_value['fallback'])
+
+        result = 'pass' if check else 'fail'
+        passfails[metric] = result
+
+    failed_metrics = sorted(k for k, v in passfails.items() if v == 'fail')
+    return failed_metrics
 
 
-def inlist(a, b):
-    if a is not None:
-        return a in b
-
-
-def metrics(dataset, cfg):
-    PassFailDict = {}
-    return_failed_metrics = None
-    for metric in (cfg):
-        metric_value = (query(dataset, metric.split(',')))
-        metric_name = (metric.split(',')[-1])
-        if (cfg.get(metric)['comparison']) == '>':
-            if morethan(metric_value, (cfg.get(metric)['value'])):
-                PassFailDict[metric_name] = 'pass'
-            else:
-                PassFailDict[metric_name] = 'fail'
-        elif (cfg.get(metric)['comparison']) == '<':
-            if lessthan(metric_value, (cfg.get(metric)['value'])):
-                PassFailDict[metric_name] = 'pass'
-            else:
-                PassFailDict[metric_name] = 'fail'
-        elif (cfg.get(metric)['comparison']) == 'inlist':
-            values = (cfg.get(metric)['value'])
-            values_list = []
-            for v in values:
-                value = (query(dataset, [v], ret_default=[v]))
-                values_list.append(''.join(value))
-            check_metric = (list(set(values_list)))
-            if inlist(metric_value, check_metric):
-                PassFailDict[metric_name] = 'pass'
-            else:
-                PassFailDict[metric_name] = 'fail'
-
-    if all(value == 'pass' for value in PassFailDict.values()):
-        return ('pass', None)
-    else:
-        failed_metrics = ([value for value in PassFailDict if PassFailDict[value] == 'fail'])
-        return_failed_metrics = ('fail', failed_metrics)
-    return return_failed_metrics
-
-class AutomaticReview():
-
-    def __init__(self, cfg, endpoint):
-        self.cfg = cfg
-        self.endpoint = endpoint
-
-    def patch_entries(self, payload):
-        rest_communication.patch_entries(self.enpoint, payload=payload, update_lists=None,
-                                         where={"run_id": self.run_name, "lane": lane_number})
-
-        for lane in self.run_element_by_lane:
-            lane_number = (lane.get('lane_number'))
-            lane_review, reasons = metrics(lane, self.cfg)
-            rest_communication.patch_entries('run_elements', payload={'reviewed': lane_review}, update_lists=None,
-                                             where={"run_id": self.run_name, "lane": lane_number})
-            if reasons:
-                rest_communication.patch_entries('run_elements', payload={
-                    ELEMENT_REVIEW_COMMENTS: 'failed due to ' + ', '.join(reasons)}, update_lists=None,
-                                                 where={"run_id": self.run_name, "lane": lane_number})
-
-            return lane_review
-
-
-
-class AutomaticRunReview():
-    def __init__(self, run_name, run_element_by_lane, cfg):
+class RunReviewer:
+    def __init__(self, run_name):
         self.run_name = run_name
-        self.run_element_by_lane = run_element_by_lane
-        self.cfg = cfg
+        self.run_elements_by_lane = rest_communication.get_documents(
+            'aggregate/run_elements_by_lane',
+            match={'run_id': self.run_name}
+        )
 
     def patch_entry(self):
+        for run_element in self.run_elements_by_lane:
+            lane_number = run_element['lane_number']
+            failing_metrics = get_failing_metrics(run_element, review_thresholds['run'])
 
-        for lane in self.run_element_by_lane:
-            lane_number = (lane.get('lane_number'))
-            lane_review, reasons = metrics(lane, self.cfg)
-            rest_communication.patch_entries('run_elements', payload={'reviewed': lane_review}, update_lists=None,
-                                             where={"run_id": self.run_name, "lane": lane_number})
-            if reasons:
-                rest_communication.patch_entries('run_elements', payload={
-                    ELEMENT_REVIEW_COMMENTS: 'failed due to ' + ', '.join(reasons)}, update_lists=None,
-                                                 where={"run_id": self.run_name, "lane": lane_number})
-            return lane_review
+            payload = {'reviewed': 'pass'}
+            if failing_metrics:
+                payload = {
+                    'reviewed': 'fail',
+                    ELEMENT_REVIEW_COMMENTS: 'failed due to ' + ', '.join(failing_metrics)
+                }
+
+            rest_communication.patch_entries(
+                'run_elements',
+                payload=payload,
+                where={'run_id': self.run_name, 'lane': lane_number}
+            )
 
 
-class AutomaticSampleReview():
+class SampleReviewer:
     def __init__(self, sample, cfg, species):
         self.sample = sample
-        self.sample_name = self.sample.get('sample_id')
+        self.sample_name = self.sample['sample_id']
         self.sample_genotype = self.sample.get('genotype_validation')
         self.cfg = cfg
         self.species = species
 
     def patch_entry(self):
-        sample_review, reasons = metrics(self.sample, self.cfg)
-        if all([sample_review == 'pass', self.sample_genotype is None, self.species == 'Homo sapiens']):
-            sample_review = 'genotype missing'
-        rest_communication.patch_entries('samples', payload={'reviewed': sample_review}, update_lists=None,
-                                         where={"sample_id": self.sample_name})
-        if reasons:
-            rest_communication.patch_entries('samples',
-                                             payload={ELEMENT_REVIEW_COMMENTS: 'failed due to ' + ', '.join(reasons)},
-                                             update_lists=None, where={"sample_id": self.sample_name})
-        return sample_review
+        failing_metrics = get_failing_metrics(self.sample, self.cfg)
+
+        if failing_metrics:
+            r = 'fail'
+        elif self.species == 'Homo sapiens' and self.sample_genotype is None:
+            r = 'genotype missing'
+        else:
+            r = 'pass'
+
+        payload = {'reviewed': r}
+        if failing_metrics:
+            payload[ELEMENT_REVIEW_COMMENTS] = 'failed due to ' + ', '.join(failing_metrics)
+
+        rest_communication.patch_entries('samples', payload=payload, where={'sample_id': self.sample_name})
 
 
-def get_reviewable(endpoint, object_id):
-    objs = rest_communication.get_documents(endpoint, paginate=False,
-                                            match={"proc_status": "finished", "review_statuses": "not%20reviewed"})
-    if objs:
-        for obj in objs:
-            obj_id = obj.get(object_id)
-            run_elements_by_lane = rest_communication.get_documents('aggregate/run_elements_by_lane',
-                                                                    match={"run_id": obj_id})
-            run_cfg = review_thresholds.get('run')
-            r = AutomaticRunReview(run_id, run_elements_by_lane, run_cfg)
-            r.patch_entry()
-
-def get_reviewable_runs():
-    runs = rest_communication.get_documents('aggregate/all_runs', paginate=False,
-                                            match={"proc_status": "finished", "review_statuses": "not%20reviewed"})
-    if runs:
-        for run in runs:
-            run_id = run.get('run_id')
-            run_elements_by_lane = rest_communication.get_documents('aggregate/run_elements_by_lane',
-                                                                    match={"run_id": run_id})
-            run_cfg = review_thresholds.get('run')
-            r = AutomaticRunReview(run_id, run_elements_by_lane, run_cfg)
-            r.patch_entry()
+def review_runs():
+    unreviewed_runs = rest_communication.get_documents(
+        'aggregate/all_runs',
+        paginate=False,
+        match={'proc_status': 'finished', 'review_statuses': 'not%20reviewed'}
+    )
+    for run in unreviewed_runs:
+        r = RunReviewer(run['run_id'])
+        r.patch_entry()
 
 
-def get_reviewable_samples():
-    samples = rest_communication.get_documents('aggregate/samples', paginate=False,
-                                               match={"proc_status": "finished", "reviewed": "not%20reviewed"})
-    if samples:
-        for sample in samples:
-            sample_id = sample.get('sample_id')
-            species = clarity.get_species_from_sample(sample_id)
-            sample_cfg = sample_config(sample, species)
-            if sample_cfg:
-                s = AutomaticSampleReview(sample, sample_cfg, species)
-                s.patch_entry()
+def review_samples():
+    unreviewed_samples = rest_communication.get_documents(
+        'aggregate/samples',
+        paginate=False,
+        match={'proc_status': 'finished', 'reviewed': 'not%20reviewed'}
+    )
+    for sample in unreviewed_samples:
+        species = clarity.get_species_from_sample(sample['sample_id'])
+        sample_cfg = sample_config(sample, species)
+        if sample_cfg:
+            s = SampleReviewer(sample, sample_cfg, species)
+            s.patch_entry()
 
 
 if __name__ == '__main__':
