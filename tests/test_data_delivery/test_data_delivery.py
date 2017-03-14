@@ -170,7 +170,7 @@ class TestDataDelivery(TestProjectManagement):
     def _remove_run_elements(self, list_run_elements):
         sample_dirs = set()
         for run_element in list_run_elements:
-            sample_dirs.add(os.path.join(self.assets_delivery,'runs', run_element.get('run_id')))
+            sample_dirs.add(os.path.join(self.assets_delivery, 'runs', run_element.get('run_id')))
         for s in sample_dirs:
             shutil.rmtree(s)
 
@@ -201,8 +201,8 @@ class TestDataDelivery(TestProjectManagement):
     def test_summarise_metrics_per_sample(self):
         with patched_deliverable_project1:
             self.delivery_dry.get_deliverable_projects_samples(project_id='test_project')
-            expected_header = ['Project', 'Sample Id', 'User sample id', 'Read pair sequenced',
-                               'Yield', 'Yield Q30', 'Nb reads in bam', 'mapping rate', 'properly mapped reads rate',
+            expected_header = ['Project', 'Sample Id', 'User sample id', 'Read pair sequenced', 'Yield',
+                               'Yield Q30', 'Nb reads in bam', 'mapping rate', 'properly mapped reads rate',
                                'duplicate rate', 'Mean coverage', 'Delivery folder']
             expected_lines = [
                 'test_project\tdeliverable_sample\tuser_s_id\t15\t0.0\t0.0\t1\t0.0\t0.0\t0.0\t0\tdate_delivery'
@@ -246,12 +246,12 @@ class TestDataDelivery(TestProjectManagement):
     def test_deliver_data_merged_real(self):
         with patched_deliverable_project1, patched_get_species,\
                 patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'merged'})),\
-                patch.object(DataDelivery, 'run_aggregate_commands', side_effect=print_args),\
+                patch.object(DataDelivery, 'run_aggregate_commands'),\
                 patch('bin.deliver_reviewed_data.DataDelivery.mark_samples_as_released'):
             self.delivery_real.deliver_data(project_id='test_project')
             assert os.listdir(self.dest_dir) == ['test_project']
             today = datetime.date.today().isoformat()
-            assert sorted(os.listdir(os.path.join(self.dest_dir, 'test_project'))) == sorted([today, 'all_md5sums.txt', 'summary_metrics.csv'])
+            assert sorted(os.listdir(os.path.join(self.dest_dir, 'test_project'))) == [today, 'all_md5sums.txt', 'summary_metrics.csv']
             assert os.listdir(os.path.join(self.dest_dir, 'test_project', today)) == ['deliverable_sample']
             list_files = sorted(os.listdir(os.path.join(self.dest_dir, 'test_project', today, 'deliverable_sample')))
             assert sorted(list_files) == sorted(self.final_files_merged)
@@ -259,16 +259,12 @@ class TestDataDelivery(TestProjectManagement):
     def test_deliver_data_split_real(self):
         with patched_deliverable_project1, patched_get_species,\
                 patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'split'})),\
-                patch.object(DataDelivery, 'run_aggregate_commands', side_effect=print_args),\
+                patch.object(DataDelivery, 'run_aggregate_commands'),\
                 patch('bin.deliver_reviewed_data.DataDelivery.mark_samples_as_released'):
             self.delivery_real.deliver_data(project_id='test_project')
             assert os.listdir(self.dest_dir) == ['test_project']
             today = datetime.date.today().isoformat()
-            assert sorted(os.listdir(os.path.join(self.dest_dir, 'test_project'))) == sorted([today, 'all_md5sums.txt', 'summary_metrics.csv'])
+            assert sorted(os.listdir(os.path.join(self.dest_dir, 'test_project'))) == [today, 'all_md5sums.txt', 'summary_metrics.csv']
             assert os.listdir(os.path.join(self.dest_dir, 'test_project', today)) == ['deliverable_sample']
             list_files = sorted(os.listdir(os.path.join(self.dest_dir, 'test_project', today, 'deliverable_sample')))
             assert sorted(list_files) == sorted(self.final_files_split)
-
-
-def print_args(*args, **kwargs):
-    pass

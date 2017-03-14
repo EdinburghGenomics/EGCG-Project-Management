@@ -45,9 +45,7 @@ def query(content, parts, ret_default=None):
 
 def sample_config(sample, species):
     coverage_values = {30: (40, 30), 95: (120, 30), 120: (160, 40), 190: (240, 60), 270: (360, 90)}
-
-    default_cfg = review_thresholds['sample']['default']
-    sample_cfg = default_cfg.copy()
+    sample_cfg = review_thresholds['sample']['default'].copy()
 
     if species == 'Homo sapiens':
         sample_cfg.update(review_thresholds['sample']['homo_sapiens'])
@@ -60,7 +58,7 @@ def sample_config(sample, species):
         return None
 
     yieldq30 = int(yieldq30 / 1000000000)
-    expected_yield, coverage = coverage_values.get(yieldq30)
+    expected_yield, coverage = coverage_values[yieldq30]
     sample_cfg['clean_yield_q30']['value'] = yieldq30
     sample_cfg['clean_yield_in_gb']['value'] = expected_yield
     sample_cfg['median_coverage']['value'] = coverage
@@ -91,8 +89,7 @@ def get_failing_metrics(metrics, cfg):
         result = 'pass' if check else 'fail'
         passfails[metric] = result
 
-    failed_metrics = sorted(k for k, v in passfails.items() if v == 'fail')
-    return failed_metrics
+    return sorted(k for k, v in passfails.items() if v == 'fail')
 
 
 class RunReviewer:

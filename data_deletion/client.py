@@ -5,7 +5,6 @@ from egcg_core.app_logging import logging_default as log_cfg
 from data_deletion.raw_data import RawDataDeleter
 from data_deletion.fastq import FastqDeleter
 from data_deletion.delivered_data import DeliveredDataDeleter
-
 from config import load_config
 
 

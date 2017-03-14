@@ -41,9 +41,7 @@ class TestArchiveManagement(TestProjectManagement):
             assert release_file_from_lustre('testfile') is None
 
         with patch('data_deletion.archive_management._get_stdout',
-                   side_effect = [
-                       'testfile: (0x00000009) exists, archive_id:1',
-                   ]):
+                   side_effect=['testfile: (0x00000009) exists, archive_id:1']):
             self.assertRaises(ArchivingError, release_file_from_lustre, 'testfile')
 
 
