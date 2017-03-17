@@ -1,10 +1,8 @@
 from os import listdir
 from os.path import join, isdir
-
 from egcg_core import rest_communication
 from egcg_core.constants import ELEMENT_RUN_NAME, ELEMENT_PROCS, ELEMENT_STATUS, DATASET_DELETED, ELEMENT_PROC_ID
 from egcg_core.config import cfg
-
 from data_deletion import Deleter
 
 
