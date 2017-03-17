@@ -201,11 +201,12 @@ class DataDelivery(AppLogger):
         _execute(command, env='local')
 
     def _on_cluster_concat_file_to_sample(self, list_files, sample_folder, rename):
-        res_fastq_file = os.path.join(sample_folder, rename)
-        command = 'cat %s > %s' % (' '.join(list_files), res_fastq_file)
-        command += '; ' + cfg.query('tools', 'md5sum', ret_default='md5sum') + ' {fq} > {fq}.md5'.format(
-            fq=res_fastq_file)
-        command += '; ' + cfg.query('tools', 'fastqc') + ' --nogroup -q ' + res_fastq_file
+        command = 'cat {list_files} > {fq}; {md5sum} {fq} > {fq}.md5; {fastqc} --nogroup -q {fq}'.format(
+            list_files=' '.join(list_files),
+            fq=os.path.join(sample_folder, rename),
+            md5sum=cfg.query('tools', 'md5sum', ret_default='md5sum'),
+            fastqc=cfg['tools']['fastqc']
+        )
         self.all_commands_for_cluster.append(command)
 
     def get_sample_species(self, sample_name):
@@ -248,16 +249,19 @@ class DataDelivery(AppLogger):
                     fastqs_files[run_element.get(ELEMENT_RUN_ELEMENT_ID)] = tuple(sorted(fastqs))
                 else:
                     raise EGCGError(
-                        'No Fastq files found for %s' % (str((local_fastq_dir, run_element.get(ELEMENT_PROJECT_ID),
-                                                              sample.get(ELEMENT_SAMPLE_INTERNAL_ID),
-                                                              run_element.get(ELEMENT_LANE)))))
+                        'No Fastq files found for %s, %s, %s, %s' % (
+                            local_fastq_dir, run_element.get(ELEMENT_PROJECT_ID),
+                            sample.get(ELEMENT_SAMPLE_INTERNAL_ID), run_element.get(ELEMENT_LANE)
+                        )
+                    )
         return fastqs_files
 
     @staticmethod
     def mark_samples_as_released(samples):
         for sample_name in samples:
-            rest_communication.patch_entry('samples', payload={'delivered': 'yes'}, id_field='sample_id',
-                                           element_id=sample_name)
+            rest_communication.patch_entry(
+                'samples', payload={'delivered': 'yes'}, id_field='sample_id', element_id=sample_name
+            )
         clarity.route_samples_to_delivery_workflow(samples)
 
     def mark_only(self, project_id=None, sample_id=None):
@@ -287,12 +291,12 @@ class DataDelivery(AppLogger):
     def run_aggregate_commands(self):
         if self.all_commands_for_cluster:
             _execute(
-                    *self.all_commands_for_cluster,
-                    job_name='concat_delivery',
-                    working_dir=self.staging_dir,
-                    cpus=1,
-                    mem=2,
-                    log_commands=False
+                *self.all_commands_for_cluster,
+                job_name='concat_delivery',
+                working_dir=self.staging_dir,
+                cpus=1,
+                mem=2,
+                log_commands=False
             )
 
     @staticmethod

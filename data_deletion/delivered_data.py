@@ -26,6 +26,7 @@ def get_file_list_size(file_list):
                 inode2file[os.stat(f).st_ino] = f
         return inode2file
 
+    # get the uniq inodes for file_list, and return their size
     inode2file = files_by_inode(file_list)
     return sum(os.stat(f).st_size for f in inode2file.values())
 

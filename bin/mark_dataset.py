@@ -13,7 +13,7 @@ def main():
     load_config()
 
     log_cfg.cfg = cfg.content
-    log_cfg.default_level = logging.DEBUG
+    log_cfg.set_log_level(logging.DEBUG)
     log_cfg.add_stdout_handler()
 
     args = _parse_args()
@@ -39,6 +39,7 @@ def main():
         patch['useable'] = 'no'
     elif args.resetuseable:
         patch['useable'] = 'not marked'
+
     if args.review_pass:
         patch['reviewed'] = 'pass'
     elif args.review_fail:
