@@ -16,7 +16,7 @@ review_thresholds = yaml.safe_load(open(cfg_path, 'r'))
 def main():
     args = _parse_args()
     load_config()
-    log_cfg.default_level = logging.DEBUG
+    log_cfg.set_log_level(logging.DEBUG)
     log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout), logging.DEBUG)
     if args.run_review:
         review_runs()
