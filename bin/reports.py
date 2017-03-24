@@ -3,12 +3,10 @@ import os
 import sys
 import argparse
 from collections import defaultdict, Counter
-import re
 from egcg_core import rest_communication
-from egcg_core.clarity import get_list_of_samples, connection
+from egcg_core.clarity import get_list_of_samples, connection, sanitize_user_id
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from config import load_config
 
 STATUS_NEW = 'Not enough data'
@@ -29,15 +27,11 @@ FILTERS = [FILTER_FINISHED, FILTER_PROJECT, FILTER_PLATE, FILTER_RUN]
 STATUSES = [STATUS_NEW, STATUS_READY, STATUS_PROCESSING, STATUS_FAILED, STATUS_FINISHED, STATUS_SAMPLE_FAILED,
             STATUS_READY_DELIVERED, STATUS_DELIVERED]
 
-def sanitize_user_id(user_id):
-    if isinstance(user_id, str):
-        return re.sub("[^\w_\-.]", "_", user_id)
-
 
 def _get_artifacts_and_containers_from_samples(samples):
     artifacts = [s.artifact for s in samples]
     lims = connection()
-    print('retrieve %s artifacts'%len(artifacts))
+    print('retrieve %s artifacts' % len(artifacts))
     for start in range(0, len(artifacts), 100):
         lims.get_batch(artifacts[start:start + 100])
 
@@ -68,9 +62,6 @@ def update_samples(cached_samples):
     return list(tmp_samples.values())
 
 
-def get_runs():
-    return None
-
 def update_cache(cached_file, update_target='all'):
     samples, runs = ([], [])
     if os.path.exists(cached_file):
@@ -78,7 +69,7 @@ def update_cache(cached_file, update_target='all'):
     if update_target in ['all', 'sample']:
         samples = update_samples(samples)
     if update_target in ['all', 'run']:
-        runs = get_runs()
+        runs = None
     data = {'samples': samples, 'runs': runs}
     with open(cached_file, 'w') as open_cache:
         json.dump(data, open_cache)
@@ -111,11 +102,13 @@ def get_sample_status(sample):
         return STATUS_FINISHED
     return status
 
-def test_filter_aggregate(row_head, col_values, filter, filter_values):
+
+def test_filter_aggregate(col_values, filter):
     if filter == FILTER_FINISHED and \
        sum(col_values.values()) == col_values[STATUS_DELIVERED] + col_values[STATUS_SAMPLE_FAILED]:
         return False
     return True
+
 
 def keep_sample(sample, filter, filter_values):
     if filter in [FILTER_PROJECT, FILTER_PLATE]:
@@ -124,7 +117,7 @@ def keep_sample(sample, filter, filter_values):
         else:
             return False
     elif filter in [FILTER_RUN]:
-        if len(set(sample.get(filter)).intersection(filter_values)) >  0:
+        if len(set(sample.get(filter)).intersection(filter_values)) > 0:
             return True
         else:
             return False
@@ -150,32 +143,35 @@ def aggregate_samples_per(samples, aggregation_key, filter, filter_values):
                 samples_per_aggregate[sample.get(aggregation_key)][status] += 1
     rows = []
     for aggregate in sorted(aggregates):
-        if test_filter_aggregate(aggregate, samples_per_aggregate[aggregate], filter, filter_values):
+        if test_filter_aggregate(samples_per_aggregate[aggregate], filter):
             out = [aggregate]
             for status in STATUSES:
                 out.append(str(samples_per_aggregate[aggregate][status]))
             rows.append(out)
     return header, rows
 
+
 def format_table(header, rows):
     column_sizes = [len(h) for h in header]
-    column_total = [0 for x in range(len(column_sizes))]
+    column_total = [0 for _ in range(len(column_sizes))]
     for ci in range(len(column_sizes)):
         column_sizes[ci] = max([len(r[ci]) for r in rows] + [column_sizes[ci]])
-        column_total[ci] = sum([int(r[ci]) for r in rows if str(r[ci]).isdigit() ])
-    row_formatter = ' | '.join(['{:>%s}'%cs for cs in column_sizes])
+        column_total[ci] = sum([int(r[ci]) for r in rows if str(r[ci]).isdigit()])
+    row_formatter = ' | '.join(['{:>%s}' % cs for cs in column_sizes])
 
-    line_length = sum(column_sizes) + (len(column_sizes)-1)*3
+    line_length = sum(column_sizes) + (len(column_sizes)-1) * 3
     print(row_formatter.format(*header))
     for r in rows:
         print(row_formatter.format(*r))
-    if sum(column_total) > 0 :
-        column_total[0]='TOTAL'
+    if sum(column_total) > 0:
+        column_total[0] = 'TOTAL'
         print('-' * line_length)
         print(row_formatter.format(*column_total))
 
+
 def summarize_sample(sample, header_to_report):
     return [', '.join(sample.get(k)) if isinstance(sample.get(k), list) else str(sample.get(k)) for k in header_to_report]
+
 
 def show_samples(samples, filter_key, filter_values):
     header_to_report = ['project_id', 'plate_name', 'sample_id', 'run_ids', 'status']
@@ -185,6 +181,7 @@ def show_samples(samples, filter_key, filter_values):
             sample['status'] = get_sample_status(sample)
             rows.append(summarize_sample(sample, header_to_report))
     return header_to_report, rows
+
 
 def create_report(report_type, cached_file, filter, filter_values):
     samples, runs = load_cache(cached_file)
@@ -196,6 +193,8 @@ def create_report(report_type, cached_file, filter, filter_values):
         header, rows = aggregate_samples_per(samples, 'run_ids', filter, filter_values)
     elif report_type == 'samples':
         header, rows = show_samples(samples, filter, filter_values)
+    else:
+        raise KeyError('Invalid report type: %s' % report_type)
     format_table(header, rows)
 
 
@@ -212,10 +211,11 @@ def main():
     else:
         print('Provide a report type with --report_type [projects or plates]')
 
+
 def _parse_args():
     p = argparse.ArgumentParser()
     p.add_argument('-r', '--report_type', dest='report_type', type=str, choices=['projects', 'plates', 'samples', 'run_id'])
-    p.add_argument('--filter_type', type=str, help='set a filter', choices=FILTERS )
+    p.add_argument('--filter_type', type=str, help='set a filter', choices=FILTERS)
     p.add_argument('--filter_values', type=str, nargs='+', help='Things to keep')
     p.add_argument('--pull', action='store_true', help='Force download and update the cache')
     p.add_argument('--debug', action='store_true', help='override pipeline log level to debug')

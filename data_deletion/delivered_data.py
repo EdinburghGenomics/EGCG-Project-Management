@@ -1,45 +1,37 @@
-import glob
 import os
 import uuid
 from datetime import datetime
 from os import listdir
 from os.path import join, isdir
-
-from egcg_core import rest_communication, util, clarity, app_logging
+from egcg_core import rest_communication, util, clarity
 from egcg_core.constants import ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_PROJECT_ID, ELEMENT_RUN_NAME, ELEMENT_LANE, \
     ELEMENT_SAMPLE_EXTERNAL_ID
 from egcg_core.config import cfg
-
+from egcg_core.app_logging import AppLogger
 from data_deletion import Deleter
 from data_deletion.archive_management import is_archived, ArchivingError, release_file_from_lustre
 
 
 def get_file_list_size(file_list):
     """
-    Get the size of the files after collapsing all file based on there inodes to avoid counting the hard links more than once.
+    Get the total size of all files. Collapses them by inodes to avoid counting hard links more than once.
+    Also descends into directories recursively.
     """
-    def get_files_inode(file_list):
-        """
-        Collapse the files found in the list based on their inodes and perform the same recursively for directories
-        """
+    def files_by_inode(_file_list):
         inode2file = {}
-        for f in file_list:
+        for f in _file_list:
             if os.path.isdir(f):
-                inode2file.update(
-                    get_files_inode([os.path.join(f, s) for s in os.listdir(f)])
-                )
+                inode2file.update(files_by_inode(os.path.join(f, s) for s in os.listdir(f)))
             else:
                 inode2file[os.stat(f).st_ino] = f
         return inode2file
 
-    # get the uniq inodes
-    inode2file = get_files_inode(file_list)
-    # get the size of the uniqued inodes
-    return sum([os.stat(f).st_size for f in inode2file.values()])
+    # get the uniq inodes for file_list, and return their size
+    inode2file = files_by_inode(file_list)
+    return sum(os.stat(f).st_size for f in inode2file.values())
 
 
-class ProcessedSample(app_logging.AppLogger):
-
+class ProcessedSample(AppLogger):
     def __init__(self, sample_data):
         self.raw_data_dir = cfg['data_deletion']['fastqs']
         self.processed_data_dir = cfg['data_deletion']['processed_data']
@@ -77,6 +69,7 @@ class ProcessedSample(app_logging.AppLogger):
             run_element[ELEMENT_SAMPLE_INTERNAL_ID],
             lane=run_element[ELEMENT_LANE]
         )
+
     @property
     def run_elements(self):
         if self._run_elements is None:
@@ -94,13 +87,12 @@ class ProcessedSample(app_logging.AppLogger):
                 all_fastqs.extend(fastqs)
             else:
                 self.warning(
-                    'Found %s fastq files for run %s lane %s sample %s',
-                    len(fastqs),
+                    'No fastqs found for run %s lane %s sample %s',
                     e[ELEMENT_RUN_NAME],
                     e[ELEMENT_LANE],
                     self.sample_id
                 )
-        return  all_fastqs
+        return all_fastqs
 
     def _processed_data_files(self):
         files_to_delete = []
@@ -157,9 +149,8 @@ class ProcessedSample(app_logging.AppLogger):
                 self._files_to_remove_from_lustre.extend(processed_files)
             for f in self._files_to_remove_from_lustre:
                 if not is_archived(f):
-                    raise ArchivingError('File %s is not archived and thus cannot be released from Lustre' % f)
+                    raise ArchivingError('File %s is not archived so cannot be released from Lustre' % f)
         return self._files_to_remove_from_lustre
-
 
     @property
     def size_of_files(self):
@@ -176,11 +167,10 @@ class ProcessedSample(app_logging.AppLogger):
         )
 
     def __repr__(self):
-        return self.sample_id + ' (%s)'%self.release_date
+        return self.sample_id + ' (%s)' % self.release_date
 
 
 class DeliveredDataDeleter(Deleter):
-
     def __init__(self, work_dir, dry_run=False, deletion_limit=None, manual_delete=None, sample_ids=None):
         super().__init__(work_dir, dry_run, deletion_limit)
         self.data_dir = self.work_dir
@@ -217,28 +207,26 @@ class DeliveredDataDeleter(Deleter):
         return sorted(manual_samples + self._auto_deletable_samples(), key=lambda e: e.sample_data['sample_id'])
 
     def _auto_deletable_samples(self):
-        samples = []
-        # FIXME: _auto_deletable_samples is disabled until we create a deletion step in the LIMS
-        # as the date is not enough to be sure data can be deleted.
-        return samples
-        sample_records = rest_communication.get_documents(
-            'aggregate/samples',
-            quiet=True,
-            match={'proc_status': 'finished', 'useable': 'yes', 'delivered': 'yes', 'data_deleted': 'none'},
-            paginate=False
-        )
-        for r in sample_records:
-            s = ProcessedSample(r)
-            # TODO: check that the sample went through the deletion workflow in the LIMS
-            if s.release_date and self._old_enough_for_deletion(s.release_date):
-                samples.append(s)
-        return samples
+        return []
+        # FIXME: disabled until we have a LIMS deletion step (date is not enough to be sure data is deletable)
+
+        # sample_records = rest_communication.get_documents(
+        #     'aggregate/samples',
+        #     quiet=True,
+        #     match={'proc_status': 'finished', 'useable': 'yes', 'delivered': 'yes', 'data_deleted': 'none'},
+        #     paginate=False
+        # )
+        # for r in sample_records:
+        #     s = ProcessedSample(r)
+        #     # TODO: check that the sample went through the deletion workflow in the LIMS
+        #     if s.release_date and self._old_enough_for_deletion(s.release_date):
+        #         samples.append(s)
+        # return samples
 
     def _move_to_unique_file_name(self, source, dest_dir):
         source_name = os.path.basename(source)
         dest = join(dest_dir, str(uuid.uuid4()) + '_' + source_name)
-        self._execute('mv %s %s'%(source, dest))
-
+        self._execute('mv %s %s' % (source, dest))
 
     def setup_samples_for_deletion(self, samples, dry_run):
         total_size_to_delete = 0
@@ -269,8 +257,6 @@ class DeliveredDataDeleter(Deleter):
                     self.info('Will run: %s' % ('\n'.join(['lfs hsm_release %s' % f for f in s.files_to_remove_from_lustre])))
         self.info('Will delete %.2f G of data' % (total_size_to_delete / 1000000000))
 
-
-
     @classmethod
     def _old_enough_for_deletion(cls, date_run, age_threshold=90):
         year, month, day = date_run.split('-')
@@ -282,18 +268,19 @@ class DeliveredDataDeleter(Deleter):
             self._execute('rm -r ' + d)
 
     def _try_archive_run(self, run_name):
-        #look for any fastq files in any project/sample directory
-        all_fastqs = glob.glob(join(self.raw_data_dir, run_name, '*', '*', '*.fastq.gz'))
+        # look for any fastq files in any project/sample directory (but not Undetermined in the top level)
+        all_fastqs = util.find_files(self.raw_data_dir, run_name, '*', '*', '*.fastq.gz')
         if all_fastqs:
             return
+
         # There are no fastqs in that run
-        self.info('Archive run '+ run_name)
+        self.info('Archive run ' + run_name)
         # Find the undetermined
-        undetermined_fastqs = glob.glob(join(self.raw_data_dir, run_name, 'Undetermined_*.fastq.gz'))
+        undetermined_fastqs = util.find_files(self.raw_data_dir, run_name, 'Undetermined_*.fastq.gz')
         for f in undetermined_fastqs:
-            self._execute('rm '+ f)
+            self._execute('rm ' + f)
         if os.path.exists(join(self.raw_data_dir, run_name)):
-            self._execute('mv %s %s'%(join(self.raw_data_dir, run_name), self.raw_archive_dir))
+            self._execute('mv %s %s' % (join(self.raw_data_dir, run_name), self.raw_archive_dir))
 
     def _try_archive_project(self, project_id):
         sample_records = rest_communication.get_documents(
@@ -306,13 +293,12 @@ class DeliveredDataDeleter(Deleter):
         if len(deletion_status) != 1 or deletion_status[0] != 'deleted':
             return
 
-        #if the project has a finished date it mean all the samples required are done
+        # if the project has a finished date, then all the samples required are done
         project_status = rest_communication.get_documents('lims/status/project_status', match={'project_id': project_id})
         if project_status.get('date_finished'):
-            self.info('Archive project '+ project_id)
+            self.info('Archive project ' + project_id)
             if os.path.exists(join(self.processed_data_dir, project_id)):
                 self._execute('mv %s %s' % (join(self.processed_data_dir, project_id), self.processed_archive_dir))
-
 
     def delete_data(self):
         deletable_samples = self.deletable_samples()
@@ -323,7 +309,7 @@ class DeliveredDataDeleter(Deleter):
         self.debug('Found %s samples for deletion: %s' % (len(deletable_samples), sample_ids))
         self.setup_samples_for_deletion(deletable_samples, self.dry_run)
 
-        if not self.deletable_samples or self.dry_run :
+        if not self.deletable_samples or self.dry_run:
             return 0
 
         for s in deletable_samples:
@@ -331,19 +317,17 @@ class DeliveredDataDeleter(Deleter):
 
         if self.deletion_dir and os.path.isdir(self.deletion_dir):
             self.delete_dir(self.deletion_dir)
-        # Data has been deleted now clean up empty directories
 
-        # Remove release batch directories if they are empty
-        for folder in set([os.path.dirname(s.released_data_folder) for s in deletable_samples if s.released_data_folder]):
+        # Data has been deleted, so now clean up empty released directories
+        for folder in set(os.path.dirname(s.released_data_folder) for s in deletable_samples if s.released_data_folder):
             self._try_delete_empty_dir(folder)
 
-        # This script only release file from lustre and leave the files on tape.
+        # This script releases files from lustre, leaving them on tape.
         # This means no archiving is required.
         # Archive run folders if they do not contain any fastq file anymore
-        #for run_name in set([r[ELEMENT_RUN_NAME] for r in s.run_elements for s in deletable_samples]):
-        #    self._try_archive_run(run_name)
+        # for run_name in set([r[ELEMENT_RUN_NAME] for r in s.run_elements for s in deletable_samples]):
+        #     self._try_archive_run(run_name)
 
         # Archive project folders if their samples have been deleted
-        #for project_id in set([r[ELEMENT_PROJECT_ID] for r in s.run_elements for s in deletable_samples]):
-        #    self._try_archive_project(project_id)
-
+        # for project_id in set([r[ELEMENT_PROJECT_ID] for r in s.run_elements for s in deletable_samples]):
+        #     self._try_archive_project(project_id)

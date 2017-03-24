@@ -1,9 +1,7 @@
 import os
 from shutil import rmtree
 from os.path import join
-
 from egcg_core.config import cfg
-
 from tests import TestProjectManagement
 from unittest.mock import patch, Mock
 from egcg_core.util import find_files
@@ -17,7 +15,6 @@ class FakeExecutor(Mock):
 
 
 class TestDeleter(TestProjectManagement):
-
     def __init__(self, *args, **kwargs):
         super(TestDeleter, self).__init__(*args, **kwargs)
         cfg.load_config_file(os.path.join(self.root_path, 'etc', 'example_data_deletion.yaml'))

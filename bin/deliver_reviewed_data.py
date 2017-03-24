@@ -6,9 +6,7 @@ import os
 import shutil
 import sys
 from collections import defaultdict
-
-from egcg_core import executor
-from egcg_core import rest_communication, clarity
+from egcg_core import executor, rest_communication, clarity
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
 from egcg_core.config import cfg
 from egcg_core.constants import ELEMENT_NB_READS_CLEANED, ELEMENT_RUN_NAME, ELEMENT_PROJECT_ID, ELEMENT_LANE, \
@@ -172,7 +170,7 @@ class DataDelivery(AppLogger):
                 res.append(str((clean_bases_r1 + clean_bases_r2) / 1000000000))
                 res.append(str((clean_q30_bases_r1 + clean_q30_bases_r2) / 1000000000))
                 if self.get_sample_species(sample.get('sample_id')) == 'Homo sapiens' or \
-                                self.get_analysis_type(sample.get('sample_id')) == 'Variant Calling':
+                        self.get_analysis_type(sample.get('sample_id')) == 'Variant Calling':
                     tr = sample.get('bam_file_reads', 0)
                     mr = sample.get('mapped_reads', 0)
                     dr = sample.get('duplicate_reads', 0)
@@ -195,18 +193,20 @@ class DataDelivery(AppLogger):
                 lines.append('\t'.join(res))
         return headers, lines
 
-    def _link_file_to_sample_folder(self, file_to_link, sample_folder, rename=None):
+    @staticmethod
+    def _link_file_to_sample_folder(file_to_link, sample_folder, rename=None):
         if rename is None:
             rename = os.path.basename(file_to_link)
         command = 'ln %s %s' % (file_to_link, os.path.join(sample_folder, rename))
         _execute(command, env='local')
 
     def _on_cluster_concat_file_to_sample(self, list_files, sample_folder, rename):
-        res_fastq_file = os.path.join(sample_folder, rename)
-        command = 'cat %s > %s' % (' '.join(list_files), res_fastq_file)
-        command += '; ' + cfg.query('tools', 'md5sum', ret_default='md5sum') + ' {fq} > {fq}.md5'.format(
-            fq=res_fastq_file)
-        command += '; ' + cfg.query('tools', 'fastqc') + ' --nogroup -q ' + res_fastq_file
+        command = 'cat {list_files} > {fq}; {md5sum} {fq} > {fq}.md5; {fastqc} --nogroup -q {fq}'.format(
+            list_files=' '.join(list_files),
+            fq=os.path.join(sample_folder, rename),
+            md5sum=cfg.query('tools', 'md5sum', ret_default='md5sum'),
+            fastqc=cfg['tools']['fastqc']
+        )
         self.all_commands_for_cluster.append(command)
 
     def get_sample_species(self, sample_name):
@@ -237,7 +237,8 @@ class DataDelivery(AppLogger):
             final_list.append(f.format(ext_sample_id=external_sample_name) + '.md5')
         return final_list
 
-    def _get_fastq_file_for_sample(self, sample):
+    @staticmethod
+    def _get_fastq_file_for_sample(sample):
         fastqs_files = {}
         for run_element in sample.get('run_elements'):
             if run_element.get(ELEMENT_USEABLE) == 'yes' and int(run_element.get(ELEMENT_NB_READS_CLEANED, 0)) > 0:
@@ -248,15 +249,19 @@ class DataDelivery(AppLogger):
                     fastqs_files[run_element.get(ELEMENT_RUN_ELEMENT_ID)] = tuple(sorted(fastqs))
                 else:
                     raise EGCGError(
-                        'No Fastq files found for %s' % (str((local_fastq_dir, run_element.get(ELEMENT_PROJECT_ID),
-                                                              sample.get(ELEMENT_SAMPLE_INTERNAL_ID),
-                                                              run_element.get(ELEMENT_LANE)))))
+                        'No Fastq files found for %s, %s, %s, %s' % (
+                            local_fastq_dir, run_element.get(ELEMENT_PROJECT_ID),
+                            sample.get(ELEMENT_SAMPLE_INTERNAL_ID), run_element.get(ELEMENT_LANE)
+                        )
+                    )
         return fastqs_files
 
-    def mark_samples_as_released(self, samples):
+    @staticmethod
+    def mark_samples_as_released(samples):
         for sample_name in samples:
-            rest_communication.patch_entry('samples', payload={'delivered': 'yes'}, id_field='sample_id',
-                                           element_id=sample_name)
+            rest_communication.patch_entry(
+                'samples', payload={'delivered': 'yes'}, id_field='sample_id', element_id=sample_name
+            )
         clarity.route_samples_to_delivery_workflow(samples)
 
     def mark_only(self, project_id=None, sample_id=None):
@@ -286,15 +291,16 @@ class DataDelivery(AppLogger):
     def run_aggregate_commands(self):
         if self.all_commands_for_cluster:
             _execute(
-                    *self.all_commands_for_cluster,
-                    job_name='concat_delivery',
-                    working_dir=self.staging_dir,
-                    cpus=1,
-                    mem=2,
-                    log_commands=False
+                *self.all_commands_for_cluster,
+                job_name='concat_delivery',
+                working_dir=self.staging_dir,
+                cpus=1,
+                mem=2,
+                log_commands=False
             )
 
-    def generate_md5_summary(self, project, batch_folder):
+    @staticmethod
+    def generate_md5_summary(project, batch_folder):
         all_md5_files = glob.glob(os.path.join(batch_folder, '*', '*.md5'))
         all_md5_files.extend(glob.glob(os.path.join(batch_folder, '*', 'raw_data', '*.md5')))
         md5_summary = []
@@ -336,8 +342,8 @@ class DataDelivery(AppLogger):
                 today = datetime.date.today().isoformat()
                 batch_delivery_folder = os.path.join(delivery_dest, project, today)
                 for sample in project_to_samples.get(project):
-                    print('%s --> %s' % (
-                    sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)), batch_delivery_folder))
+                    print('%s --> %s' % (sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)),
+                                         batch_delivery_folder))
                 header, lines = self.summarise_metrics_per_sample(project, batch_delivery_folder)
                 print('\t'.join(header))
                 print('\n'.join(lines))
