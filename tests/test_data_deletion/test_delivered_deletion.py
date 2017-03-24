@@ -1,9 +1,10 @@
 import os
 from os.path import join
 from shutil import rmtree
-from unittest.mock import patch, Mock
+from unittest.mock import patch, Mock, PropertyMock
 from egcg_core.config import cfg
-from data_deletion.delivered_data import ProcessedSample, DeliveredDataDeleter
+from data_deletion import ProcessedSample
+from data_deletion.delivered_data import DeliveredDataDeleter
 from tests import TestProjectManagement
 from tests.test_data_deletion import TestDeleter, patches
 
@@ -69,8 +70,7 @@ class TestProcessedSample(TestProjectManagement):
     def test_raw_data_files(self):
         with patch('data_deletion.delivered_data.ProcessedSample.run_elements', new=run_elements1),\
              patch('data_deletion.delivered_data.ProcessedSample._find_fastqs_for_run_element', return_value=['path_2_fastq1', 'path_2_fastq2']):
-            raw_data_files = self.sample1._raw_data_files()
-            assert raw_data_files == ['path_2_fastq1', 'path_2_fastq2', 'path_2_fastq1', 'path_2_fastq2']
+            assert self.sample1.raw_data_files == ['path_2_fastq1', 'path_2_fastq2', 'path_2_fastq1', 'path_2_fastq2']
 
     @patch('data_deletion.delivered_data.util.find_file', side_effect=fake_find_file)
     def test_processed_data_files(self, mocked_find_file):
@@ -84,20 +84,20 @@ class TestProcessedSample(TestProjectManagement):
             'tests/assets/data_deletion/projects/a_project/a_sample/a_user_sample_id.g.vcf.gz',
             'tests/assets/data_deletion/projects/a_project/a_sample/a_user_sample_id.g.vcf.gz.tbi'
         ]
-        processed_files = self.sample1._processed_data_files()
-        assert processed_files == expected_files
+        assert self.sample1.processed_data_files == expected_files
 
     @patch('data_deletion.delivered_data.util.find_files', side_effect=fake_find_files)
     def test_released_data_folder(self, mocked_find_files):
         released_data_folder = self.sample1.released_data_folder
         assert released_data_folder == 'tests/assets/data_deletion/delivered_data/a_project/star/a_sample'
 
-    @patch('os.stat', return_value=Mock(st_ino='123456', st_size=10000))
+    @patch('data_deletion.stat', return_value=Mock(st_ino='123456', st_size=10000))
     @patch('os.path.isdir', return_value=False)
     def test_size_of_files(self, mock_is_dir, mock_os_stat):
-        with patch.object(ProcessedSample, 'files_to_purge', new=['file1', 'file2']),\
-             patch.object(ProcessedSample, 'files_to_remove_from_lustre', new=[]):
-            assert self.sample1.size_of_files == 10000
+        with patch.object(ProcessedSample, 'files_to_purge', new_callable=PropertyMock(return_value=['file1', 'file2'])),\
+             patch.object(ProcessedSample, 'files_to_remove_from_lustre', new_callable=PropertyMock(return_value=[])):
+            file_size = self.sample1.size_of_files
+            assert file_size == 10000
 
     @patches.patched_patch_entry
     def test_mark_as_deleted(self, mocked_patch):
@@ -203,7 +203,7 @@ class TestDeliveredDataDeleter(TestDeleter):
                 )
             assert not os.path.isdir(join(self.assets_deletion, '.data_deletion_t'))
             with patch.object(ProcessedSample, 'run_elements', new=fake_run_elements), \
-                 patch('data_deletion.delivered_data.rest_communication.get_documents'):
+                 patch('data_deletion.rest_communication.get_documents'):
                 self.deleter.delete_data()
                 assert mocked_mark.call_count == 2
                 assert not os.path.isdir(join(self.assets_deletion, 'delivered_data', 'a_project', 'release_1'))
