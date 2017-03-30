@@ -109,8 +109,11 @@ class TestProjectReport(TestProjectManagement):
     def test_get_library_workflow(self):
         assert self.pr.get_library_workflow_from_sample('sample:1') is None
 
-    def test_get_species(self):
-        assert self.pr.get_species_from_sample('sample:1') == 'Thingius thingy'
+    def test_get_report_type(self):
+        assert self.pr.get_report_type_from_sample('sample:1') == 'non_human'
+        self.pr.project_name = 'human_truseq_nano'
+        self.pr._samples_for_project = None
+        assert self.pr.get_report_type_from_sample('human_truseq_nano_sample_1') == 'Human'
 
     def test_update_program_from_csv(self):
         assert len(self.pr.params) == 3
@@ -200,6 +203,9 @@ class TestProjectReport(TestProjectManagement):
 
     def test_get_html_template(self):
         assert self.pr.get_html_template() == 'truseq_nano_non_human.html'
+        self.pr.project_name = 'human_truseq_nano'
+        self.pr._samples_for_project = None
+        assert self.pr.get_html_template() == 'truseq_nano.html'
 
     @patch(ppath('path.getsize'), return_value=1)
     def test_get_folder_size(self, mocked_getsize):
