@@ -76,9 +76,9 @@ class ProjectReport:
     def get_library_workflow_from_sample(self, sample_name):
         return self.get_sample(sample_name).udf.get('Prep Workflow')
 
-    def get_species_from_sample(self, sample_name):
+    def get_report_type_from_sample(self, sample_name):
         s = self.get_sample(sample_name).udf.get('Species')
-        return species_alias.get(s, s)
+        return species_alias.get(s, 'non_human')
 
     def update_from_program_csv(self, program_csv):
         all_programs = {}
@@ -146,21 +146,21 @@ class ProjectReport:
     def get_html_template(self):
         samples = self.get_all_sample_names(modify_names=False)
         library_workflow = set()
-        species = set()
+        report_types = set()
         for sample in samples:
             library_workflow.add(self.get_library_workflow_from_sample(sample))
-            species.add(self.get_species_from_sample(sample))
+            report_types.add(self.get_report_type_from_sample(sample))
 
         if len(library_workflow) != 1:
             raise ValueError('%s workflows used for this project: %s' % (len(library_workflow), library_workflow))
         library_workflow = library_workflow.pop()
 
-        if len(species) != 1:
-            raise ValueError('%s species used for this project: %s' % (len(species), species))
-        species = species.pop()
+        if len(report_types) != 1:
+            raise ValueError('Tried to use %s report types for this project: %s' % (len(report_types), report_types))
+        report_type = report_types.pop()
 
         template_base = self.template_alias[library_workflow]
-        if species == 'Human':
+        if report_type == 'Human':
             return template_base + '.html'
         return template_base + '_non_human.html'
 

@@ -156,7 +156,7 @@ class ProcessedSample(AppLogger):
     def released_data_folder(self):
         release_folders = util.find_files(self.delivered_data_dir, self.project_id, '*', self.sample_id)
         if len(release_folders) != 1:
-            raise DataDeletionError(
+            self.warning(
                 'Found %s deletable directories for sample %s: %s',
                 len(release_folders),
                 self.sample_id,
