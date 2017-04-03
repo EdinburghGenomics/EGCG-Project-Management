@@ -19,4 +19,4 @@ default:
         mailhost: 'a_mailhost'
         port: 1337
         sender: 'a_sender'
-        recipients: ['some' 'recipients']
+        recipients: ['some', 'recipients']
