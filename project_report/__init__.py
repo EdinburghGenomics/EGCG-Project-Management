@@ -56,6 +56,12 @@ class ProjectReport:
 
     def get_project_info(self):
         project = self.lims.get_projects(name=self.project_name)[0]
+        number_of_samples = len(self.get_all_sample_names(modify_names=True))
+        project_size = self.get_folder_size(self.project_delivery)
+        samples_for_project = self.samples_for_project_restapi
+        sample_yields = [s.get('clean_yield_in_gb') for s in samples_for_project if s.get('clean_yield_in_gb')]
+        coverage_per_sample = [s.get('coverage', {}).get('mean') for s in samples_for_project if s.get('coverage')]
+        samples_in_project = len(sample_yields)
         return (
             ('Project name:', self.project_name),
             ('Project title:', project.udf.get('Project Title', '')),
@@ -63,7 +69,10 @@ class ProjectReport:
             ('Quote no:', project.udf.get('Quote No.', '')),
             ('Researcher:', '%s %s (%s)' % (project.researcher.first_name,
                                             project.researcher.last_name,
-                                            project.researcher.email))
+                                            project.researcher.email)),
+            ('Number of Samples', number_of_samples),
+            ('Number of Samples Delivered', samples_in_project),
+            ('Project Size', '%.2fTb' % (project_size/1000000000000.0))
         )
 
     @property
@@ -126,24 +135,18 @@ class ProjectReport:
                 samples_to_info[row['Sample Id']] = row
         return samples_to_info
 
-    def per_project_sample_basic_stats(self, number_of_samples, project_size):
+    def per_project_sample_basic_stats(self):
         samples_for_project = self.samples_for_project_restapi
         sample_yields = [s.get('clean_yield_in_gb') for s in samples_for_project if s.get('clean_yield_in_gb')]
         coverage_per_sample = [s.get('coverage', {}).get('mean') for s in samples_for_project if s.get('coverage')]
         samples_in_project = len(sample_yields)
 
         basic_stats_to_report = OrderedDict()
-        basic_stats_to_report['Number of samples:'] = number_of_samples
-
-        if samples_in_project:
-            basic_stats_to_report['Number of samples delivered:'] = samples_in_project
         if sample_yields:
             basic_stats_to_report['Total yield (Gb):'] = '%.2f' % sum(sample_yields)
             basic_stats_to_report['Average yield (Gb):'] = '%.1f' % (sum(sample_yields)/max(len(sample_yields), 1))
         if coverage_per_sample:
             basic_stats_to_report['Average coverage per sample:'] = '%.2f' % (sum(coverage_per_sample)/max(len(coverage_per_sample), 1))
-
-        basic_stats_to_report['Total folder size:'] = '%.2fTb' % (project_size/1000000000000.0)
 
         return basic_stats_to_report
 
@@ -258,9 +261,7 @@ class ProjectReport:
             if summary_yaml:
                 self.update_from_project_summary_yaml(summary_yaml)
 
-        number_of_samples = len(modified_samples)
-        project_size = self.get_folder_size(self.project_delivery)
-        basic_stats = self.per_project_sample_basic_stats(number_of_samples, project_size)
+        basic_stats = self.per_project_sample_basic_stats()
         basic_stats_results = []
 
         for stat in basic_stats:
