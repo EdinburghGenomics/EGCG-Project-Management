@@ -9,7 +9,7 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 from os import path, listdir
-from collections import OrderedDict, defaultdict, Counter
+from collections import OrderedDict
 from jinja2 import Environment, FileSystemLoader
 from egcg_core.util import find_file
 from egcg_core.clarity import connection
@@ -58,10 +58,10 @@ class ProjectReport:
         project = self.lims.get_projects(name=self.project_name)[0]
         number_of_samples = len(self.get_all_sample_names(modify_names=True))
         project_size = self.get_folder_size(self.project_delivery)
-        samples_for_project = self.samples_for_project_restapi
-        sample_yields = [s.get('clean_yield_in_gb') for s in samples_for_project if s.get('clean_yield_in_gb')]
-        coverage_per_sample = [s.get('coverage', {}).get('mean') for s in samples_for_project if s.get('coverage')]
-        samples_in_project = len(sample_yields)
+        #samples_for_project = self.samples_for_project_restapi
+        #sample_yields = [s.get('clean_yield_in_gb') for s in samples_for_project if s.get('clean_yield_in_gb')]
+        #coverage_per_sample = [s.get('coverage', {}).get('mean') for s in samples_for_project if s.get('coverage')]
+        #samples_in_project = len(sample_yields)
         return (
             ('Project name:', self.project_name),
             ('Project title:', project.udf.get('Project Title', '')),
@@ -70,9 +70,9 @@ class ProjectReport:
             ('Researcher:', '%s %s (%s)' % (project.researcher.first_name,
                                             project.researcher.last_name,
                                             project.researcher.email)),
-            ('Number of Samples', number_of_samples),
-            ('Number of Samples Delivered', samples_in_project),
-            ('Project Size', '%.2fTb' % (project_size/1000000000000.0))
+            #('Number of Samples', number_of_samples),
+            #('Number of Samples Delivered', samples_in_project),
+            #('Project Size', '%.2fTb' % (project_size/1000000000000.0))
         )
 
     @property
@@ -102,7 +102,7 @@ class ProjectReport:
     def get_library_workflow_from_sample(self, sample_name):
         return self.get_sample(sample_name).udf.get('Prep Workflow')
 
-    def get_species_from_sample(self, sample_name):
+    def get_report_type_from_sample(self, sample_name):
         s = self.get_sample(sample_name).udf.get('Species')
         return species_alias.get(s, s)
 
@@ -352,7 +352,7 @@ class ProjectReport:
         species = set()
         for sample in samples:
             library_workflow.add(self.get_library_workflow_from_sample(sample))
-            species.add(self.get_species_from_sample(sample))
+            species.add(self.get_report_type_from_sample(sample))
         if len(library_workflow) != 1:
             raise ValueError('%s workflows used for this project: %s' % (len(library_workflow), library_workflow))
         library_workflow = library_workflow.pop()

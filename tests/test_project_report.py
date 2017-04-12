@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 from project_report import ProjectReport
 from egcg_core.config import cfg
 from tests import TestProjectManagement
+from collections import OrderedDict
 cfg.load_config_file(TestProjectManagement.etc_config)
 
 
@@ -84,19 +85,20 @@ class TestProjectReport(TestProjectManagement):
         self.fake_samples = fake_samples['a_project_name']
         os.chdir(TestProjectManagement.root_path)
 
-    def test_get_project_info(self):
+    @patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
+    def test_get_project_info(self, mocked_project_size):
         exp = (
             ('Project name:', self.pr.project_name),
             ('Project title:', 'a_research_title_for_a_project_name'),
             ('Enquiry no:', '1337'),
             ('Quote no:', '1338'),
-            ('Researcher:', 'First Last (first.last@email.com)')
+            ('Researcher:', 'First Last (first.last@email.com)'),
         )
         assert self.pr.get_project_info() == exp
 
     def test_samples_for_project(self):
         assert self.pr._samples_for_project is None
-        assert self.pr.samples_for_project == self.fake_samples
+        assert self.pr.samples_for_project_lims == self.fake_samples
         assert self.pr._samples_for_project == self.fake_samples
 
     def test_get_sample(self):
@@ -110,7 +112,7 @@ class TestProjectReport(TestProjectManagement):
         assert self.pr.get_library_workflow_from_sample('sample:1') is None
 
     def test_get_report_type(self):
-        assert self.pr.get_report_type_from_sample('sample:1') == 'non_human'
+        assert self.pr.get_report_type_from_sample('sample:1') == 'Thingius thingy'
         self.pr.project_name = 'human_truseq_nano'
         self.pr._samples_for_project = None
         assert self.pr.get_report_type_from_sample('human_truseq_nano_sample_1') == 'Human'
@@ -180,15 +182,12 @@ class TestProjectReport(TestProjectManagement):
         assert obs == exp
 
     @patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
-    def test_get_sample_info(self, mocked_project_size):
-        assert self.pr.get_sample_info() == [
-            ('Number of samples:', 2),
-            ('Number of samples delivered:', 2),
-            ('Total yield (Gb):', '200.00'),
-            ('Average yield (Gb):', '100.0'),
-            ('Average coverage per sample:', '30.00'),
-            ('Total folder size:', '1.34Tb')
-        ]
+    @patch(ppath('ProjectReport.per_project_sample_basic_stats'), return_value=OrderedDict([('Total yield (Gb):', '524.13'), ('Average yield (Gb):', '131.0')]))
+    @patch(ppath('ProjectReport.per_project_sample_qc_stats'), return_value=OrderedDict([('Average percent duplicate reads:', 17.380661102525934), ('Average percent mapped reads:', 85.45270355584897), ('Average percent Q30:', 80.32382821869467)]))
+    def test_get_sample_info(self, mocked_sample_qc_stats, mocked_basic_stats, mocked_project_size):
+        basic_stats, qc_stats = self.pr.get_sample_info()
+        assert basic_stats == [('Total yield (Gb):', '524.13'), ('Average yield (Gb):', '131.0')]
+        assert qc_stats == [('Average percent duplicate reads:', 17.380661102525934), ('Average percent mapped reads:', 85.45270355584897), ('Average percent Q30:', 80.32382821869467)]
         assert self.pr.params == {
             'project_name': 'a_project_name',
             'adapter1': 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCA',
@@ -202,19 +201,25 @@ class TestProjectReport(TestProjectManagement):
         }
 
     def test_get_html_template(self):
-        assert self.pr.get_html_template() == 'truseq_nano_non_human.html'
+        assert self.pr.get_html_template().get('template_base') == 'truseq_nano_non_human.html'
         self.pr.project_name = 'human_truseq_nano'
         self.pr._samples_for_project = None
-        assert self.pr.get_html_template() == 'truseq_nano.html'
+        assert self.pr.get_html_template().get('template_base') == 'truseq_nano.html'
 
     @patch(ppath('path.getsize'), return_value=1)
     def test_get_folder_size(self, mocked_getsize):
         d = os.path.join(TestProjectManagement.root_path, 'project_report', 'templates')
         obs = self.pr.get_folder_size(d)
-        assert obs == 10
+        assert obs == 9
 
 
-def test_project_types():
+@patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
+@patch(ppath('ProjectReport.per_project_sample_basic_stats'), return_value=OrderedDict([('Total yield (Gb):', '524.13'), ('Average yield (Gb):', '131.0')]))
+@patch(ppath('ProjectReport.per_project_sample_qc_stats'), return_value=OrderedDict([('Average percent duplicate reads:', 17.380661102525934), ('Average percent mapped reads:', 85.45270355584897), ('Average percent Q30:', 80.32382821869467)]))
+@patch(ppath('ProjectReport.generate_csv'), return_value=None)
+@patch(ppath('ProjectReport.chart_data'), return_value=(None, None, None))
+@patch(ppath('ProjectReport.get_project_sample_metrics'), return_value=None)
+def test_project_types(mocked_project_metrics, mocked_charts, mocked_csv, mocked_qc_stats, mocked_basic_stats, mocked_folder_size):
     os.chdir(TestProjectManagement.root_path)
     projects = ('human_truseq_nano', 'human_pcr_free', 'non_human_truseq_nano', 'non_human_pcr_free')
     for p in projects:
