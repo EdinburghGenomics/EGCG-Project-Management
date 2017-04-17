@@ -22,7 +22,7 @@ def main():
         filters = [{'run_id': r} for r in args.run]
     elif args.lane:
         end_point = 'run_elements'
-        filters = [{'run_id': '_'.join(l.split('_')[:-1]), 'lane':l.split('_')[-1]} for l in args.lane]
+        filters = [{'run_id': '_'.join(l.split('_')[:-1]), 'lane': int(l.split('_')[-1])} for l in args.lane]
     elif args.run_element:
         end_point = 'run_elements'
         filters = [{'run_element_id': r} for r in args.run_element]
