@@ -148,11 +148,25 @@
             {% endblock %}
         </div>
 
-        <div class="end_of_page">
+        <div id="yield_chart" class="end_of_page">
+        <h3>Yield</h3>
         <img id="chart1" class="charts" src="{{ yield_plot_outfile }}" />
-        <img id="chart2" class="charts" src="{{ qc_plot_outfile }}" />
-        <img id="chart3" src="{{ bam_reads_plot_outfile }}" />
+        Clean yield is calculated as the yield in gigabases after adapters have been
+        trimmed during demultiplexing. The yield of high quality reads is estimated using
+        the Q30 score; clean yield Q30 corresponds to gigabases of reads which have at least
+        75% of bases with a quality score of 30 or higher.
         </div>
+        <div id="mapping_and_duplicates_chart" class="end_of_page">
+        <h3>Read Mapping and Duplicates</h3>
+        <img id="chart2" class="charts" src="{{ qc_plot_outfile }}" />
+
+        Optical and PCR duplicates can arise for a number of reasons,originating from library preparation, clustering,
+            or sample quality. Duplicate rate is calculated to estimate the contribution of duplicate reads to the total
+            read count. Duplicates are marked during read mapping, preventing overestimation of coverage, therefore,
+            the number of paired reads mapped (properly mapped) includes non-duplicate reads only. A duplicate rate
+            of < 30% is required for each sample, except in circumstances where a very high yield achieves sufficient coverage of the genome despite a high duplicate rate.
+        </div>
+
         <div id="formats"><a name="file_formats_anchor"></a>{% block formats %}{% endblock %}</div>
     </div>
 </body>

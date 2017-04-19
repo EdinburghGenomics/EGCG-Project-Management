@@ -165,17 +165,17 @@ class ProjectReport:
         qc_stats_to_report = OrderedDict()
 
         if pc_duplicate_reads:
-            qc_stats_to_report['Average percent duplicate reads:'] = sum(pc_duplicate_reads)/len(pc_duplicate_reads)
+            qc_stats_to_report['Average percent duplicate reads:'] = round(sum(pc_duplicate_reads)/len(pc_duplicate_reads), 2)
         if evenness:
-            qc_stats_to_report['Average evenness:'] = sum(evenness)/len(evenness)
+            qc_stats_to_report['Average evenness:'] = round(sum(evenness)/len(evenness), 2)
         if freemix:
-            qc_stats_to_report['Maximum freemix value:'] = max(freemix)
+            qc_stats_to_report['Maximum freemix value:'] = round(max(freemix), 2)
         if pc_properly_mapped_reads:
-            qc_stats_to_report['Average percent mapped reads:'] = sum(pc_properly_mapped_reads)/len(pc_properly_mapped_reads)
+            qc_stats_to_report['Average percent mapped reads:'] = round(sum(pc_properly_mapped_reads)/len(pc_properly_mapped_reads), 2)
         if clean_pc_q30:
-            qc_stats_to_report['Average percent Q30:'] = sum(clean_pc_q30)/len(clean_pc_q30)
+            qc_stats_to_report['Average percent Q30:'] = round(sum(clean_pc_q30)/len(clean_pc_q30), 2)
         if mean_bases_covered_at_15X:
-            qc_stats_to_report['Average bases covered at 15X:'] = sum(mean_bases_covered_at_15X)/len(mean_bases_covered_at_15X)
+            qc_stats_to_report['Average bases covered at 15X:'] = round(sum(mean_bases_covered_at_15X)/len(mean_bases_covered_at_15X), 2)
 
         return qc_stats_to_report
 
@@ -296,12 +296,13 @@ class ProjectReport:
         plt.figure(figsize=(10, 5))
         plt.xticks([])
         plt.xlim([-1, max(indices) + 1])
-        plt.bar(indices, df['clean_yield'], width=0.8, align='center', color='g')
-        plt.bar(indices, df['clean_yield_Q30'], width=0.2, align='center', color='b')
+        plt.bar(indices, df['clean_yield'], width=0.8, align='center', color='lightskyblue')
+        plt.bar(indices, df['clean_yield_Q30'], width=0.2, align='center', color='navajowhite')
         plt.ylabel('Gigabases')
         plt.xticks([])
-        green_patch = mpatches.Patch(color='green', label='Clean Yield Q30')
-        blue_patch = mpatches.Patch(color='blue', label='Clean Yield')
+        blue_patch = mpatches.Patch(color='lightskyblue', label='Clean Yield')
+        green_patch = mpatches.Patch(color='navajowhite', label='Clean Yield Q30')
+
         lgd = plt.legend(handles=[blue_patch, green_patch], loc=9, bbox_to_anchor=(0.5,-0.02))
         plt.savefig(yield_plot_outfile, bbox_extra_artists=(lgd,), bbox_inches='tight', pad_inches=1)
 
@@ -313,10 +314,10 @@ class ProjectReport:
         plt.figure(figsize=(10, 5))
         plt.xticks([])
         plt.xlim([-1, max(indices) + 1])
-        plt.bar(indices, df['pc_properly_mapped_reads'], width=1, align='center', color='y')
-        plt.bar(indices, df['pc_duplicate_reads'], width=0.4, align='center', color='r')
-        blue_patch = mpatches.Patch(color='red', label='% Duplicate')
-        green_patch = mpatches.Patch(color='yellow', label='% Properly Mapped')
+        plt.bar(indices, df['pc_properly_mapped_reads'], width=1, align='center', color='gainsboro')
+        plt.bar(indices, df['pc_duplicate_reads'], width=0.4, align='center', color='mediumaquamarine')
+        blue_patch = mpatches.Patch(color='gainsboro', label='% Properly Mapped')
+        green_patch = mpatches.Patch(color='mediumaquamarine', label='% Duplicate')
         lgd = plt.legend(handles=[blue_patch, green_patch], loc=9, bbox_to_anchor=(0.5,-0.02))
         plt.ylabel('% of Reads')
         plt.savefig(qc_plot_outfile, bbox_extra_artists=(lgd,), bbox_inches='tight', pad_inches=1)
