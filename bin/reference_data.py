@@ -8,7 +8,6 @@ from egcg_core.config import cfg
 from egcg_core.app_logging import logging_default as log_cfg
 from config import load_config
 
-load_config()
 log_cfg.add_stdout_handler()
 app_logger = log_cfg.get_logger('genome_downloader')
 
@@ -119,6 +118,7 @@ def get_dbsnp(taxid):
 
 
 def main(argv=None):
+    load_config()
     a = argparse.ArgumentParser()
     a.add_argument('action', choices=('list', 'info'))
     a.add_argument('type', choices=('genome', 'dbsnp'))
