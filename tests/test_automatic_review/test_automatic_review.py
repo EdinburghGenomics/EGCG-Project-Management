@@ -12,21 +12,21 @@ class TestLaneReviewer(TestProjectManagement):
         self.failing_reviewer_1 = ar.LaneReviewer(fake_data.failing_lanes[0])
         self.failing_reviewer_2 = ar.LaneReviewer(fake_data.failing_lanes[1])
 
-    def test_get_failing_metrics(self):
+    def test_failing_metrics(self):
         assert self.passing_reviewer.get_failing_metrics() == []
         assert self.failing_reviewer_1.get_failing_metrics() == ['pc_pass_filter', 'yield_in_gb']
         assert self.failing_reviewer_2.get_failing_metrics() == ['pc_pass_filter', 'pc_q30', 'yield_in_gb']
 
     @patch(ppath + 'LaneReviewer.get_failing_metrics', side_effect=[[], ['some', 'failing', 'metrics']])
-    def test_report(self, mocked_get_failing_metrics):
-        assert self.passing_reviewer.report() == {'reviewed': 'pass'}
-        assert self.passing_reviewer.report() == {
+    def test_summary(self, mocked_get_failing_metrics):
+        assert self.passing_reviewer._summary == {'reviewed': 'pass'}
+        assert self.failing_reviewer_1._summary == {
             'reviewed': 'fail', 'review_comments': 'failed due to some, failing, metrics'
         }
 
     @patch(ppath + 'rest_communication.patch_entries')
-    @patch(ppath + 'LaneReviewer.report', return_value='a_payload')
-    def test_patch_entries(self, mocked_report, mocked_patch):
+    @patch(ppath + 'LaneReviewer._summary', new='a_payload')
+    def test_push_review(self, mocked_patch):
         self.passing_reviewer.push_review()
         mocked_patch.assert_called_with(
             'run_elements',
@@ -46,7 +46,7 @@ class TestSampleReviewer(TestProjectManagement):
             self.non_human_reviewer = ar.SampleReviewer(fake_data.non_human_sample)
 
     @patch(ppath + 'clarity.get_expected_yield_for_sample', return_value=95000000000)
-    def test_get_failing_metrics(self, mocked_yield):
+    def test_failing_metrics(self, mocked_yield):
         for r in (self.passing_reviewer, self.no_genotype_reviewer, self.non_human_reviewer):
             assert r.get_failing_metrics() == []
 
@@ -76,14 +76,20 @@ class TestSampleReviewer(TestProjectManagement):
             'genotype_validation.mismatching_snps': {'comparison': '<', 'value': 5}
         }
 
-    @patch(ppath + 'SampleReviewer.get_failing_metrics', return_value=['some', 'failing', 'metrics'])
-    def test_report(self, mocked_get_failing_metrics):
-        assert self.failing_reviewer.get_failing_metrics() == ['some', 'failing', 'metrics']
+    @patch(ppath + 'clarity.get_expected_yield_for_sample', return_value=95000000000)
+    def test_summary(self, mocked_yield):
+        assert self.failing_reviewer._summary == {
+            'reviewed': 'fail',
+            'review_comments': 'failed due to clean_yield_in_gb, clean_yield_q30, provided_gender'
+        }
+        assert self.no_genotype_reviewer._summary == {'reviewed': 'genotype missing'}
+        assert self.non_human_reviewer._summary == {'reviewed': 'pass'}
+        assert self.passing_reviewer._summary == {'reviewed': 'pass'}
 
     @patch(ppath + 'rest_communication.patch_entry')
     @patch(ppath + 'SampleReviewer.cfg', return_value=True)
-    @patch(ppath + 'SampleReviewer.report', return_value='a_payload')
-    def test_patch_entry(self, mocked_yield, mocked_cfg, mocked_patch):
+    @patch(ppath + 'SampleReviewer._summary', new='a_payload')
+    def test_push_review(self, mocked_cfg, mocked_patch):
         self.passing_reviewer.push_review()
         mocked_patch.assert_called_with('samples', 'a_payload', 'sample_id', 'LP1251551__B_12')
 
@@ -94,9 +100,9 @@ class TestRunReviewer(TestProjectManagement):
         with patch(ppath + 'rest_communication.get_documents', return_value=lanes):
             self.reviewer = ar.RunReviewer(None)
 
-    @patch(ppath + 'LaneReviewer.report', return_value='a_payload')
+    @patch(ppath + 'LaneReviewer._summary', new='a_payload')
     @patch(ppath + 'rest_communication.patch_entries')
-    def test_review(self, mocked_patch, mocked_report):
+    def test_review(self, mocked_patch):
         self.reviewer.push_review()
         for x in range(3):
             call = mocked_patch.call_args_list[x]

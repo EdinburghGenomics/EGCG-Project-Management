@@ -4,9 +4,11 @@ import yaml
 import argparse
 import logging
 from cached_property import cached_property
-from egcg_core.app_logging import AppLogger, logging_default as log_cfg
 from egcg_core import rest_communication, clarity
+from egcg_core.app_logging import AppLogger, logging_default as log_cfg
+from egcg_core.config import cfg
 from egcg_core.constants import ELEMENT_REVIEW_COMMENTS
+from egcg_core.notifications import send_email
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import load_config
 
@@ -19,6 +21,10 @@ class Reviewer(AppLogger):
 
     @property
     def cfg(self):
+        raise NotImplementedError
+
+    @cached_property
+    def _summary(self):
         raise NotImplementedError
 
     def report(self):
@@ -71,23 +77,26 @@ class LaneReviewer(Reviewer):
     def cfg(self):
         return review_thresholds['run']
 
-    def report(self):
+    @cached_property
+    def _summary(self):
         failing_metrics = self.get_failing_metrics()
         if failing_metrics:
-            report = {
+            return {
                 'reviewed': 'fail',
                 ELEMENT_REVIEW_COMMENTS: 'failed due to ' + ', '.join(failing_metrics)
             }
         else:
-            report = {'reviewed': 'pass'}
+            return {'reviewed': 'pass'}
 
-        self.info('%s %s: %s', self.run_id, self.lane_number, report)
-        return report
+    def report(self):
+        s = '%s %s: %s' % (self.run_id, self.lane_number, self._summary)
+        self.info(s)
+        return s
 
     def push_review(self):
         rest_communication.patch_entries(
             'run_elements',
-            payload=self.report(),
+            payload=self._summary,
             where={'run_id': self.run_id, 'lane': self.lane_number}
         )
 
@@ -101,12 +110,15 @@ class RunReviewer:
         self.lane_reviewers = [LaneReviewer(lane) for lane in lanes]
 
     def report(self):
-        for r in self.lane_reviewers:
-            r.report()
+        return '\n'.join(r.report() for r in self.lane_reviewers)
+
+    @cached_property
+    def _summary(self):
+        return [r.report() for r in self.lane_reviewers]
 
     def push_review(self):
-        for r in self.lane_reviewers:
-            r.push_review()
+        for reviewer in self.lane_reviewers:
+            reviewer.push_review()
 
 
 class SampleReviewer(Reviewer):
@@ -140,7 +152,8 @@ class SampleReviewer(Reviewer):
         cfg['median_coverage']['value'] = coverage
         return cfg
 
-    def report(self):
+    @cached_property
+    def _summary(self):
         failing_metrics = self.get_failing_metrics()
 
         if failing_metrics:
@@ -154,12 +167,16 @@ class SampleReviewer(Reviewer):
         if failing_metrics:
             report[ELEMENT_REVIEW_COMMENTS] = 'failed due to ' + ', '.join(failing_metrics)
 
-        self.info('%s: %s', self.sample_name, report)
         return report
+
+    def report(self):
+        s = '%s: %s' % (self.sample_name, self._summary)
+        self.info(s)
+        return s
 
     def push_review(self):
         if self.cfg:
-            rest_communication.patch_entry('samples', self.report(), 'sample_id', self.sample_name)
+            rest_communication.patch_entry('samples', self._summary, 'sample_id', self.sample_name)
 
 
 def main():
@@ -169,14 +186,14 @@ def main():
     if args.debug:
         log_cfg.set_log_level(logging.DEBUG)
 
-    if args.run_review:
+    if args.run:
         unreviewed_data = rest_communication.get_documents(
             'aggregate/all_runs',
             paginate=False,
             match={'proc_status': 'finished', 'review_statuses': 'not reviewed'}
         )
         cls = RunReviewer
-    elif args.sample_review:
+    elif args.sample:
         unreviewed_data = rest_communication.get_documents(
             'aggregate/samples',
             paginate=False,
@@ -186,12 +203,25 @@ def main():
     else:
         return 1
 
+    reviewers = []
     for d in unreviewed_data:
         reviewer = cls(d)
-        if args.dry_run:
-            reviewer.report()
-        else:
-            reviewer.push_review()
+        reviewers.append(reviewer)
+
+    if args.dry_run:
+        for r in reviewers:
+            r.report()  # stdout only
+        return 0
+
+    for r in reviewers:
+        r.push_review()  # stdout + rest_api
+
+    if args.send_email:
+        msg = 'Report for %s automatically reviewed items:\n\n%s' % (  # stdout + email
+            len(reviewers),
+            '\n'.join(r.report() for r in reviewers)
+        )
+        send_email(msg, subject='Automatic data review', **cfg['email_notification'])
 
     return 0
 
@@ -200,9 +230,10 @@ def _parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dry_run', action='store_true')
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--send_email', action='store_true')
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('--run_review', action='store_true')
-    group.add_argument('--sample_review', action='store_true')
+    group.add_argument('--run', action='store_true')
+    group.add_argument('--sample', action='store_true')
     return parser.parse_args()
 
 
