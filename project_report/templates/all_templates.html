@@ -41,7 +41,7 @@
     <h5>Files ending in '.bam' are in BAM format, and contain the reads aligned to the genome and ready for
     variant calling. Each sample has one BAM file plus a '.bam.bai' file, which is the BAM index. This
     allows some program fast random access to any part of the BAM file.</h5>
-    <a href="https://samtools.github.io/hts-specs/SAMv1.pdf">Sam/Bam specification</a>
+    <h5><a href="https://samtools.github.io/hts-specs/SAMv1.pdf">Sam/Bam specification</a></h5>
 {%- endmacro %}
 
 {% macro vcf() -%}
@@ -50,6 +50,5 @@
     the reference genome. There is also a 'g.vcf.gz' file, which contains genotype likelihoods across the
     genome regardless of the presence of a variant. Files ending in 'vcf.gz.tbi' are Tabix indexes
     allowing fast random access to any part of their corresponding VCF.</h5>
-    <a href="https://samtools.github.io/hts-specs/VCFv4.2.pdf">VCF specification</a>
+    <h5><a href="https://samtools.github.io/hts-specs/VCFv4.2.pdf">VCF specification</a></h5>
 {%- endmacro %}
-

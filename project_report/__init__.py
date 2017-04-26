@@ -71,7 +71,7 @@ class ProjectReport:
             ('Quote no:', project.udf.get('Quote No.', '')),
             ('Number of Samples', number_of_samples),
             ('Number of Samples Delivered', samples_in_project),
-            ('Project Size', '%.2fTb' % (project_size/1000000000000.0)),
+            ('Project Size', '%.2f Terabytes' % (project_size/1000000000000.0)),
             ('Laboratory Protocol', self.library_workflow)
         )
 
