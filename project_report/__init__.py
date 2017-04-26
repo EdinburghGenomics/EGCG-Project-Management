@@ -34,7 +34,8 @@ species_alias = {
 
 
 class ProjectReport:
-    _samples_for_project = None
+    _lims_samples_for_project = None
+    _database_samples_for_project = None
     template_alias = {
         'TruSeq Nano DNA Sample Prep': 'truseq_nano',
         None: 'truseq_nano',
@@ -53,40 +54,40 @@ class ProjectReport:
             'adapter1': 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCA',
             'adapter2': 'AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT'
         }
+        self.library_workflow = self.get_library_workflow(self.get_all_sample_names(modify_names=False))
+        self.species = self.get_species(self.get_all_sample_names(modify_names=False))
+        self.database_samples = self.samples_for_project_restapi
 
     def get_project_info(self):
         project = self.lims.get_projects(name=self.project_name)[0]
         number_of_samples = len(self.get_all_sample_names(modify_names=True))
         project_size = self.get_folder_size(self.project_delivery)
-        #samples_for_project = self.samples_for_project_restapi
-        #sample_yields = [s.get('clean_yield_in_gb') for s in samples_for_project if s.get('clean_yield_in_gb')]
-        #coverage_per_sample = [s.get('coverage', {}).get('mean') for s in samples_for_project if s.get('coverage')]
-        #samples_in_project = len(sample_yields)
+        sample_yields = [s.get('clean_yield_in_gb') for s in self.database_samples if s.get('clean_yield_in_gb')]
+        samples_in_project = len(sample_yields)
         return (
             ('Project name:', self.project_name),
             ('Project title:', project.udf.get('Project Title', '')),
             ('Enquiry no:', project.udf.get('Enquiry Number', '')),
             ('Quote no:', project.udf.get('Quote No.', '')),
-            ('Researcher:', '%s %s (%s)' % (project.researcher.first_name,
-                                            project.researcher.last_name,
-                                            project.researcher.email)),
-            #('Number of Samples', number_of_samples),
-            #('Number of Samples Delivered', samples_in_project),
-            #('Project Size', '%.2fTb' % (project_size/1000000000000.0))
+            ('Number of Samples', number_of_samples),
+            ('Number of Samples Delivered', samples_in_project),
+            ('Project Size', '%.2fTb' % (project_size/1000000000000.0)),
+            ('Laboratory Protocol', self.library_workflow)
         )
 
     @property
     def samples_for_project_lims(self):
-        if self._samples_for_project is None:
-            self._samples_for_project = self.lims.get_samples(projectname=self.project_name)
-        return self._samples_for_project
+        if self._lims_samples_for_project is None:
+            self._lims_samples_for_project = self.lims.get_samples(projectname=self.project_name)
+        return self._lims_samples_for_project
 
     @property
     def samples_for_project_restapi(self):
-        samples_for_project = get_documents('aggregate/samples', match={"project_id": self.project_name}, paginate=False)
-        if not samples_for_project:
-            raise EGCGError('No samples found for project %s' % (self.project_name))
-        return samples_for_project
+        if self._database_samples_for_project is None:
+            self._database_samples_for_project = get_documents('aggregate/samples', match={"project_id": self.project_name}, paginate=False)
+            if not self._database_samples_for_project:
+                raise EGCGError('No samples found for project %s' % (self.project_name))
+        return self._database_samples_for_project
 
     def get_sample(self, sample_name):
         samples = [s for s in self.samples_for_project_lims if s.name == sample_name]
@@ -135,113 +136,42 @@ class ProjectReport:
                 samples_to_info[row['Sample Id']] = row
         return samples_to_info
 
-    def per_project_sample_basic_stats(self):
-        samples_for_project = self.samples_for_project_restapi
-        sample_yields = [s.get('clean_yield_in_gb') for s in samples_for_project if s.get('clean_yield_in_gb')]
-        coverage_per_sample = [s.get('coverage', {}).get('mean') for s in samples_for_project if s.get('coverage')]
-        samples_in_project = len(sample_yields)
 
-        basic_stats_to_report = OrderedDict()
-        if sample_yields:
-            basic_stats_to_report['Total yield (Gb):'] = '%.2f' % sum(sample_yields)
-            basic_stats_to_report['Average yield (Gb):'] = '%.1f' % (sum(sample_yields)/max(len(sample_yields), 1))
-        if coverage_per_sample:
-            basic_stats_to_report['Average coverage per sample:'] = '%.2f' % (sum(coverage_per_sample)/max(len(coverage_per_sample), 1))
-
-        return basic_stats_to_report
-
-    def per_project_sample_qc_stats(self):
-        samples_for_project = self.samples_for_project_restapi
-        pc_duplicate_reads = [s.get('pc_duplicate_reads') for s in samples_for_project if s.get('pc_duplicate_reads')]
-        evenness = [s.get('evenness') for s in samples_for_project if s.get('evenness')]
-        freemix = [s.get('freemix') for s in samples_for_project if s.get('freemix')]
-        pc_properly_mapped_reads = [s.get('pc_properly_mapped_reads') for s in samples_for_project if s.get('pc_properly_mapped_reads')]
-        clean_pc_q30 = [s.get('clean_pc_q30') for s in samples_for_project if s.get('clean_pc_q30')]
+    def get_project_stats(self):
+        sample_yields = [s.get('clean_yield_in_gb') for s in self._database_samples_for_project if s.get('clean_yield_in_gb')]
+        coverage_per_sample = [s.get('coverage', {}).get('mean') for s in self._database_samples_for_project if s.get('coverage')]
+        pc_duplicate_reads = [s.get('pc_duplicate_reads') for s in self._database_samples_for_project if s.get('pc_duplicate_reads')]
+        evenness = [s.get('evenness') for s in self._database_samples_for_project if s.get('evenness')]
+        freemix = [s.get('freemix') for s in self._database_samples_for_project if s.get('freemix')]
+        pc_properly_mapped_reads = [s.get('pc_properly_mapped_reads') for s in self._database_samples_for_project if s.get('pc_properly_mapped_reads')]
+        clean_pc_q30 = [s.get('clean_pc_q30') for s in self._database_samples_for_project if s.get('clean_pc_q30')]
         mean_bases_covered_at_15X = [s.get('coverage_statistics', {})
                                          .get('bases_at_coverage', {})
                                          .get('bases_at_15X')
-                                     for s in samples_for_project if s.get('coverage_statistics')]
+                                     for s in self._database_samples_for_project if s.get('coverage_statistics')]
 
-        qc_stats_to_report = OrderedDict()
+        project_stats = OrderedDict()
 
+
+        if sample_yields:
+            project_stats['Total yield (Gb):'] = '%.2f' % sum(sample_yields)
+            project_stats['Mean yield (Gb):'] = '%.1f' % (sum(sample_yields)/max(len(sample_yields), 1))
+        if coverage_per_sample:
+            project_stats['Mean coverage per sample:'] = '%.2f' % (sum(coverage_per_sample)/max(len(coverage_per_sample), 1))
         if pc_duplicate_reads:
-            qc_stats_to_report['Average percent duplicate reads:'] = round(sum(pc_duplicate_reads)/len(pc_duplicate_reads), 2)
+            project_stats['Mean % duplicate reads:'] = round(sum(pc_duplicate_reads)/len(pc_duplicate_reads), 2)
         if evenness:
-            qc_stats_to_report['Average evenness:'] = round(sum(evenness)/len(evenness), 2)
+            project_stats['Mean evenness:'] = round(sum(evenness)/len(evenness), 2)
         if freemix:
-            qc_stats_to_report['Maximum freemix value:'] = round(max(freemix), 2)
+            project_stats['Maximum freemix value:'] = round(max(freemix), 2)
         if pc_properly_mapped_reads:
-            qc_stats_to_report['Average percent mapped reads:'] = round(sum(pc_properly_mapped_reads)/len(pc_properly_mapped_reads), 2)
+            project_stats['Mean % Reads Mapped to Reference Genome:'] = round(sum(pc_properly_mapped_reads)/len(pc_properly_mapped_reads), 2)
         if clean_pc_q30:
-            qc_stats_to_report['Average percent Q30:'] = round(sum(clean_pc_q30)/len(clean_pc_q30), 2)
+            project_stats['Mean % Q30:'] = round(sum(clean_pc_q30)/len(clean_pc_q30), 2)
         if mean_bases_covered_at_15X:
-            qc_stats_to_report['Average bases covered at 15X:'] = round(sum(mean_bases_covered_at_15X)/len(mean_bases_covered_at_15X), 2)
+            project_stats['Mean bases covered at 15X:'] = round(sum(mean_bases_covered_at_15X)/len(mean_bases_covered_at_15X), 2)
 
-        return qc_stats_to_report
-
-    def contamination_chart_data(self):
-        samples_for_project = self.samples_for_project_restapi
-        sample_contamination = {'number_mapped_to_nonfocal': [], 'number_mapped_to_focal': []}
-
-        for sample in samples_for_project:
-            c = sample.get('species_contamination')
-            focal_species = sample.get('species_name')
-            number_mapped_to_focal = c.get('total_reads_mapped') * (100 - (c.get('percent_unmapped_focal') - c.get('percent_unmapped'))) / 100
-            contaminant_unique_mapped = c.get('contaminant_unique_mapped', {})
-            number_mapped_to_nonfocal = 0
-            for species in contaminant_unique_mapped:
-                if not species == focal_species:
-                    number_mapped_to_nonfocal += contaminant_unique_mapped[species]
-            sample_contamination['number_mapped_to_nonfocal'].append(number_mapped_to_nonfocal)
-            sample_contamination['number_mapped_to_focal'].append(number_mapped_to_focal)
-
-        return sample_contamination
-
-    def get_bamfile_reads_for_project_samples(self):
-        samples_for_project = self.samples_for_project_restapi
-        bamfile_reads = {}
-
-        for sample in samples_for_project:
-            s = sample.get('sample_id')
-            b = sample.get('bam_file_reads')
-            bamfile_reads[s] = b
-        return bamfile_reads
-
-    def get_sample_yield_metrics(self):
-        samples_for_project = self.samples_for_project_restapi
-        yield_metrics = {'samples': [], 'clean_yield': [], 'clean_yield_Q30': []}
-
-        for sample in samples_for_project:
-            sample_id = sample.get('sample_id')
-            clean_yield_in_gb = sample.get('clean_yield_in_gb')
-            clean_yield_q30 = sample.get('clean_yield_q30')
-
-            if not None in [sample_id, clean_yield_in_gb, clean_yield_q30]:
-                all_yield_metrics = [sample_id, clean_yield_in_gb, clean_yield_q30]
-                yield_metrics['samples'].append(all_yield_metrics[0])
-                yield_metrics['clean_yield'].append(all_yield_metrics[1])
-                yield_metrics['clean_yield_Q30'].append(all_yield_metrics[2])
-
-        return yield_metrics
-
-
-
-
-    def get_pc_statistics(self):
-        samples = self.samples_for_project_restapi
-        pc_statistics = {'pc_duplicate_reads': [], 'pc_properly_mapped_reads': [], 'pc_pass_filter': []}
-        for sample in samples:
-            pc_duplicate_reads = sample.get('pc_duplicate_reads')
-            pc_properly_mapped_reads = sample.get('pc_properly_mapped_reads')
-            pc_pass_filter = sample.get('pc_pass_filter')
-            if not None in [pc_duplicate_reads, pc_properly_mapped_reads, pc_pass_filter]:
-                all_pc_statistics = [pc_duplicate_reads, pc_properly_mapped_reads, pc_pass_filter]
-                pc_statistics['pc_duplicate_reads'].append(all_pc_statistics[0])
-                pc_statistics['pc_properly_mapped_reads'].append(all_pc_statistics[1])
-                pc_statistics['pc_pass_filter'].append(all_pc_statistics[2])
-        return pc_statistics
-
-
+        return project_stats
 
     def get_sample_info(self):
 
@@ -261,20 +191,66 @@ class ProjectReport:
             if summary_yaml:
                 self.update_from_project_summary_yaml(summary_yaml)
 
-        basic_stats = self.per_project_sample_basic_stats()
-        basic_stats_results = []
+        get_project_stats = self.get_project_stats()
+        project_stats = []
+        for stat in get_project_stats:
+            if get_project_stats[stat]:
+                project_stats.append((stat, get_project_stats[stat]))
+        return project_stats
 
-        for stat in basic_stats:
-            if basic_stats[stat]:
-                basic_stats_results.append((stat, basic_stats[stat]))
 
-        # QC
-        qc_stats = self.per_project_sample_qc_stats()
-        qc_results = []
-        for stat in qc_stats:
-            if qc_stats[stat]:
-                qc_results.append((stat, qc_stats[stat]))
-        return basic_stats_results, qc_results
+    def contamination_chart_data(self):
+        sample_contamination = {'number_mapped_to_nonfocal': [], 'number_mapped_to_focal': []}
+        for sample in self._database_samples_for_project:
+            c = sample.get('species_contamination')
+            focal_species = sample.get('species_name')
+            number_mapped_to_focal = c.get('total_reads_mapped') * (100 - (c.get('percent_unmapped_focal') - c.get('percent_unmapped'))) / 100
+            contaminant_unique_mapped = c.get('contaminant_unique_mapped', {})
+            number_mapped_to_nonfocal = 0
+            for species in contaminant_unique_mapped:
+                if not species == focal_species:
+                    number_mapped_to_nonfocal += contaminant_unique_mapped[species]
+            sample_contamination['number_mapped_to_nonfocal'].append(number_mapped_to_nonfocal)
+            sample_contamination['number_mapped_to_focal'].append(number_mapped_to_focal)
+
+        return sample_contamination
+
+    def get_bamfile_reads_for_project_samples(self):
+        bamfile_reads = {}
+        for sample in self._database_samples_for_project:
+            s = sample.get('sample_id')
+            b = sample.get('bam_file_reads')
+            bamfile_reads[s] = b
+        return bamfile_reads
+
+    def get_sample_yield_metrics(self):
+        yield_metrics = {'samples': [], 'clean_yield': [], 'clean_yield_Q30': []}
+
+        for sample in self._database_samples_for_project:
+            sample_id = sample.get('sample_id')
+            clean_yield_in_gb = sample.get('clean_yield_in_gb')
+            clean_yield_q30 = sample.get('clean_yield_q30')
+
+            if not None in [sample_id, clean_yield_in_gb, clean_yield_q30]:
+                all_yield_metrics = [sample_id, clean_yield_in_gb, clean_yield_q30]
+                yield_metrics['samples'].append(all_yield_metrics[0])
+                yield_metrics['clean_yield'].append(all_yield_metrics[1])
+                yield_metrics['clean_yield_Q30'].append(all_yield_metrics[2])
+
+        return yield_metrics
+
+    def get_pc_statistics(self):
+        pc_statistics = {'pc_duplicate_reads': [], 'pc_properly_mapped_reads': [], 'pc_pass_filter': []}
+        for sample in self._database_samples_for_project:
+            pc_duplicate_reads = sample.get('pc_duplicate_reads')
+            pc_properly_mapped_reads = sample.get('pc_properly_mapped_reads')
+            pc_pass_filter = sample.get('pc_pass_filter')
+            if not None in [pc_duplicate_reads, pc_properly_mapped_reads, pc_pass_filter]:
+                all_pc_statistics = [pc_duplicate_reads, pc_properly_mapped_reads, pc_pass_filter]
+                pc_statistics['pc_duplicate_reads'].append(all_pc_statistics[0])
+                pc_statistics['pc_properly_mapped_reads'].append(all_pc_statistics[1])
+                pc_statistics['pc_pass_filter'].append(all_pc_statistics[2])
+        return pc_statistics
 
     def chart_data(self):
         bam_reads_plot_outfile = path.join(self.project_source, 'bam_reads_plot.png')
@@ -288,7 +264,6 @@ class ProjectReport:
             plt.xlabel('BAM File Reads')
             plt.savefig(bam_reads_plot_outfile)
 
-
         yield_plot_outfile = path.join(self.project_source, 'yield_plot.png')
         sample_yields = self.get_sample_yield_metrics()
         df = pd.DataFrame(sample_yields)
@@ -296,13 +271,12 @@ class ProjectReport:
         plt.figure(figsize=(10, 5))
         plt.xticks([])
         plt.xlim([-1, max(indices) + 1])
-        plt.bar(indices, df['clean_yield'], width=0.8, align='center', color='lightskyblue')
-        plt.bar(indices, df['clean_yield_Q30'], width=0.2, align='center', color='navajowhite')
+        plt.bar(indices, df['clean_yield'], width=0.8, align='center', color='gainsboro')
+        plt.bar(indices, df['clean_yield_Q30'], width=0.2, align='center', color='lightskyblue')
         plt.ylabel('Gigabases')
         plt.xticks([])
-        blue_patch = mpatches.Patch(color='lightskyblue', label='Clean Yield')
-        green_patch = mpatches.Patch(color='navajowhite', label='Clean Yield Q30')
-
+        blue_patch = mpatches.Patch(color='gainsboro', label='Yield (Gb)')
+        green_patch = mpatches.Patch(color='lightskyblue', label='Yield Q30 (Gb)')
         lgd = plt.legend(handles=[blue_patch, green_patch], loc=9, bbox_to_anchor=(0.5,-0.02))
         plt.savefig(yield_plot_outfile, bbox_extra_artists=(lgd,), bbox_inches='tight', pad_inches=1)
 
@@ -316,12 +290,11 @@ class ProjectReport:
         plt.xlim([-1, max(indices) + 1])
         plt.bar(indices, df['pc_properly_mapped_reads'], width=1, align='center', color='gainsboro')
         plt.bar(indices, df['pc_duplicate_reads'], width=0.4, align='center', color='mediumaquamarine')
-        blue_patch = mpatches.Patch(color='gainsboro', label='% Properly Mapped')
-        green_patch = mpatches.Patch(color='mediumaquamarine', label='% Duplicate')
+        blue_patch = mpatches.Patch(color='gainsboro', label='% Paired Reads Aligned to Reference Genome')
+        green_patch = mpatches.Patch(color='mediumaquamarine', label='% Duplicate Reads')
         lgd = plt.legend(handles=[blue_patch, green_patch], loc=9, bbox_to_anchor=(0.5,-0.02))
         plt.ylabel('% of Reads')
         plt.savefig(qc_plot_outfile, bbox_extra_artists=(lgd,), bbox_inches='tight', pad_inches=1)
-
         bam_reads_plot_outfile = 'file://' + bam_reads_plot_outfile
         yield_plot_outfile = 'file://' + yield_plot_outfile
         qc_plot_outfile = 'file://' + qc_plot_outfile
@@ -329,12 +302,11 @@ class ProjectReport:
         return bam_reads_plot_outfile, yield_plot_outfile, qc_plot_outfile
 
     def get_project_sample_metrics(self):
-        samples_for_project = self.samples_for_project_restapi
         project_sample_metrics = {'median_coverage': [],
                                   'clean_pc_q30': [],
                                   'pc_properly_mapped_reads': [],
                                   'clean_yield_in_gb': []}
-        for sample in samples_for_project:
+        for sample in self._database_samples_for_project:
             project_sample_metrics['median_coverage'].append(sample.get('median_coverage'))
             project_sample_metrics['clean_pc_q30'].append(sample.get('clean_pc_q30'))
             project_sample_metrics['pc_properly_mapped_reads'].append(sample.get('pc_properly_mapped_reads'))
@@ -347,26 +319,32 @@ class ProjectReport:
             project_sample_metrics[metric] = [min(project_sample_metrics[metric]), max(project_sample_metrics[metric])]
         return project_sample_metrics
 
-    def get_html_template(self):
-        samples = self.get_all_sample_names(modify_names=False)
-        library_workflow = set()
+    def get_species(self, samples):
         species = set()
         for sample in samples:
-            library_workflow.add(self.get_library_workflow_from_sample(sample))
             species.add(self.get_report_type_from_sample(sample))
+        return species
+
+    def get_library_workflow(self, samples):
+        library_workflow = set()
+        for sample in samples:
+            library_workflow.add(self.get_library_workflow_from_sample(sample))
         if len(library_workflow) != 1:
             raise ValueError('%s workflows used for this project: %s' % (len(library_workflow), library_workflow))
         library_workflow = library_workflow.pop()
-        template_base = self.template_alias[library_workflow]
-        template = {'template_base': None, 'bioinformatics_template': None, 'formats_template': None}
+        return library_workflow
 
-        if not species:
+    def get_html_template(self):
+
+        template_base = self.template_alias[self.library_workflow]
+        template = {'template_base': None, 'bioinformatics_template': None, 'formats_template': None}
+        if not self.species:
             raise ValueError('No species found for this project')
-        elif len(species) == 1 and list(species)[0] == 'Human':
+        elif len(self.species) == 1 and list(self.species)[0] == 'Human':
             template['template_base'] = template_base + '.html'
             template['bioinformatics_template'] = ['human_bioinf']
             template['formats_template'] = ['fastq', 'bam', 'vcf']
-        elif 'Sheep' in (list(species)):
+        elif 'Sheep' in (list(self.species)):
             template['template_base'] = template_base + '_non_human.html'
             template['bioinformatics_template'] = ['non_human_bioinf', 'bos_taurus_bioinf']
             template['formats_template'] = ['fastq']
@@ -386,7 +364,6 @@ class ProjectReport:
             HTML(string=h).write_pdf(project_file)
 
     def generate_csv(self):
-        sample_data_rest = self.samples_for_project_restapi
         csv_file = path.join(self.project_delivery, 'project_data.csv')
 
         with open(csv_file, 'w') as outfile:
@@ -402,7 +379,7 @@ class ProjectReport:
                             '% Pass Filter',
                             'Median Coverage'])
 
-            for sample in sample_data_rest:
+            for sample in self._database_samples_for_project:
                 sample_from_lims = self.get_sample(sample.get('sample_id'))
                 writer.writerow([sample.get('sample_id', 'None'),
                                  sample.get('user_sample_id', 'None'),
@@ -421,12 +398,11 @@ class ProjectReport:
         project_templates = self.get_html_template()
         template = env.get_template(project_templates.get('template_base'))
 
-        basic_stats_results, qc_results = self.get_sample_info()
+        project_stats = self.get_sample_info()
         bam_reads_plot_outfile, yield_plot_outfile, qc_plot_outfile = self.chart_data()
 
         project_sample_metrics = self.get_project_sample_metrics()
-        return template.render(basic_stats_results=basic_stats_results,
-                               qc_results=qc_results,
+        return template.render(project_stats=project_stats,
                                project_info=self.get_project_info(),
                                bam_reads_plot_outfile=bam_reads_plot_outfile,
                                yield_plot_outfile=yield_plot_outfile,

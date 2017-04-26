@@ -1,59 +1,55 @@
 {% macro non_human_bioinf() -%}
-    <h3>Bioinformatics analysis</h3>
+    <h2>Bioinformatics analysis</h2>
 
-    Demultiplexing is performed using bcl2fastq ({{bcl2fastq_version}}), allowing 1 mismatch when assigning reads
+    <h5>Demultiplexing is performed using bcl2fastq ({{bcl2fastq_version}}), allowing 1 mismatch when assigning reads
     to barcodes. Adapters (Read1: {{adapter1}}, Read2: {{adapter2}}) are trimmed during the demultiplexing
-    process.
+    process.</h5>
 {%- endmacro %}
 
 
 {% macro bos_taurus_bioinf() -%}
-    bwa mem ({{bwa_version}}) is used to align the raw reads to the {{genome_name}}
+    <h5>bwa mem ({{bwa_version}}) is used to align the raw reads to the {{genome_name}}
     ({{genome_version}}) genome, and the Genome Analysis ToolKit ({{gatk_version}}) for the indel realignment
     and base recalibration. The genotype likelihoods are calculated using Genome Analysis Toolkit
-    ({{gatk_version}}) HaplotypeCaller creating a final gvcf file.
+    ({{gatk_version}}) HaplotypeCaller creating a final gvcf file.</h5>
 {%- endmacro %}
 
 {% macro human_bioinf() -%}
-    <h3>Bioinformatics analysis</h3>
-    Demultiplexing is performed using bcl2fastq ({{bcl2fastq_version}}), allowing 1 mismatch when assigning reads
+    <h2>Bioinformatics analysis</h2>
+    <h5>Demultiplexing is performed using bcl2fastq ({{bcl2fastq_version}}), allowing 1 mismatch when assigning reads
     to barcodes. Adapters (Read1: {{adapter1}}, Read2: {{adapter2}}) are trimmed during the demultiplexing
     process. BCBio-Nextgen ({{bcbio_version}}) is used to perform alignment, bam file preparation and variant
-    detection. BCBio uses bwa mem ({{bwa_version}}) to align the raw reads to the {{genome_name}}
+    detection. Variant data is used to verify sample identity by comparing to SNPs genotyped using the
+    QuantStudio 12K Openarrays. BCBio uses bwa mem ({{bwa_version}}) to align the raw reads to the {{genome_name}}
     ({{genome_version}}) genome, then samblaster ({{samblaster_version}}) to mark the duplicated fragments, and
     the Genome Analysis ToolKit ({{gatk_version}}) for the indel realignment and base recalibration. The genotype
     likelihoods are calculated using Genome Analysis Toolkit ({{gatk_version}}) HaplotypeCaller creating a final
-    gvcf file.
+    gvcf file.</h5>
+
 {%- endmacro %}
 
 {% macro fastq() -%}
-    <h3>Fastq</h3>
-    <div>
-        Files ending in 'fastq.gz' are in gzipped Sanger fastq format, and contain the raw sequence data after
-        demultiplexing. Each sample has two files: an 'R1.fastq.gz' and an 'R2.fastq.gz', respectively containing
-        the first and second reads of each read pair.
-    </div>
-    <a href="https://en.wikipedia.org/wiki/FASTQ_format">Fastq specification</a>
+    <h2>Fastq</h2>
+    <h5>Files ending in 'fastq.gz' are in gzipped Sanger fastq format, and contain the raw sequence data after
+    demultiplexing. Each sample has two files: an 'R1.fastq.gz' and an 'R2.fastq.gz', respectively containing
+    the first and second reads of each read pair.</h5>
+    <h5><a href="https://en.wikipedia.org/wiki/FASTQ_format">Fastq specification</a></h5>
 {%- endmacro %}
 
 {% macro bam() -%}
-    <h3>BAM</h3>
-    <div>
-        Files ending in '.bam' are in BAM format, and contain the reads aligned to the genome and ready for
-        variant calling. Each sample has one BAM file plus a '.bam.bai' file, which is the BAM index. This
-        allows some program fast random access to any part of the BAM file.
-    </div>
+    <h2>BAM</h2>
+    <h5>Files ending in '.bam' are in BAM format, and contain the reads aligned to the genome and ready for
+    variant calling. Each sample has one BAM file plus a '.bam.bai' file, which is the BAM index. This
+    allows some program fast random access to any part of the BAM file.</h5>
     <a href="https://samtools.github.io/hts-specs/SAMv1.pdf">Sam/Bam specification</a>
 {%- endmacro %}
 
 {% macro vcf() -%}
-    <h3>VCF</h3>
-    <div>
-        Files ending in '.vcf.gz' are gzipped VCF files, and contain variants dectected between the sample and
-        the reference genome. There is also a 'g.vcf.gz' file, which contains genotype likelihoods across the
-        genome regardless of the presence of a variant. Files ending in 'vcf.gz.tbi' are Tabix indexes
-        allowing fast random access to any part of their corresponding VCF.
-    </div>
+    <h2>VCF</h2>
+    <h5>Files ending in '.vcf.gz' are gzipped VCF files, and contain variants dectected between the sample and
+    the reference genome. There is also a 'g.vcf.gz' file, which contains genotype likelihoods across the
+    genome regardless of the presence of a variant. Files ending in 'vcf.gz.tbi' are Tabix indexes
+    allowing fast random access to any part of their corresponding VCF.</h5>
     <a href="https://samtools.github.io/hts-specs/VCFv4.2.pdf">VCF specification</a>
 {%- endmacro %}
 

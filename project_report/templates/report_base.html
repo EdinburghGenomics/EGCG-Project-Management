@@ -5,19 +5,13 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" crossorigin="anonymous">
     <style type="text/css">
         #edgen_logo { width: 70px; margin-left: auto; margin-right: auto; display: inline-block;; }
-        h1 { font-size: 2.7em; text-align: center; line-height: 300%; font-family: arial, sans-serif; }
-        h2 { font-size: 1.4em; font-family: arial, sans-serif; line-height: 70%; padding-top: 80px; }
-        h3 { font-size: 1.4em; font-family: arial, sans-serif; line-height: 250%; }
 
+        h1 { font-size: 1.4em; font-family: arial, sans-serif; line-height: 70%; padding-top: 80px; }
+        h2 { font-size: 1.9em; line-height: 200%; font-family: arial, sans-serif; }
+        h3 { font-size: 1.5em; line-height: 250%; font-family: arial, sans-serif; }
+        h4 { font-size: 2.7em; line-height: 300%; font-family: arial, sans-serif; }
+        h5 { font-size: 1.2em; line-height: 140%; font-family: arial, sans-serif; }
 
-        h4 { font-size: 1.7em; line-height: 300%; text-indent: 50px; font-family: arial, sans-serif; }
-        h5 { font-size: 1.4em; line-height: 250%; text-indent: 100px; font-family: arial, sans-serif; }
-        h6 { font-size: 2.1em; line-height: 300%; font-family: arial, sans-serif; }
-
-        .pagebreak { page-break-before: always; }
-        div.page-footer { margin-bottom: 5cm; }
-        div.end_of_page { page-break-after: always; }
-        div.container { text-align: justify; font-size: 1.3em; font-family: arial, sans-serif; }
         div.charts {
            display: block;
            margin-left: auto;
@@ -25,57 +19,52 @@
 
         table {
             font-family: arial, sans-serif;
-            border-collapse: collapse;
             width: 100%;
-            border: none;
+            text-align: left;
         }
-
-
         td, th {
             border: none;
             text-align: left;
             padding: 4px;
-            font-size: 1.1em;
-            font-family: arial, sans-serif;
+            font-size: 1.2em;
         }
 
-    @page {
-    margin-top: 2cm;
-    margin-bottom: 2cm;
-    }
-
-    @media screen {
-      div.divFooter {
-       display: none;
-      }
-    }
-    @media print {
-      div.divFooter {
-        position: fixed;
-        bottom: 0%;
-        left: 40%;
-      }
-    }
-
-    @media print
-    {
-        div{
-            page-break-inside: avoid;
+        @page {
+        margin-top: 2cm;
+        margin-bottom: 2cm;
         }
-    }
+        @media print
+        {
+            div{
+                page-break-inside: avoid;
+            }
+        }
 
+        div.page-footer { margin-bottom: 5cm; }
+        @media screen {
+          div.divFooter {
+           display: none;
+          }
+        }
+        @media print {
+          div.divFooter {
+            position: fixed;
+            bottom: 0%;
+            left: 40%;
+          }
+        }
     </style>
     <meta charset="UTF-8">
+
 </head>
 <div class="divFooter"><img id="edgen_logo" src="http://s29.postimg.org/8qp6u1agn/EG_logo_final_version_colourwhite_cropped.png"/></div>
-    <div class="page-header">
-            <h1>Project Summary </h1>
+    <div id="page-header" style="text-align: center;">
+            <h4>Project Summary </h4>
     </div>
 <body>
 
-    <div id="general_info" class="end_of_page">
+    <div id="general_info" style="padding-top: 150px; page-break-after: always;">
             {% block general_info %}
-            <!--<h2>General project information</h2>-->
             <table>
                 {% for title, data in project_info %}
                 <tr>
@@ -86,29 +75,27 @@
             </table>
         {% endblock %}
     </div>
-    <div id="contents_page" class="end_of_page">
-        <h6>Contents</h6>
-        <h4><a href="#method_anchor">Methods</a></h4>
-        <h5><a href="#sample_qc_anchor">Sample QC</a></h5>
-        <h5><a href="#library_prep_anchor">Library Prep</a></h5>
-        <h5><a href="#library_qc_anchor">Library QC</a></h5>
-        <h5><a href="#sequencing_anchor">Sequencing</a></h5>
-        <h5><a href="#bioinformatics_analysis_anchor">Bioinformatics Analysis</a></h5>
-
-        <h4><a href="#results_anchor">Results</a></h4>
-        <h5><a href="#basic_statistics_anchor">Basic Statistics</a></h5>
-        <h5><a href="#qc_statistics_anchor">QC Statistics</a></h5>
-        <h4><a href="#file_formats_anchor">File Formats</a></h4>
+    <div id="contents_page" style="page-break-after: always;">
+        <h4>Contents</h4>
+        <h2 style="text-indent: 50px;"><a href="#method_anchor">Methods</a></h2>
+        <h3 style="text-indent: 100px;"><a href="#sample_qc_anchor">Sample QC</a></h3>
+        <h3 style="text-indent: 100px;"><a href="#library_prep_anchor">Library Prep</a></h3>
+        <h3 style="text-indent: 100px;"><a href="#library_qc_anchor">Library QC</a></h3>
+        <h3 style="text-indent: 100px;"><a href="#sequencing_anchor">Sequencing</a></h3>
+        <h3 style="text-indent: 100px;"><a href="#bioinformatics_analysis_anchor">Bioinformatics Analysis</a></h3>
+        <h2 style="text-indent: 50px;"><a href="#results_anchor">Results</a></h2>
+        <h2 style="text-indent: 50px;"><a href="#file_formats_anchor">File Formats</a></h2>
     </div>
-    <div class="container">
+
+    <div style="text-align: justify; font-family: arial, sans-serif;">
 
         <div id="method">
             <a name="method_anchor"></a>
             {% block method %}
-            <h6>Methods</h6>
-            Edinburgh Genomics: Clinical Genomics utilises Illumina SeqLab, which integrates Illumina TruSeq
+            <h4>Methods</h4>
+            <h5>Edinburgh Genomics: Clinical Genomics utilises Illumina SeqLab, which integrates Illumina TruSeq
             library preparation, Illumina cBot2 cluster generation, Illumina HiSeqX sequencing, Hamilton
-            Microlab STAR integrative automation, and Genologics Clarity LIMS X Edition.
+            Microlab STAR integrative automation, and Genologics Clarity LIMS X Edition.</h5>
             {% endblock %}
         </div>
 
@@ -119,52 +106,35 @@
         <div id="bioinformatics_analysis"><a name="bioinformatics_analysis_anchor"></a>{% block bioinformatics_analysis %}{% endblock %}</div>
         <div id="repeat_samples"><a name="repeat_samples_anchor"></a>{% block repeat_samples %}{% endblock %}</div>
 
-        <div id="results" class="end_of_page">
-            {% block results %}
-            <h6>Results</h6>
+        <div id="results" style="page-break-after: always;">
+            <h4>Results</h4>
             <a name="results_anchor"></a>
-            <h3>Basic Statistics</h3>
-            <a name="basic_statistics_anchor"></a>
-
             <table>
-                {% for title, data in basic_stats_results %}
+                {% for title, data in project_stats %}
                 <tr>
                     <td>{{ title }}</td>
                     <td>{{ data }}</td>
                 </tr>
                 {% endfor %}
             </table>
-
-            <h3>QC Statistics</h3>
-            <a name="qc_statistics_anchor"></a>
-            <table>
-            {% for title, data in qc_results %}
-            <tr>
-                <td>{{ title }}</td>
-                <td>{{ data }}</td>
-            </tr>
-            {% endfor %}
-            </table>
-            {% endblock %}
         </div>
 
-        <div id="yield_chart" class="end_of_page">
-        <h3>Yield</h3>
+        <div id="yield_chart" style="page-break-after: always;">
+        <h2>Yield</h2>
         <img id="chart1" class="charts" src="{{ yield_plot_outfile }}" />
-        Clean yield is calculated as the yield in gigabases after adapters have been
-        trimmed during demultiplexing. The yield of high quality reads is estimated using
-        the Q30 score; clean yield Q30 corresponds to gigabases of reads which have at least
-        75% of bases with a quality score of 30 or higher.
+        <h5>Yield is calculated as the yield in gigabases (Gb) after adapters have been
+        trimmed during processing. The yield Q30 is the quantity of reads
+         which have at least 75% of bases with a quality score of 30 or higher.</h5>
         </div>
-        <div id="mapping_and_duplicates_chart" class="end_of_page">
-        <h3>Read Mapping and Duplicates</h3>
+        <div id="mapping_and_duplicates_chart" style="page-break-after: always;">
+        <h2>Read Mapping and Duplicates</h2>
         <img id="chart2" class="charts" src="{{ qc_plot_outfile }}" />
-
-        Optical and PCR duplicates can arise for a number of reasons,originating from library preparation, clustering,
-            or sample quality. Duplicate rate is calculated to estimate the contribution of duplicate reads to the total
-            read count. Duplicates are marked during read mapping, preventing overestimation of coverage, therefore,
-            the number of paired reads mapped (properly mapped) includes non-duplicate reads only. A duplicate rate
-            of < 30% is required for each sample, except in circumstances where a very high yield achieves sufficient coverage of the genome despite a high duplicate rate.
+        <h5>Optical and PCR duplicates can be generated during library preparation, clustering, or be due to
+        sample quality. The percentage of duplicates is calculated by comparing the number of duplicate reads
+        to the total read count. Duplicates are identified during read mapping to prevent the overestimation
+        of coverage, therefore, the percentage of paired reads aligned to the reference genome includes
+        non-duplicate reads only. A duplicate rate of < 30% is required for each sample, except in circumstances
+        where a very high yield achieves sufficient coverage of the genome despite a high duplicate rate.</h5>
         </div>
 
         <div id="formats"><a name="file_formats_anchor"></a>{% block formats %}{% endblock %}</div>
