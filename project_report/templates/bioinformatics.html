@@ -4,7 +4,7 @@
 {% for t in project_templates['bioinformatics_template'] %}
     {% for key in macro_dict %}
         {% if t == key %}
-            {{ macro_dict[key]() }}
+            {{ macro_dict[key](genome_version,bcl2fastq_version,samblaster_version,gatk_version,bcbio_version,adapter2,adapter1,bwa_version) }}
         {% endif %}
     {% endfor %}
 {% endfor %}
