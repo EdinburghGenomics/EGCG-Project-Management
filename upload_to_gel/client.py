@@ -20,6 +20,7 @@ class DeliveryAPIClient:
 
     valid_actions = [
         'all',
+        'get',
         'awaiting_delivery',
         'create',
         'delivered',
@@ -31,12 +32,15 @@ class DeliveryAPIClient:
         'md5_failed',
         'qc_failed']
 
-    def __init__(self, host, user, pswd, action, filter=None, deliveryid=None, sampleid=None, failurereason=None):
+    def __init__(self, host, user, pswd, action, filter=None, delivery_id=None, sample_id=None, failure_reason=None):
         self.host = host
         self.user = user
         self.pswd = pswd
         self.action = action
         self.filter = filter
+        self.delivery_id = delivery_id
+        self.sample_id = sample_id
+        self.failure_reason = failure_reason
         self.valid_actions_string = ', '.join(self.valid_actions)
         self.init_http_params()
 
@@ -62,29 +66,32 @@ class DeliveryAPIClient:
 
             if self.action == 'all':
                 return self.get_all(self.filter)
-
-            elif self.action == 'create':
-                if not self.deliveryid:
+            elif self.action == 'get':
+                if not self.delivery_id:
                     raise ArgumentException('You need to pass a delivery id')
-                if not self.sampleid:
+                return self.get(self.delivery_id)
+            elif self.action == 'create':
+                if not self.delivery_id:
+                    raise ArgumentException('You need to pass a delivery id')
+                if not self.sample_id:
                     raise ArgumentException('You need to pass a sample id')
-                return self.create(self.deliveryid, self.sampleid)
+                return self.create(self.delivery_id, self.sample_id)
 
             elif self.action.endswith('failed'):
-                if not (self.deliveryid and self.sampleid and self.failurereason):
+                if not (self.delivery_id and self.sample_id and self.failurereason):
                     raise ArgumentException(
                         'You need to pass a delivery id, sample id, and a failurereason')
                 return self.do_failure(self.action,
-                                self.deliveryid,
-                                self.sampleid,
+                                self.delivery_id,
+                                self.sample_id,
                                 self.failurereason)
 
             else:
-                if not self.deliveryid:
+                if not self.delivery_id:
                     raise ArgumentException('You need to pass a delivery id')
-                if not self.sampleid:
+                if not self.sample_id:
                     raise ArgumentException('You need to pass a sample id')
-                return self.do_action(self.action, self.deliveryid, self.sampleid)
+                return self.do_action(self.action, self.delivery_id, self.sample_id)
         except ArgumentException as ex:
             print('Wrong parameters passed:' + ex.message)
             raise ex
@@ -98,6 +105,16 @@ class DeliveryAPIClient:
         self.params['data'] = json.dumps({'delivery_id': delivery_id},
                                          {'sample_id': sample_id})
         return self.do_http_call('put', self.get_url(delivery_id))
+
+    def get(self, delivery_id):
+        """
+        TODO method doc
+        :param delivery_id:
+        """
+        r = self.do_http_call('get', self.get_url(delivery_id))
+        print(json.dumps(r.json(), indent=4))
+        return r
+
 
     def get_all(self, by=None):
         """
@@ -187,10 +204,10 @@ def get_args():
         description='''
 Example usage:
 python client.py --action=all
-python client.py --action=create --deliveryid=DELIVERY_1 --sampleid=SAMPLE_1
-python client.py --action=delivered --deliveryid=DELIVERY_1 --sampleid=SAMPLE_1
-python client.py --action=deleted --deliveryid=DELIVERY_1 --sampleid=SAMPLE_1
-python client.py --action=upload_failed --deliveryid=DELIVERY_1 --sampleid=SAMPLE_1 --failurereason='ran out of disk space'
+python client.py --action=create --delivery_id=DELIVERY_1 --sample_id=SAMPLE_1
+python client.py --action=delivered --delivery_id=DELIVERY_1 --sample_id=SAMPLE_1
+python client.py --action=deleted --delivery_id=DELIVERY_1 --sample_id=SAMPLE_1
+python client.py --action=upload_failed --delivery_id=DELIVERY_1 --sample_id=SAMPLE_1 --failurereason='ran out of disk space'
     ''')
     parser.add_argument(
         '--host',
@@ -206,9 +223,9 @@ python client.py --action=upload_failed --deliveryid=DELIVERY_1 --sampleid=SAMPL
     parser.add_argument(
         '--filter', help='status to filter by for --action=all call')
     parser.add_argument(
-        '--deliveryid', help='Delivery id for the target delivery')
+        '--delivery_id', help='Delivery id for the target delivery')
     parser.add_argument(
-        '--sampleid', help='Sample id for the target delivery')
+        '--sample_id', help='Sample id for the target delivery')
     parser.add_argument(
         '--failurereason',
         help='failure message containing the reason in the case of failure actions')
