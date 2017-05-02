@@ -54,16 +54,12 @@ class ProjectReport:
             'adapter1': 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCA',
             'adapter2': 'AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT'
         }
-        self.library_workflow = self.get_library_workflow(self.get_all_sample_names(modify_names=False))
-        self.species = self.get_species(self.get_all_sample_names(modify_names=False))
-        self.database_samples = self.samples_for_project_restapi
 
     def get_project_info(self):
         project = self.lims.get_projects(name=self.project_name)[0]
         number_of_samples = len(self.get_all_sample_names(modify_names=True))
         project_size = self.get_folder_size(self.project_delivery)
-        sample_yields = [s.get('clean_yield_in_gb') for s in self.database_samples if s.get('clean_yield_in_gb')]
-        samples_in_project = len(sample_yields)
+        samples_in_project = self.get_samples_delivered()
         return (
             ('Project name:', self.project_name),
             ('Project title:', project.udf.get('Project Title', '')),
@@ -72,7 +68,7 @@ class ProjectReport:
             ('Number of Samples', number_of_samples),
             ('Number of Samples Delivered', samples_in_project),
             ('Project Size', '%.2f Terabytes' % (project_size/1000000000000.0)),
-            ('Laboratory Protocol', self.library_workflow)
+            ('Laboratory Protocol', self.get_library_workflow(self.get_all_sample_names()))
         )
 
     @property
@@ -99,6 +95,11 @@ class ProjectReport:
         if modify_names:
             return [re.sub(r'[: ]', '_', s.name) for s in self.samples_for_project_lims]
         return [s.name for s in self.samples_for_project_lims]
+
+    def get_samples_delivered(self):
+        sample_yields = [s.get('clean_yield_in_gb') for s in self.samples_for_project_restapi if s.get('clean_yield_in_gb')]
+        samples_in_project = len(sample_yields)
+        return samples_in_project
 
     def get_library_workflow_from_sample(self, sample_name):
         return self.get_sample(sample_name).udf.get('Prep Workflow')
@@ -152,7 +153,6 @@ class ProjectReport:
 
         project_stats = OrderedDict()
 
-
         if sample_yields:
             project_stats['Total yield (Gb):'] = '%.2f' % sum(sample_yields)
             project_stats['Mean yield (Gb):'] = '%.1f' % (sum(sample_yields)/max(len(sample_yields), 1))
@@ -174,30 +174,24 @@ class ProjectReport:
         return project_stats
 
     def get_sample_info(self):
-
-        # basic statistics
         modified_samples = self.get_all_sample_names(modify_names=True)
-
         for sample in set(modified_samples):
             sample_source = path.join(self.project_source, sample)
             program_csv = find_file(sample_source, 'programs.txt')
             if not program_csv:
                 program_csv = find_file(sample_source, '.qc', 'programs.txt')
             self.update_from_program_csv(program_csv)
-
             summary_yaml = find_file(sample_source, 'project-summary.yaml')
             if not summary_yaml:
                 summary_yaml = find_file(sample_source, '.qc', 'project-summary.yaml')
             if summary_yaml:
                 self.update_from_project_summary_yaml(summary_yaml)
-
         get_project_stats = self.get_project_stats()
         project_stats = []
         for stat in get_project_stats:
             if get_project_stats[stat]:
                 project_stats.append((stat, get_project_stats[stat]))
         return project_stats
-
 
     def contamination_chart_data(self):
         sample_contamination = {'number_mapped_to_nonfocal': [], 'number_mapped_to_focal': []}
@@ -212,7 +206,6 @@ class ProjectReport:
                     number_mapped_to_nonfocal += contaminant_unique_mapped[species]
             sample_contamination['number_mapped_to_nonfocal'].append(number_mapped_to_nonfocal)
             sample_contamination['number_mapped_to_focal'].append(number_mapped_to_focal)
-
         return sample_contamination
 
     def get_bamfile_reads_for_project_samples(self):
@@ -225,18 +218,15 @@ class ProjectReport:
 
     def get_sample_yield_metrics(self):
         yield_metrics = {'samples': [], 'clean_yield': [], 'clean_yield_Q30': []}
-
         for sample in self._database_samples_for_project:
             sample_id = sample.get('sample_id')
             clean_yield_in_gb = sample.get('clean_yield_in_gb')
             clean_yield_q30 = sample.get('clean_yield_q30')
-
             if not None in [sample_id, clean_yield_in_gb, clean_yield_q30]:
                 all_yield_metrics = [sample_id, clean_yield_in_gb, clean_yield_q30]
                 yield_metrics['samples'].append(all_yield_metrics[0])
                 yield_metrics['clean_yield'].append(all_yield_metrics[1])
                 yield_metrics['clean_yield_Q30'].append(all_yield_metrics[2])
-
         return yield_metrics
 
     def get_pc_statistics(self):
@@ -280,7 +270,6 @@ class ProjectReport:
         lgd = plt.legend(handles=[blue_patch, green_patch], loc=9, bbox_to_anchor=(0.5,-0.02))
         plt.savefig(yield_plot_outfile, bbox_extra_artists=(lgd,), bbox_inches='tight', pad_inches=1)
 
-
         qc_plot_outfile = path.join(self.project_source, 'qc_plot.png')
         pc_statistics = self.get_pc_statistics()
         df = pd.DataFrame(pc_statistics)
@@ -298,7 +287,6 @@ class ProjectReport:
         bam_reads_plot_outfile = 'file://' + bam_reads_plot_outfile
         yield_plot_outfile = 'file://' + yield_plot_outfile
         qc_plot_outfile = 'file://' + qc_plot_outfile
-
         return bam_reads_plot_outfile, yield_plot_outfile, qc_plot_outfile
 
     def get_project_sample_metrics(self):
@@ -335,16 +323,16 @@ class ProjectReport:
         return library_workflow
 
     def get_html_template(self):
-
-        template_base = self.template_alias[self.library_workflow]
+        template_base = self.template_alias[self.get_library_workflow(self.get_all_sample_names(modify_names=False))]
         template = {'template_base': None, 'bioinformatics_template': None, 'formats_template': None}
-        if not self.species:
+        species = self.get_species(self.get_all_sample_names())
+        if not species:
             raise ValueError('No species found for this project')
-        elif len(self.species) == 1 and list(self.species)[0] == 'Human':
+        elif len(species) == 1 and list(species)[0] == 'Human':
             template['template_base'] = template_base + '.html'
             template['bioinformatics_template'] = ['human_bioinf']
             template['formats_template'] = ['fastq', 'bam', 'vcf']
-        elif 'Sheep' in (list(self.species)):
+        elif 'Sheep' in (list(species)):
             template['template_base'] = template_base + '_non_human.html'
             template['bioinformatics_template'] = ['non_human_bioinf', 'bos_taurus_bioinf']
             template['formats_template'] = ['fastq']
@@ -379,7 +367,7 @@ class ProjectReport:
                             '% Pass Filter',
                             'Median Coverage'])
 
-            for sample in self._database_samples_for_project:
+            for sample in self.samples_for_project_restapi:
                 sample_from_lims = self.get_sample(sample.get('sample_id'))
                 writer.writerow([sample.get('sample_id', 'None'),
                                  sample.get('user_sample_id', 'None'),
@@ -397,10 +385,8 @@ class ProjectReport:
         env = Environment(loader=FileSystemLoader(template_dir))
         project_templates = self.get_html_template()
         template = env.get_template(project_templates.get('template_base'))
-
         project_stats = self.get_sample_info()
         bam_reads_plot_outfile, yield_plot_outfile, qc_plot_outfile = self.chart_data()
-
         project_sample_metrics = self.get_project_sample_metrics()
         return template.render(project_stats=project_stats,
                                project_info=self.get_project_info(),

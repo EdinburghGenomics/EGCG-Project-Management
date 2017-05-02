@@ -86,20 +86,24 @@ class TestProjectReport(TestProjectManagement):
         os.chdir(TestProjectManagement.root_path)
 
     @patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
-    def test_get_project_info(self, mocked_project_size):
+    @patch(ppath('ProjectReport.get_all_sample_names'), return_value=['sample_one', 'sample_two'])
+    @patch(ppath('ProjectReport.get_samples_delivered'), return_value=2)
+    @patch(ppath('ProjectReport.get_library_workflow'), return_value='TruSeq Nano DNA Sample Prep')
+    def test_get_project_info(self, mocked_library_workflow, mocked_delivered_samples, mocked_sample_names, mocked_project_size):
         exp = (
             ('Project name:', self.pr.project_name),
             ('Project title:', 'a_research_title_for_a_project_name'),
             ('Enquiry no:', '1337'),
             ('Quote no:', '1338'),
-            ('Researcher:', 'First Last (first.last@email.com)'),
+            ('Number of Samples', 2),
+            ('Number of Samples Delivered', 2),
+            ('Project Size', '1.34 Terabytes'),
+            ('Laboratory Protocol', 'TruSeq Nano DNA Sample Prep')
         )
         assert self.pr.get_project_info() == exp
 
     def test_samples_for_project(self):
-        assert self.pr._samples_for_project is None
         assert self.pr.samples_for_project_lims == self.fake_samples
-        assert self.pr._samples_for_project == self.fake_samples
 
     def test_get_sample(self):
         assert self.pr.get_sample('sample:1') == self.fake_samples[0]
@@ -114,7 +118,7 @@ class TestProjectReport(TestProjectManagement):
     def test_get_report_type(self):
         assert self.pr.get_report_type_from_sample('sample:1') == 'Thingius thingy'
         self.pr.project_name = 'human_truseq_nano'
-        self.pr._samples_for_project = None
+        self.pr._lims_samples_for_project = None
         assert self.pr.get_report_type_from_sample('human_truseq_nano_sample_1') == 'Human'
 
     def test_update_program_from_csv(self):
@@ -182,12 +186,20 @@ class TestProjectReport(TestProjectManagement):
         assert obs == exp
 
     @patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
-    @patch(ppath('ProjectReport.per_project_sample_basic_stats'), return_value=OrderedDict([('Total yield (Gb):', '524.13'), ('Average yield (Gb):', '131.0')]))
-    @patch(ppath('ProjectReport.per_project_sample_qc_stats'), return_value=OrderedDict([('Average percent duplicate reads:', 17.380661102525934), ('Average percent mapped reads:', 85.45270355584897), ('Average percent Q30:', 80.32382821869467)]))
-    def test_get_sample_info(self, mocked_sample_qc_stats, mocked_basic_stats, mocked_project_size):
-        basic_stats, qc_stats = self.pr.get_sample_info()
-        assert basic_stats == [('Total yield (Gb):', '524.13'), ('Average yield (Gb):', '131.0')]
-        assert qc_stats == [('Average percent duplicate reads:', 17.380661102525934), ('Average percent mapped reads:', 85.45270355584897), ('Average percent Q30:', 80.32382821869467)]
+    @patch(ppath('ProjectReport.get_project_stats'), return_value=OrderedDict([('Total yield (Gb):', '524.13'),
+                                                                               ('Average yield (Gb):', '131.0'),
+                                                                               ('Average percent duplicate reads:', 17.380661102525934),
+                                                                               ('Average percent mapped reads:', 85.45270355584897),
+                                                                               ('Average percent Q30:', 80.32382821869467)]))
+    def test_get_sample_info(self, mocked_project_stats, mocked_project_size):
+        project_stats = self.pr.get_sample_info()
+
+
+        assert project_stats == [('Total yield (Gb):', '524.13'),
+                               ('Average yield (Gb):', '131.0'),
+                               ('Average percent duplicate reads:', 17.380661102525934),
+                               ('Average percent mapped reads:', 85.45270355584897),
+                               ('Average percent Q30:', 80.32382821869467)]
         assert self.pr.params == {
             'project_name': 'a_project_name',
             'adapter1': 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCA',
@@ -203,7 +215,7 @@ class TestProjectReport(TestProjectManagement):
     def test_get_html_template(self):
         assert self.pr.get_html_template().get('template_base') == 'truseq_nano_non_human.html'
         self.pr.project_name = 'human_truseq_nano'
-        self.pr._samples_for_project = None
+        self.pr._lims_samples_for_project = None
         assert self.pr.get_html_template().get('template_base') == 'truseq_nano.html'
 
     @patch(ppath('path.getsize'), return_value=1)
@@ -212,14 +224,37 @@ class TestProjectReport(TestProjectManagement):
         obs = self.pr.get_folder_size(d)
         assert obs == 9
 
-
+@patch(ppath('ProjectReport.get_project_stats'), return_value=OrderedDict([('Total yield (Gb):', '524.13'),
+                                                                               ('Average yield (Gb):', '131.0'),
+                                                                               ('Average percent duplicate reads:', 17.380661102525934),
+                                                                               ('Average percent mapped reads:', 85.45270355584897),
+                                                                               ('Average percent Q30:', 80.32382821869467)]))
 @patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
-@patch(ppath('ProjectReport.per_project_sample_basic_stats'), return_value=OrderedDict([('Total yield (Gb):', '524.13'), ('Average yield (Gb):', '131.0')]))
-@patch(ppath('ProjectReport.per_project_sample_qc_stats'), return_value=OrderedDict([('Average percent duplicate reads:', 17.380661102525934), ('Average percent mapped reads:', 85.45270355584897), ('Average percent Q30:', 80.32382821869467)]))
 @patch(ppath('ProjectReport.generate_csv'), return_value=None)
 @patch(ppath('ProjectReport.chart_data'), return_value=(None, None, None))
 @patch(ppath('ProjectReport.get_project_sample_metrics'), return_value=None)
-def test_project_types(mocked_project_metrics, mocked_charts, mocked_csv, mocked_qc_stats, mocked_basic_stats, mocked_folder_size):
+@patch(ppath('ProjectReport.get_project_info'), return_value=(('Project name:', 'name'),
+                                                            ('Project title:', 'a_research_title_for_a_project_name'),
+                                                            ('Enquiry no:', '1337'),
+                                                            ('Quote no:', '1338'),
+                                                            ('Number of Samples', 2),
+                                                            ('Number of Samples Delivered', 2),
+                                                            ('Project Size', '1.34 Terabytes'),
+                                                            ('Laboratory Protocol', 'TruSeq Nano DNA Sample Prep')))
+@patch(ppath('ProjectReport.get_all_sample_names'), return_value=['sample_one', 'sample_two'])
+@patch(ppath('ProjectReport.get_samples_delivered'), return_value=2)
+@patch(ppath('ProjectReport.get_library_workflow'), return_value='TruSeq Nano DNA Sample Prep')
+@patch(ppath('ProjectReport.get_species'), return_value=['Human', 'Human', 'Mouse', 'Mouse'])
+def test_project_types(mocked_species,
+                       mocked_workflow,
+                       mocked_delivered,
+                       mocked_names,
+                       mocked_project_info,
+                       mocked_project_metrics,
+                       mocked_charts,
+                       mocked_csv,
+                       mocked_folder_size,
+                       mocked_project_stats):
     os.chdir(TestProjectManagement.root_path)
     projects = ('human_truseq_nano', 'human_pcr_free', 'non_human_truseq_nano', 'non_human_pcr_free')
     for p in projects:
