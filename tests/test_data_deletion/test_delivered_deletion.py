@@ -154,6 +154,7 @@ class TestDeliveredDataDeleter(TestDeleter):
     def test_deletable_samples(self):
         pass
 
+    @patch.object(ProcessedSample, 'release_date', new='sometime')
     @patch.object(ProcessedSample, 'size_of_files', new=1000000000)
     @patch.object(ProcessedSample, 'files_to_purge', new=['file1', 'file2'])
     @patch.object(ProcessedSample, 'files_to_remove_from_lustre', new=[])
