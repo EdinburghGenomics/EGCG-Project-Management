@@ -1,29 +1,43 @@
 {% extends 'report_base.html' %}
 
+
+{% block sample_qc %}
+<h2>Sample QC</h2>
+<h5>Genomic DNA (gDNA) samples are evaluated for quantity using Quant-iT Picogren reagent, Lambda Standard
+DNA and a Molecular Devices, Spectramax XPS Gemini plate reader.  The quality of the gDNA samples are
+evaluated using an AATI Fragment Analyzer and the Standard Sensitivity Genomic DNA Analysis Kit. Genomic DNA
+samples found to have a total amount of >2500ng and a quality score >5 would pass sample QC. Based on
+the quantification results, gDNA samples are pre-normalised to fall within the 20-100ng/uL concentration
+range required for Illumina SeqLab TruSeq PCR-Free library preparation method using the Hamilton MicroLab STAR.</h5>
+{% endblock %}
+
+
 {% block library_prep %}
 <h2>Library Preparation</h2>
-<h5>Next Generation sequencing libraries are prepared using an Illumina SeqLab TruSeq Nano High Throughput
-library preparation kit. The gDNA samples are normalised to the concentration and volume required for the
-Illumina TruSeq Nano library preparation kit, then sheared to a 450bp mean insert size using a Covaris LE220
-focused-ultrasonicator. The inserts are blunt ended, size selected, A-tailed and TruSeq adapters ligated
-before being enriched with 6 cycles of PCR amplification.</h5>
-
+<h5>Next Generation sequencing libraries are prepared using Illumina SeqLab specific TruSeq PCR Free
+High Throughput library preparation kits in conjunction with the Hamilton MicroLab STAR and Clarity
+LIMS X (4.2?)  Edition. The 1000ng gDNA sample input is normalised to the concentration and volume
+required for the Illumina TruSeq PCR-Free library preparation kit, then sheared to a 450bp mean insert
+size using a Covaris LE220 focused-ultrasonicator. The inserts are blunt ended, A-tailed, size selected and
+the TruSeq adapters are ligated onto the ends.</h5>
 {% endblock %}
 
 {% block library_qc %}
 <h2>Library QC</h2>
-<h5>The libraries are evaluated for mean fragment size using the Caliper GX Touch with a HT DNA 1k/12K/HI SENS
-LabChip and HT DNA HI SENS Reagent Kit. The libraries are then quantified using a Roche LightCycler 480 and
-a Kapa Illumina Library Quantification kit and Standards.</h5>
-
+<h5>The insert size for each library is evaluated after shearing using the Caliper GX Touch with a
+HT DNA 1k/12K/HI SENS LabChip and HT DNA HI SENS Reagent Kit to ensure that the mean fragment sizes
+fall between 300bp and 750bp. The concentration of each library is established using a Roche LightCycler
+480 and a Kapa Illumina Library Quantification kit and Standards to ensure that each
+libraries concentration is between 3.5nM and 20nM.</h5>
 {% endblock %}
 
 {% block sequencing %}
 <h2>Sequencing</h2>
-<h5>The libraries are normalised, denatured, and prepared for the clustering reaction. Libraries are clustered
-onto HiSeqX Flow cell v2.5 on cBot2s and the clustered flow cell is transferred to a HiSeqX for sequencing
+<h5>Sequencing: Illumina TruSeq PCR Free Library Preparation
+The libraries are normalised to 0.75nM and are denatured for clustering and sequencing at 150pM using a
+Hamilton MicroLab STAR with Genologics Clarity LIMS X (4.2?) Edition. Libraries are clustered onto a
+HiSeqX Flow cell v2.5 on cBot2s and the clustered flow cell is transferred to a HiSeqX for sequencing
 using a HiSeqX Ten Reagent kit v2.5.</h5>
-
 {% endblock %}
 
 {% block bioinformatics_analysis %}

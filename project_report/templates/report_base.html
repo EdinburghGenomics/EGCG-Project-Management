@@ -6,11 +6,11 @@
     <style type="text/css">
         #edgen_logo { width: 70px; margin-left: auto; margin-right: auto; display: inline-block;; }
 
-        h1 { font-size: 1.4em; font-family: arial, sans-serif; line-height: 70%; padding-top: 80px; }
-        h2 { font-size: 1.9em; line-height: 200%; font-family: arial, sans-serif; }
-        h3 { font-size: 1.5em; line-height: 250%; font-family: arial, sans-serif; }
-        h4 { font-size: 2.7em; line-height: 300%; font-family: arial, sans-serif; }
-        h5 { font-size: 1.2em; line-height: 140%; font-family: arial, sans-serif; }
+        h1 { font-size: 1.4em; font-family:Courier; sans-serif; line-height: 70%; padding-top: 80px; }
+        h2 { font-size: 1.7em; line-height: 160%; font-family:Avantgarde, sans-serif; }
+        h3 { font-size: 1.3em; line-height: 160%; font-family:Avantgarde; sans-serif; }
+        h4 { font-size: 2.7em; line-height: 300%; font-family:Avantgarde; sans-serif; }
+        h5 { font-size: 1.1em; line-height: 140%; font-family:Avantgarde; sans-serif; }
 
         div.charts {
            display: block;
@@ -130,6 +130,14 @@
         non-duplicate reads only. A duplicate rate of < 30% is required for each sample, except in circumstances
         where a very high yield achieves sufficient coverage of the genome despite a high duplicate rate.</h5>
         </div>
+
+        {% if bam_reads_plot_outfile %}
+            <div id="bam_file_reads_chart" style="page-break-after: always;">
+            <h2>Reads in BAM file</h2>
+            <img id="chart0" class="charts" src="{{ bam_reads_plot_outfile }}" />
+            <h5>words</h5>
+            </div>
+        {% endif %}
 
         <div id="formats"><a name="file_formats_anchor"></a>{% block formats %}{% endblock %}</div>
     </div>
