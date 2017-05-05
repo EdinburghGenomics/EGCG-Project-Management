@@ -59,10 +59,11 @@ class ProjectReport:
         number_of_samples = len(self.get_all_sample_names(modify_names=True))
         project_size = self.get_folder_size(self.project_delivery)
         samples_in_project = self.get_samples_delivered()
-        species_submitted = self.get_species(self.get_all_sample_names())
         genome_versions = set()
+        species_submitted = set()
         for sample in self.get_all_sample_names():
             species = get_species_from_sample(sample)
+            species_submitted.add(species)
             genome_version = get_genome_version(sample, species=species)
             genome_versions.add(genome_version)
         if len(genome_versions) != 1:
@@ -77,7 +78,7 @@ class ProjectReport:
             ('Number of Samples Delivered', samples_in_project),
             ('Project Size', '%.2f Terabytes' % (project_size/1000000000000.0)),
             ('Laboratory Protocol', self.get_library_workflow(self.get_all_sample_names())),
-            ('Submitted Species', ', '.join(species_submitted)),
+            ('Submitted Species', ', '.join(list(species_submitted))),
             ('Genome Used for Mapping', list(genome_versions)[0])
 
         )

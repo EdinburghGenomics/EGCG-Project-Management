@@ -89,7 +89,9 @@ class TestProjectReport(TestProjectManagement):
     @patch(ppath('ProjectReport.get_all_sample_names'), return_value=['sample_one', 'sample_two'])
     @patch(ppath('ProjectReport.get_samples_delivered'), return_value=2)
     @patch(ppath('ProjectReport.get_library_workflow'), return_value='TruSeq Nano DNA Sample Prep')
-    def test_get_project_info(self, mocked_library_workflow, mocked_delivered_samples, mocked_sample_names, mocked_project_size):
+    @patch(ppath('get_species_from_sample'), return_value='Human')
+    @patch(ppath('get_genome_version'), return_value='hg38')
+    def test_get_project_info(self, mocked_genome, mocked_species, mocked_library_workflow, mocked_delivered_samples, mocked_sample_names, mocked_project_size):
         exp = (
             ('Project name:', self.pr.project_name),
             ('Project title:', 'a_research_title_for_a_project_name'),
@@ -98,7 +100,9 @@ class TestProjectReport(TestProjectManagement):
             ('Number of Samples', 2),
             ('Number of Samples Delivered', 2),
             ('Project Size', '1.34 Terabytes'),
-            ('Laboratory Protocol', 'TruSeq Nano DNA Sample Prep')
+            ('Laboratory Protocol', 'TruSeq Nano DNA Sample Prep'),
+            ('Submitted Species', 'Human'),
+            ('Genome Used for Mapping', 'hg38')
         )
         assert self.pr.get_project_info() == exp
 
