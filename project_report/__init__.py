@@ -255,21 +255,7 @@ class ProjectReport:
                 pc_statistics['samples'].append(all_pc_statistics[3])
         return pc_statistics
 
-    def chart_data(self, large_project=False, sample_labels=False):
-        if large_project:
-            bam_reads_plot_outfile = path.join(self.project_source, 'bam_reads_plot.png')
-            per_sample_bamfile_reads = self.get_bamfile_reads_for_project_samples()
-            bamfile_reads_list = list(per_sample_bamfile_reads.values())
-            bamfile_reads_list = [i for i in bamfile_reads_list if i]
-            if len(bamfile_reads_list) > 1:
-                plt.figure(figsize=(10, 5))
-                plt.hist(bamfile_reads_list, bins=(range(min(bamfile_reads_list), max(bamfile_reads_list), 100000000)), normed=1, facecolor='darkgrey', alpha=0.75)
-                plt.ylabel('Number of Samples')
-                plt.xlabel('BAM File Reads')
-                plt.savefig(bam_reads_plot_outfile)
-                bam_reads_plot_outfile = 'file://' + bam_reads_plot_outfile
-        else:
-            bam_reads_plot_outfile = None
+    def chart_data(self, sample_labels=False):
 
         yield_plot_outfile = path.join(self.project_source, 'yield_plot.png')
         sample_yields = self.get_sample_yield_metrics()
@@ -277,7 +263,7 @@ class ProjectReport:
         indices = np.arange(len(df))
         plt.figure(figsize=(10, 5))
         if sample_labels:
-            plt.xticks([i for i in range(len(df))], list((df['samples'])), rotation=60)
+            plt.xticks([i for i in range(len(df))], list((df['samples'])), rotation=-80)
         else:
             plt.xticks([])
         plt.xlim([-1, max(indices) + 1])
@@ -296,7 +282,7 @@ class ProjectReport:
         indices = np.arange(len(df))
         plt.figure(figsize=(10, 5))
         if sample_labels:
-            plt.xticks([i for i in range(len(df))], list((df['samples'])), rotation=60)
+            plt.xticks([i for i in range(len(df))], list((df['samples'])), rotation=-80)
         else:
             plt.xticks([])
         plt.xlim([-1, max(indices) + 1])
@@ -308,7 +294,7 @@ class ProjectReport:
         plt.ylabel('% of Reads')
         plt.savefig(qc_plot_outfile, bbox_extra_artists=(lgd,), bbox_inches='tight', pad_inches=1)
         qc_plot_outfile = 'file://' + qc_plot_outfile
-        return bam_reads_plot_outfile, yield_plot_outfile, qc_plot_outfile
+        return yield_plot_outfile, qc_plot_outfile
 
     def get_project_sample_metrics(self):
         project_sample_metrics = {'median_coverage': [],
@@ -402,31 +388,21 @@ class ProjectReport:
                                  sample.get('median_coverage', 'None')])
 
     def get_html_content(self):
-        large_project = False
         sample_labels = False
         if not self.get_all_sample_names():
             raise EGCGError('No samples found for project %s ' % (self.project_name))
-        if len(self.get_all_sample_names()) < 20:
-            large_project = False
+        if len(self.get_all_sample_names()) < 35:
             sample_labels = True
-        elif len(self.get_all_sample_names()) <= 150:
-            large_project = False
-            sample_labels = False
-        elif len(self.get_all_sample_names()) > 150:
-            large_project = True
-            sample_labels = False
-
 
         template_dir = path.join(path.dirname(path.abspath(__file__)), 'templates')
         env = Environment(loader=FileSystemLoader(template_dir))
         project_templates = self.get_html_template()
         template = env.get_template(project_templates.get('template_base'))
         project_stats = self.get_sample_info()
-        bam_reads_plot_outfile, yield_plot_outfile, qc_plot_outfile = self.chart_data(large_project=large_project, sample_labels=sample_labels)
+        yield_plot_outfile, qc_plot_outfile = self.chart_data(sample_labels=sample_labels)
         project_sample_metrics = self.get_project_sample_metrics()
         return template.render(project_stats=project_stats,
                                project_info=self.get_project_info(),
-                               bam_reads_plot_outfile=bam_reads_plot_outfile,
                                yield_plot_outfile=yield_plot_outfile,
                                qc_plot_outfile=qc_plot_outfile,
                                project_templates=project_templates,

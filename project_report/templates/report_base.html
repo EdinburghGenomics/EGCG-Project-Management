@@ -6,7 +6,7 @@
     <style type="text/css">
         #edgen_logo { width: 70px; margin-left: auto; margin-right: auto; display: inline-block;; }
 
-        h1 { font-size: 1.4em; font-family:Courier; sans-serif; line-height: 70%; padding-top: 80px; }
+        h1 { font-size: 1.4em; font-family:Avantgarde; sans-serif; line-height: 70%; padding-top: 80px; }
         h2 { font-size: 1.7em; line-height: 160%; font-family:Avantgarde, sans-serif; }
         h3 { font-size: 1.3em; line-height: 160%; font-family:Avantgarde; sans-serif; }
         h4 { font-size: 2.7em; line-height: 300%; font-family:Avantgarde; sans-serif; }
@@ -69,17 +69,6 @@
             </table>
         {% endblock %}
     </div>
-    <div id="contents_page" style="page-break-after: always;">
-        <h4>Contents</h4>
-        <h2 style="text-indent: 50px;"><a href="#method_anchor">Methods</a></h2>
-        <h3 style="text-indent: 100px;"><a href="#sample_qc_anchor">Sample QC</a></h3>
-        <h3 style="text-indent: 100px;"><a href="#library_prep_anchor">Library Prep</a></h3>
-        <h3 style="text-indent: 100px;"><a href="#library_qc_anchor">Library QC</a></h3>
-        <h3 style="text-indent: 100px;"><a href="#sequencing_anchor">Sequencing</a></h3>
-        <h3 style="text-indent: 100px;"><a href="#bioinformatics_analysis_anchor">Bioinformatics Analysis</a></h3>
-        <h2 style="text-indent: 50px;"><a href="#results_anchor">Results</a></h2>
-        <h2 style="text-indent: 50px;"><a href="#file_formats_anchor">File Formats</a></h2>
-    </div>
 
     <div style="text-align: justify; font-family: arial, sans-serif;">
 
@@ -130,14 +119,6 @@
         non-duplicate reads only. A duplicate rate of < 30% is required for each sample, except in circumstances
         where a very high yield achieves sufficient coverage of the genome despite a high duplicate rate.</h5>
         </div>
-
-        {% if bam_reads_plot_outfile %}
-            <div id="bam_file_reads_chart" style="page-break-after: always;">
-            <h2>Reads in BAM file</h2>
-            <img id="chart0" class="charts" src="{{ bam_reads_plot_outfile }}" />
-            <h5>words</h5>
-            </div>
-        {% endif %}
 
         <div id="formats"><a name="file_formats_anchor"></a>{% block formats %}{% endblock %}</div>
     </div>

@@ -235,7 +235,7 @@ class TestProjectReport(TestProjectManagement):
                                                                                ('Average percent Q30:', 80.32382821869467)]))
 @patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
 @patch(ppath('ProjectReport.generate_csv'), return_value=None)
-@patch(ppath('ProjectReport.chart_data'), return_value=(None, None, None))
+@patch(ppath('ProjectReport.chart_data'), return_value=(None, None))
 @patch(ppath('ProjectReport.get_project_sample_metrics'), return_value=None)
 @patch(ppath('ProjectReport.get_project_info'), return_value=(('Project name:', 'name'),
                                                             ('Project title:', 'a_research_title_for_a_project_name'),
