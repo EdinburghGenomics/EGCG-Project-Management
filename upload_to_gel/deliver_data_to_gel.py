@@ -32,13 +32,13 @@ class DeliveryDB:
 
 
 class GelDataDelivery(AppLogger):
-    def __init__(self, project_id, batch_id, dry_run, work_dir, no_cleanup=False):
+    def __init__(self, project_id, sample_id, dry_run, work_dir, no_cleanup=False):
         self.project_id = project_id
-        self.batch_id = batch_id
+        self.sample_id = sample_id
         self.all_commands_for_cluster = []
         self.dry_run = dry_run
         self.work_dir = work_dir
-        self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + self.project_id + '_' + self.batch_id)
+        self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + self.project_id + '_' + self.sample_id)
         self.no_cleanup = no_cleanup
         self._samples = {}
         self.samples_to_delivery_id = {}
@@ -112,54 +112,49 @@ class GelDataDelivery(AppLogger):
     def deliver_data(self):
         delivery_dest = cfg.query('delivery_dest')
         # find the batch directory
-        batch_delivery_folder = os.path.join(delivery_dest, self.project_id, self.batch_id)
-        samples = os.listdir(batch_delivery_folder)
-        # Retrieve the information about the sample from our database
+        sample_delivery_folder = os.path.join(delivery_dest, self.project_id, '*', self.sample_id)
 
-        for sample_id in samples:
-            sample = self.get_sample(sample_id)
-            external_id = sample[ELEMENT_SAMPLE_EXTERNAL_ID]
-            # external sample_id should be start with Gel id which what GEL used as a sample barcode
-            sample_barcode = self.get_sample_barcode(sample)
-            sample_path = os.path.join(self.staging_dir, self.batch_id, sample_barcode)
-            fastq_path = os.path.join(sample_path, 'fastq')
-            original_delivery = os.path.join(batch_delivery_folder, sample_id)
+        sample = self.get_sample(self.sample_id)
+        external_id = sample[ELEMENT_SAMPLE_EXTERNAL_ID]
+        # external sample_id should be start with Gel id which what GEL used as a sample barcode
+        sample_barcode = self.get_sample_barcode(sample)
+        sample_path = os.path.join(self.staging_dir, self.sample_id, sample_barcode)
+        fastq_path = os.path.join(sample_path, 'fastq')
 
-            os.makedirs(fastq_path, exist_ok=True)
-            self.link_fastq_files(original_delivery, fastq_path, external_id, sample_barcode)
-            self.create_md5sum_txt(original_delivery, sample_path, external_id, sample_barcode)
+        os.makedirs(fastq_path, exist_ok=True)
+        self.link_fastq_files(sample_delivery_folder, fastq_path, external_id, sample_barcode)
+        self.create_md5sum_txt(sample_delivery_folder, sample_path, external_id, sample_barcode)
 
-            if not self.dry_run:
-                delivery_id = self.get_delivery_id(sample_id, external_sample_id=sample[ELEMENT_SAMPLE_EXTERNAL_ID])
-                send_action_to_rest_api(action='create', delivery_id=delivery_id, sample_id=sample_barcode)
-                exit_code = self.try_rsync(sample_path, delivery_id)
-                if exit_code == 0:
-                    send_action_to_rest_api(action='delivered', delivery_id=delivery_id, sample_id=sample_barcode)
-                else:
-                    send_action_to_rest_api(
-                        action='upload_failed',
-                        delivery_id=delivery_id,
-                        sample_id=sample_barcode,
-                        failurereason='rsync returned %s exit code' % (exit_code)
-                    )
+        if not self.dry_run:
+            delivery_id = self.get_delivery_id(self.sample_id, external_sample_id=sample[ELEMENT_SAMPLE_EXTERNAL_ID])
+            send_action_to_rest_api(action='create', delivery_id=delivery_id, sample_id=sample_barcode)
+            exit_code = self.try_rsync(sample_path, delivery_id)
+            if exit_code == 0:
+                send_action_to_rest_api(action='delivered', delivery_id=delivery_id, sample_id=sample_barcode)
             else:
-                self.info('Create delivery id from sample_id=%s' % (sample_id,))
-                self.info('Create delivery plateform sample_barcode=%s' % (sample_barcode,))
-                self.info('Run rsync')
+                send_action_to_rest_api(
+                    action='upload_failed',
+                    delivery_id=delivery_id,
+                    sample_id=sample_barcode,
+                    failurereason='rsync returned %s exit code' % (exit_code)
+                )
+        else:
+            self.info('Create delivery id from sample_id=%s' % (self.sample_id,))
+            self.info('Create delivery plateform sample_barcode=%s' % (sample_barcode,))
+            self.info('Run rsync')
 
         if self.dry_run:
             return
 
-        for sample_id in samples:
-            sample = self.get_sample(sample_id)
-            if not sample.get('md5sum check'):
-                delivery_id = self.get_delivery_id(sample_id)
-                req = send_action_to_rest_api(action='get', delivery_id=delivery_id)
-                sample_json = req.json()
-                if sample_json['state'] == "md5_passed":
-                    sample['md5sum check'] == 'passed'
-                elif sample_json['state'] == "md5_failed":
-                    sample['md5sum check'] == 'failed'
+        sample = self.get_sample(self.sample_id)
+        if not sample.get('md5sum check'):
+            delivery_id = self.get_delivery_id(self.sample_id)
+            req = send_action_to_rest_api(action='get', delivery_id=delivery_id)
+            sample_json = req.json()
+            if sample_json['state'] == "md5_passed":
+                sample['md5sum check'] == 'passed'
+            elif sample_json['state'] == "md5_failed":
+                sample['md5sum check'] == 'failed'
 
         self.cleanup()
 
