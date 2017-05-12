@@ -48,7 +48,7 @@ def test_list_reference_genomes(mocked_print, mocked_query, mocked_list_ids):
 @patch(ppath + 'yaml')
 @patch('builtins.open', return_value=MagicMock())
 def test_record_reference_data(mocked_open, mocked_yaml):
-    with patch(ppath + '_now', return_value='now'), patch(ppath + 'os.makedirs'):
+    with patch(ppath + '_now', return_value='now'), patch(ppath + 'makedirs'):
         reference_data.record_reference_data('Thingius thingy', 'tThi_1.337', {'some': 'metadata'})
 
     mocked_open.assert_called_with('path/to/reference_data/Thingius_thingy/metadata.yaml', 'w')

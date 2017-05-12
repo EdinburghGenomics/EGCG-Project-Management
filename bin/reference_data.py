@@ -1,11 +1,14 @@
-import os
+from os import makedirs
+from os.path import isfile, join, dirname, abspath
 import requests
 import argparse
 import ftplib
 import yaml
+from sys import path
 from datetime import datetime
 from egcg_core.config import cfg
 from egcg_core.app_logging import logging_default as log_cfg
+path.append(join(dirname(dirname(abspath(__file__)))))
 from config import load_config
 
 log_cfg.add_stdout_handler()
@@ -23,7 +26,8 @@ def _query_ncbi(eutil, db, **query_args):
     return requests.get(url, params).json()
 
 
-def list_ids(db, search_term, retmax=20):
+def list_ids(db, search_term):
+    retmax = cfg.query('genome_downloader', 'ncbi_retmax', ret_default=20)
     ids = _query_ncbi('esearch', db, term=search_term, retmax=retmax)['esearchresult']
     if int(ids['count']) > retmax:
         app_logger.warning('More than %s results found - try a higher retmax, or narrow the search term', retmax)
@@ -52,12 +56,12 @@ def record_reference_data(species, assembly, metadata):
     :param str assembly: The genome assembly to write to, or 'dbsnp'
     :param dict metadata:
     """
-    md_dir = os.path.join(cfg['genome_downloader']['base_dir'], species.replace(' ', '_'))
-    os.makedirs(md_dir, exist_ok=True)
-    md_file = os.path.join(md_dir, 'metadata.yaml')
+    md_dir = join(cfg['genome_downloader']['base_dir'], species.replace(' ', '_'))
+    makedirs(md_dir, exist_ok=True)
+    md_file = join(md_dir, 'metadata.yaml')
 
     content = {}
-    if os.path.isfile(md_file):
+    if isfile(md_file):
         with open(md_file, 'r') as f:
             content = yaml.safe_load(f)
 
@@ -140,3 +144,7 @@ def main(argv=None):
 
     else:
         return 1
+
+
+if __name__ == '__main__':
+    main()
