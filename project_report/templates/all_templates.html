@@ -1,31 +1,28 @@
 
-{% macro non_human_bioinf(genome_version,bcl2fastq_version,samblaster_version,gatk_version,bcbio_version,adapter2,adapter1,bwa_version) -%}
+{% macro non_human_bioinf(params) -%}
     <h2>Bioinformatics analysis</h2>
-    <h5>Demultiplexing is performed using bcl2fastq ({{bcl2fastq_version}}), allowing 1 mismatch when assigning reads
-    to barcodes. Adapters (Read1: {{adapter1}}, Read2: {{adapter2}}) are trimmed during the demultiplexing
+    <h5>Demultiplexing is performed using bcl2fastq ({{ params['bcl2fastq_version'] }}), allowing 1 mismatch when assigning reads
+    to barcodes. Adapters (Read1: {{ params['adapter1'] }}, Read2: {{ params['adapter2'] }}) are trimmed during the demultiplexing
     process.</h5>
 {%- endmacro %}
 
-
-{% macro bos_taurus_bioinf(genome_version,bcl2fastq_version,samblaster_version,gatk_version,bcbio_version,adapter2,adapter1,bwa_version) -%}
-    <h5>bwa mem ({{bwa_version}}) is used to align the raw reads to the {{genome_name}}
-    ({{genome_version}}) genome, and the Genome Analysis ToolKit ({{gatk_version}}) for the indel realignment
+{% macro bos_taurus_bioinf(params) -%}
+    <h5>bwa mem ({{ params['bwa_version'] }}) is used to align the raw reads to the {{ params['genome_version'] }} genome, and the Genome Analysis ToolKit ({{ params['gatk_version'] }}) for the indel realignment
     and base recalibration. The genotype likelihoods are calculated using Genome Analysis Toolkit
-    ({{gatk_version}}) HaplotypeCaller creating a final gvcf file.</h5>
+    ({{ params['gatk_version'] }}) HaplotypeCaller creating a final gvcf file.</h5>
 {%- endmacro %}
 
-{% macro human_bioinf(genome_version,bcl2fastq_version,samblaster_version,gatk_version,bcbio_version,adapter2,adapter1,bwa_version) -%}
+{% macro human_bioinf(params) -%}
     <h2>Bioinformatics analysis</h2>
-    <h5>Demultiplexing is performed using bcl2fastq ({{bcl2fastq_version}}), allowing 1 mismatch when assigning reads
-    to barcodes. Adapters (Read1: {{adapter1}}, Read2: {{adapter2}}) are trimmed during the demultiplexing
-    process. BCBio-Nextgen ({{bcbio_version}}) is used to perform alignment, bam file preparation and variant
+    <h5>Demultiplexing is performed using bcl2fastq ({{ params['bcl2fastq_version'] }}), allowing 1 mismatch when assigning reads
+    to barcodes. Adapters (Read1: {{ params['adapter1'] }}, Read2: {{ params['adapter2'] }}) are trimmed during the demultiplexing
+    process. BCBio-Nextgen ({{ params['bcbio_version'] }}) is used to perform alignment, bam file preparation and variant
     detection. Variant data is used to verify sample identity by comparing to SNPs genotyped using the
-    QuantStudio 12K Openarrays. BCBio uses bwa mem ({{bwa_version}}) to align the raw reads to the {{genome_name}}
-    ({{genome_version}}) genome, then samblaster ({{samblaster_version}}) to mark the duplicated fragments, and
-    the Genome Analysis ToolKit ({{gatk_version}}) for the indel realignment and base recalibration. The genotype
-    likelihoods are calculated using Genome Analysis Toolkit ({{gatk_version}}) HaplotypeCaller creating a final
+    Life Technologies QuantStudio 12K, 32A TaqMan SNP Openarrays. BCBio uses bwa mem ({{ params['bwa_version'] }}) to align the raw reads to the {{genome_name}}
+    ({{ params['genome_version'] }}) genome, then samblaster ({{ params['samblaster_version'] }}) to mark the duplicated fragments, and
+    the Genome Analysis ToolKit ({{ params['gatk_version'] }}) for the indel realignment and base recalibration. The genotype
+    likelihoods are calculated using Genome Analysis Toolkit ({{ params['gatk_version'] }}) HaplotypeCaller creating a final
     gvcf file.</h5>
-
 {%- endmacro %}
 
 {% macro fastq() -%}

@@ -401,13 +401,13 @@ class ProjectReport:
         project_stats = self.get_sample_info()
         yield_plot_outfile, qc_plot_outfile = self.chart_data(sample_labels=sample_labels)
         project_sample_metrics = self.get_project_sample_metrics()
-        return template.render(project_stats=project_stats,
+        return template.render(params=self.params,
+                               project_stats=project_stats,
                                project_info=self.get_project_info(),
                                yield_plot_outfile=yield_plot_outfile,
                                qc_plot_outfile=qc_plot_outfile,
                                project_templates=project_templates,
-                               project_sample_metrics=project_sample_metrics,
-                               **self.params)
+                               project_sample_metrics=project_sample_metrics)
 
     @classmethod
     def get_folder_size(cls, folder):
