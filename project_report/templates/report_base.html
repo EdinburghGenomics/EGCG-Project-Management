@@ -7,7 +7,7 @@
         #edgen_logo { width: 70px; margin-left: auto; margin-right: auto; display: inline-block;; }
 
         h1 { font-size: 1.4em; font-family:Avantgarde; sans-serif; line-height: 70%; padding-top: 80px; }
-        h2 { font-size: 1.7em; line-height: 160%; font-family:Avantgarde, sans-serif; }
+        h2 { font-size: 1.7em; line-height: 160%; font-family:Avantgarde; sans-serif; }
         h3 { font-size: 1.3em; line-height: 160%; font-family:Avantgarde; sans-serif; }
         h4 { font-size: 2.7em; line-height: 300%; font-family:Avantgarde; sans-serif; }
         h5 { font-size: 1.1em; line-height: 140%; font-family:Avantgarde; sans-serif; }
@@ -16,6 +16,22 @@
            display: block;
            margin-left: auto;
            margin-top: auto; }
+
+        div.centre {
+        text-align: center;
+        }
+
+        div.pad_top {
+        padding-top: 150px;
+        }
+
+        div.page_break {
+        page-break-after: always;
+        }
+
+        div.justify_text{
+        text-align: justify;
+        }
 
         table {
             font-family: arial, sans-serif;
@@ -52,12 +68,12 @@
 
 </head>
 <div class="divFooter"><img id="edgen_logo" src="http://s29.postimg.org/8qp6u1agn/EG_logo_final_version_colourwhite_cropped.png"/></div>
-    <div id="page-header" style="text-align: center;">
+    <div id="page-header" class="centre">
             <h4>Project Summary </h4>
     </div>
 <body>
 
-    <div id="general_info" style="padding-top: 150px; page-break-after: always;">
+    <div id="general_info" class="pad_top, page_break">
             {% block general_info %}
             <table>
                 {% for title, data in project_info %}
@@ -70,7 +86,7 @@
         {% endblock %}
     </div>
 
-    <div style="text-align: justify; font-family: arial, sans-serif;">
+    <div class="justify_text">
 
         <div id="method">
             <a name="method_anchor"></a>
@@ -82,16 +98,15 @@
             {% endblock %}
         </div>
 
-        <div id="sample_qc"><a name="sample_qc_anchor"></a>{% block sample_qc %}{% endblock %}</div>
-        <div id="library_prep"><a name="library_prep_anchor"></a>{% block library_prep %}{% endblock %}</div>
-        <div id="library_qc"><a name="library_qc_anchor"></a>{% block library_qc %}{% endblock %}</div>
-        <div id="sequencing"><a name="sequencing_anchor"></a>{% block sequencing %}{% endblock %}</div>
-        <div id="bioinformatics_analysis"><a name="bioinformatics_analysis_anchor"></a>{% block bioinformatics_analysis %}{% endblock %}</div>
-        <div id="repeat_samples"><a name="repeat_samples_anchor"></a>{% block repeat_samples %}{% endblock %}</div>
+        {% block sample_qc %}{% endblock %}
+        {% block library_prep %}{% endblock %}
+        {% block library_qc %}{% endblock %}
+        {% block sequencing %}{% endblock %}
+        {% block bioinformatics_analysis %}{% endblock %}
+        {% block repeat_samples %}{% endblock %}
 
-        <div id="results" style="page-break-after: always;">
+        <div id="results" class="page_break">
             <h4>Results</h4>
-            <a name="results_anchor"></a>
             <table>
                 {% for title, data in project_stats %}
                 <tr>
@@ -102,14 +117,14 @@
             </table>
         </div>
 
-        <div id="yield_chart" style="page-break-after: always;">
+        <div id="yield_chart" class="page_break">
         <h2>Yield</h2>
         <img id="chart1" class="charts" src="{{ yield_plot_outfile }}" />
         <h5>Yield is calculated as the yield in gigabases (Gb) after adapters have been
         trimmed during processing. The yield Q30 is the quantity of reads
          which have at least 75% of bases with a quality score of 30 or higher.</h5>
         </div>
-        <div id="mapping_and_duplicates_chart" style="page-break-after: always;">
+        <div id="mapping_and_duplicates_chart" class="page_break">
         <h2>Read Mapping and Duplicates</h2>
         <img id="chart2" class="charts" src="{{ qc_plot_outfile }}" />
         <h5>Optical and PCR duplicates can be generated during library preparation, clustering, or be due to
