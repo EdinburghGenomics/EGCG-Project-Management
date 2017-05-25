@@ -5,12 +5,45 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" crossorigin="anonymous">
     <style type="text/css">
         #edgen_logo { width: 70px; margin-left: auto; margin-right: auto; display: inline-block;; }
-
-        h1 { font-size: 1.4em; font-family:Avantgarde; sans-serif; line-height: 70%; padding-top: 80px; }
         h2 { font-size: 1.7em; line-height: 160%; font-family:Avantgarde; sans-serif; }
-        h3 { font-size: 1.3em; line-height: 160%; font-family:Avantgarde; sans-serif; }
         h4 { font-size: 2.7em; line-height: 300%; font-family:Avantgarde; sans-serif; }
-        h5 { font-size: 1.1em; line-height: 140%; font-family:Avantgarde; sans-serif; }
+
+        p.font1 {
+            font-size: 1.4em;
+            line-height: 140%;
+            font-family: Avantgarde;
+            sans-serif;
+        }
+
+        p.font2 {
+            font-size: 1.7em;
+            line-height: 140%;
+            font-family: Avantgarde;
+            sans-serif;
+        }
+
+        p.font3 {
+            font-size: 1.3em;
+            line-height: 140%;
+            font-family: Avantgarde;
+            sans-serif;
+        }
+
+        p.font4 {
+            font-size: 2.7em;
+            line-height: 140%;
+            font-family: Avantgarde;
+            sans-serif;
+        }
+
+        p.font5 {
+            font-size: 1.1em;
+            line-height: 140%;
+            font-family: Avantgarde;
+            sans-serif;
+        }
+
+        div
 
         div.charts {
            display: block;
@@ -72,8 +105,7 @@
             <h4>Project Summary </h4>
     </div>
 <body>
-
-    <div id="general_info" class="pad_top, page_break">
+    <div id="general_info" class="pad_top page_break">
             {% block general_info %}
             <table>
                 {% for title, data in project_info %}
@@ -85,27 +117,23 @@
             </table>
         {% endblock %}
     </div>
-
     <div class="justify_text">
-
         <div id="method">
-            <a name="method_anchor"></a>
             {% block method %}
             <h4>Methods</h4>
-            <h5>Edinburgh Genomics: Clinical Genomics utilises Illumina SeqLab, which integrates Illumina TruSeq
+            <p class="font5">Edinburgh Genomics: Clinical Genomics utilises Illumina SeqLab, which integrates Illumina TruSeq
             library preparation, Illumina cBot2 cluster generation, Illumina HiSeqX sequencing, Hamilton
-            Microlab STAR integrative automation, and Genologics Clarity LIMS X Edition.</h5>
+            Microlab STAR integrative automation, and Genologics Clarity LIMS X Edition.</p>
             {% endblock %}
         </div>
-
-        {% block sample_qc %}{% endblock %}
-        {% block library_prep %}{% endblock %}
-        {% block library_qc %}{% endblock %}
-        {% block sequencing %}{% endblock %}
-        {% block bioinformatics_analysis %}{% endblock %}
+        {% block laboratory %}
+        {% include 'laboratory_template.html' %}
+        {% endblock %}
+        {% block bioinformatics_analysis %}
+        {% include 'bioinformatics.html' %}
+        {% endblock %}
         {% block repeat_samples %}{% endblock %}
-
-        <div id="results" class="page_break">
+        <div id="results">
             <h4>Results</h4>
             <table>
                 {% for title, data in project_stats %}
@@ -116,26 +144,12 @@
                 {% endfor %}
             </table>
         </div>
-
-        <div id="yield_chart" class="page_break">
-        <h2>Yield</h2>
-        <img id="chart1" class="charts" src="{{ yield_plot_outfile }}" />
-        <h5>Yield is calculated as the yield in gigabases (Gb) after adapters have been
-        trimmed during processing. The yield Q30 is the quantity of reads
-         which have at least 75% of bases with a quality score of 30 or higher.</h5>
-        </div>
-        <div id="mapping_and_duplicates_chart" class="page_break">
-        <h2>Read Mapping and Duplicates</h2>
-        <img id="chart2" class="charts" src="{{ qc_plot_outfile }}" />
-        <h5>Optical and PCR duplicates can be generated during library preparation, clustering, or be due to
-        sample quality. The percentage of duplicates is calculated by comparing the number of duplicate reads
-        to the total read count. Duplicates are identified during read mapping to prevent the overestimation
-        of coverage, therefore, the percentage of paired reads aligned to the reference genome includes
-        non-duplicate reads only. A duplicate rate of < 30% is required for each sample, except in circumstances
-        where a very high yield achieves sufficient coverage of the genome despite a high duplicate rate.</h5>
-        </div>
-
-        <div id="formats"><a name="file_formats_anchor"></a>{% block formats %}{% endblock %}</div>
+        {% block charts %}
+        {% include 'charts.html' %}
+        {% endblock %}
+        {% block formats %}
+        {% include 'formats.html' %}
+        {% endblock %}
     </div>
 </body>
 </html>

@@ -1,0 +1,10 @@
+
+{% from 'all_templates.html' import sample_qc, library_prep, library_qc, sequencing %}
+{% set macro_dict = {'sample_qc': sample_qc, 'library_prep': library_prep, 'library_qc': library_qc, 'sequencing': sequencing} %}
+{% for t in project_templates['laboratory_template'] %}
+    {% for key in macro_dict %}
+        {% if t == key %}
+            {{ macro_dict[key](params) }}
+        {% endif %}
+    {% endfor %}
+{% endfor %}

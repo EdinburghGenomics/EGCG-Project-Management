@@ -1,4 +1,3 @@
-{% block bioinformatics %}
 {% from 'all_templates.html' import bos_taurus_bioinf, non_human_bioinf, human_bioinf %}
 {% set macro_dict = {'bos_taurus_bioinf': bos_taurus_bioinf, 'non_human_bioinf': non_human_bioinf, 'human_bioinf': human_bioinf} %}
 {% for t in project_templates['bioinformatics_template'] %}
@@ -8,4 +7,3 @@
         {% endif %}
     {% endfor %}
 {% endfor %}
-{% endblock %}
