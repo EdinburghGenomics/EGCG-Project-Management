@@ -217,16 +217,13 @@ class TestProjectReport(TestProjectManagement):
         }
 
     def test_get_html_template(self):
-        assert self.pr.get_html_template().get('template_base') == 'truseq_nano_non_human.html'
-        self.pr.project_name = 'human_truseq_nano'
-        self.pr._lims_samples_for_project = None
-        assert self.pr.get_html_template().get('template_base') == 'truseq_nano.html'
+        assert self.pr.get_html_template().get('template_base') == 'report_base.html'
 
     @patch(ppath('path.getsize'), return_value=1)
     def test_get_folder_size(self, mocked_getsize):
         d = os.path.join(TestProjectManagement.root_path, 'project_report', 'templates')
         obs = self.pr.get_folder_size(d)
-        assert obs == 9
+        assert obs == 7
 
 @patch(ppath('ProjectReport.get_project_stats'), return_value=OrderedDict([('Total yield (Gb):', '524.13'),
                                                                                ('Average yield (Gb):', '131.0'),
@@ -236,7 +233,6 @@ class TestProjectReport(TestProjectManagement):
 @patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
 @patch(ppath('ProjectReport.generate_csv'), return_value=None)
 @patch(ppath('ProjectReport.chart_data'), return_value=(None, None))
-@patch(ppath('ProjectReport.get_project_sample_metrics'), return_value=None)
 @patch(ppath('ProjectReport.get_project_info'), return_value=(('Project name:', 'name'),
                                                             ('Project title:', 'a_research_title_for_a_project_name'),
                                                             ('Enquiry no:', '1337'),
@@ -254,7 +250,6 @@ def test_project_types(mocked_species,
                        mocked_delivered,
                        mocked_names,
                        mocked_project_info,
-                       mocked_project_metrics,
                        mocked_charts,
                        mocked_csv,
                        mocked_folder_size,
