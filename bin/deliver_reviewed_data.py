@@ -103,8 +103,15 @@ class DataDelivery(AppLogger):
         return project_to_samples
 
     def stage_data(self, sample):
+        # test sample has arrived in fuildX tube
+        sample_id = sample.get(ELEMENT_SAMPLE_INTERNAL_ID)
+        fluidX_barcode = clarity.get_sample(sample_id).udf.get('2D Barcode')
+
         # Create staging_directory
-        sample_dir = os.path.join(self.staging_dir, sample.get(ELEMENT_SAMPLE_INTERNAL_ID))
+        if fluidX_barcode:
+            sample_dir = os.path.join(self.staging_dir, fluidX_barcode)
+        else:
+            sample_dir = os.path.join(self.staging_dir, sample_id)
         os.makedirs(sample_dir, exist_ok=True)
 
         # Find the fastq files

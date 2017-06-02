@@ -215,8 +215,6 @@ class TestDataDelivery(TestProjectManagement):
                 assert header == expected_header
                 assert lines == expected_lines
 
-    # def test_generate_md5_summary(self):
-    #     self.delivery_dry.generate_md5_summary()
 
     def test_deliver_data_merged(self):
         with patched_deliverable_project1, patched_get_species,\
