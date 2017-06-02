@@ -144,8 +144,8 @@ class TestDataDelivery(TestProjectManagement):
 
     def setUp(self):
         os.makedirs(self.dest_dir, exist_ok=True)
-        self.delivery_dry = DataDelivery(dry_run=True, work_dir=os.path.join(self.assets_delivery, 'staging'), no_cleanup=True)
-        self.delivery_real = DataDelivery(dry_run=False, work_dir=os.path.join(self.assets_delivery, 'staging'))
+        self.delivery_dry = DataDelivery(dry_run=True, work_dir=os.path.join(self.assets_delivery, 'staging'), no_cleanup=True, email=False)
+        self.delivery_real = DataDelivery(dry_run=False, work_dir=os.path.join(self.assets_delivery, 'staging'), email=False)
         self._create_run_elements(sample1.get('run_elements') + sample2.get('run_elements'))
 
     def tearDown(self):
