@@ -13,7 +13,7 @@ from egcg_core.constants import ELEMENT_NB_READS_CLEANED, ELEMENT_RUN_NAME, ELEM
     ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_RUN_ELEMENT_ID, ELEMENT_USEABLE
 from egcg_core.exceptions import EGCGError
 from egcg_core.util import find_fastqs
-from egcg_core.notifications import EmailNotification
+from egcg_core.notifications.email import send_email
 
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -37,6 +37,21 @@ variant_call_list_files = [
 
 other_list_files = []
 
+def get_workflow_stage(workflow_name, stage_name=None):
+    lims = clarity.connection()
+    workflows = lims.get_workflows(name=workflow_name)
+    if len(workflows) != 1:
+        return
+    if not stage_name:
+        return workflows[0].stages[0]
+    stages = [s for s in workflows[0].stages if s.name == stage_name]
+    if len(stages) != 1:
+        return
+    return stages[0]
+
+def get_queue_uri(workflow_name, stage_name=None):
+    workflow_stage = get_workflow_stage(workflow_name, stage_name)
+    return clarity.connection().baseuri + 'clarity/queue/' + workflow_stage.step.id
 
 def _execute(*commands, **kwargs):
     exit_status = executor.execute(*commands, **kwargs).join()
@@ -56,6 +71,8 @@ class DataDelivery(AppLogger):
         self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + now)
         self.no_cleanup = no_cleanup
         self.email = email
+        self.delivery_dest = cfg.query('delivery', 'dest')
+        self.delivery_source = cfg.query('delivery', 'source')
 
     def get_deliverable_projects_samples(self, project_id=None, sample_id=None):
         project_to_samples = defaultdict(list)
@@ -137,7 +154,7 @@ class DataDelivery(AppLogger):
         external_sample_id = sample.get(ELEMENT_SAMPLE_EXTERNAL_ID)
 
         project_id = sample.get(ELEMENT_PROJECT_ID)
-        origin_sample_dir = os.path.join(cfg.query('delivery_source'), project_id, sample_id)
+        origin_sample_dir = os.path.join(self.delivery_source, project_id, sample_id)
 
         if not os.path.isdir(origin_sample_dir):
             raise EGCGError('Directory for sample %s in project %s does not exist' % (sample_id, project_id))
@@ -243,6 +260,7 @@ class DataDelivery(AppLogger):
     @staticmethod
     def _get_fastq_file_for_sample(sample):
         fastqs_files = {}
+        # TODO: make sure that the list of run elements is the same as the one that was QC.
         for run_element in sample.get('run_elements'):
             if run_element.get(ELEMENT_USEABLE) == 'yes' and int(run_element.get(ELEMENT_NB_READS_CLEANED, 0)) > 0:
                 local_fastq_dir = os.path.join(cfg['input_dir'], run_element.get(ELEMENT_RUN_NAME))
@@ -265,7 +283,6 @@ class DataDelivery(AppLogger):
                 'samples', payload={'delivered': 'yes'}, id_field='sample_id', element_id=sample_name
             )
         clarity.route_samples_to_delivery_workflow(samples)
-        self.report('Marked %s samples as delivered' % len(samples))
 
     def mark_only(self, project_id=None, sample_id=None):
         project_to_samples = self.get_deliverable_projects_samples(project_id, sample_id)
@@ -280,9 +297,8 @@ class DataDelivery(AppLogger):
             self.mark_samples_as_released(all_samples)
 
     def write_metrics_file(self, project, delivery_folder):
-        delivery_dest = cfg.query('delivery_dest')
         header, lines = self.summarise_metrics_per_sample(project, delivery_folder)
-        summary_metrics_file = os.path.join(delivery_dest, project, 'summary_metrics.csv')
+        summary_metrics_file = os.path.join(self.delivery_dest, project, 'summary_metrics.csv')
         if os.path.isfile(summary_metrics_file):
             with open(summary_metrics_file, 'a') as open_file:
                 open_file.write('\n'.join(lines) + '\n')
@@ -303,8 +319,7 @@ class DataDelivery(AppLogger):
                 log_commands=False
             )
 
-    @staticmethod
-    def generate_md5_summary(project, batch_folder):
+    def generate_md5_summary(self, project, batch_folder):
         all_md5_files = glob.glob(os.path.join(batch_folder, '*', '*.md5'))
         all_md5_files.extend(glob.glob(os.path.join(batch_folder, '*', 'raw_data', '*.md5')))
         md5_summary = []
@@ -317,8 +332,7 @@ class DataDelivery(AppLogger):
             with open(md5_file, 'w') as open_file:
                 open_file.write('%s  %s' % (md5, file_name))
             md5_summary.append('%s  %s' % (md5, batch_name + suffix))
-        delivery_dest = cfg.query('delivery_dest')
-        all_md5_files = os.path.join(delivery_dest, project, 'all_md5sums.txt')
+        all_md5_files = os.path.join(self.delivery_dest, project, 'all_md5sums.txt')
         with open(all_md5_files, 'a') as open_file:
             open_file.write('\n'.join(md5_summary) + '\n')
 
@@ -330,7 +344,6 @@ class DataDelivery(AppLogger):
             self.debug('Cleaned up staging dir %s', self.staging_dir)
 
     def deliver_data(self, project_id=None, sample_id=None):
-        delivery_dest = cfg.query('delivery_dest')
         project_to_samples = self.get_deliverable_projects_samples(project_id, sample_id)
         project_to_delivery_folder = {}
         sample2stagedirectory = {}
@@ -345,7 +358,7 @@ class DataDelivery(AppLogger):
             print('Will move')
             for project in project_to_samples:
                 today = datetime.date.today().isoformat()
-                batch_delivery_folder = os.path.join(delivery_dest, project, today)
+                batch_delivery_folder = os.path.join(self.delivery_dest, project, today)
                 for sample in project_to_samples.get(project):
                     print('%s --> %s' % (sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)),
                                          batch_delivery_folder))
@@ -357,7 +370,7 @@ class DataDelivery(AppLogger):
             for project in project_to_samples:
                 # Create the batch directory
                 today = datetime.date.today().isoformat()
-                batch_delivery_folder = os.path.join(delivery_dest, project, today)
+                batch_delivery_folder = os.path.join(self.delivery_dest, project, today)
                 os.makedirs(batch_delivery_folder, exist_ok=True)
                 # move all the staged sample directory
                 project_to_delivery_folder[project] = batch_delivery_folder
@@ -367,17 +380,35 @@ class DataDelivery(AppLogger):
                 self.write_metrics_file(project, batch_delivery_folder)
                 self.generate_md5_summary(project, batch_delivery_folder)
                 self.report('Delivered %s samples for project %s' % (len(project_to_samples[project]), project))
-
             self.mark_samples_as_released(list(sample2stagedirectory))
 
         self.cleanup()
         # TODO: Generate project report
+        self.report(self._email_report(project_to_samples))
 
     def report(self, msg):
         self.info(msg)
         if self.email:
-            e = EmailNotification('Data delivery', **cfg['email_notification'])
-            e.notify(msg)
+            send_email(msg=msg, subject='Data delivery', strict=True, **cfg['email_notification'])
+
+    def _email_report(self, project_to_samples):
+        queue_uri = get_queue_uri(
+            cfg['delivery']['clarity_workflow_name'],
+            cfg.query('delivery', 'clarity_stage_name', ret_default=None)
+        )
+        msg = '''Hi
+{tot_samples} sample(s) from {tot_projects} project(s) have been delivered:
+{details}
+Consult delivery queue at
+{delivery_queue}
+Regards
+'''
+        return msg.format(
+            tot_samples=sum([len(samples) for samples in project_to_samples.values()]),
+            tot_projects=len(project_to_samples),
+            details='\n'.join('  - %s: %s sample(s)' % (project_id, len(project_to_samples.get(project_id))) for project_id in project_to_samples),
+            delivery_queue=queue_uri
+        )
 
 
 def main():

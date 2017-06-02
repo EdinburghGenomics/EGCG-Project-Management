@@ -137,7 +137,7 @@ class TestDataDelivery(TestProjectManagement):
         self.final_files_merged2 = self._format_list(analysis_files,  ext_sample_id='user_s_id2')
         self.final_files_split = self._format_list(analysis_files + ['raw_data'], ext_sample_id='user_s_id')
 
-        self.dest_dir = cfg.query('delivery_dest')
+        self.dest_dir = cfg.query('delivery', 'dest')
 
     def _format_list(self, list_, **kwargs):
         return [v.format(**kwargs) for v in list_]
@@ -220,7 +220,8 @@ class TestDataDelivery(TestProjectManagement):
 
     def test_deliver_data_merged(self):
         with patched_deliverable_project1, patched_get_species,\
-                patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'merged'})):
+                patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'merged'})), \
+                patch('bin.deliver_reviewed_data.get_queue_uri', return_value='http://testclarity.com/queue/999'):
             self.delivery_dry.deliver_data(project_id='test_project')
             assert os.listdir(self.delivery_dry.staging_dir) == ['deliverable_sample']
             list_files = sorted(os.listdir(os.path.join(self.delivery_dry.staging_dir, 'deliverable_sample')))
@@ -228,7 +229,8 @@ class TestDataDelivery(TestProjectManagement):
 
     def test_deliver_data_merged_concat(self):
         with patched_deliverable_project2, patched_get_species,\
-                patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'merged'})):
+                patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'merged'})), \
+             patch('bin.deliver_reviewed_data.get_queue_uri', return_value='http://testclarity.com/queue/999'):
             self.delivery_dry.deliver_data(project_id='test_project')
             assert os.listdir(self.delivery_dry.staging_dir) == ['deliverable_sample2']
             list_files = sorted(os.listdir(os.path.join(self.delivery_dry.staging_dir, 'deliverable_sample2')))
@@ -237,7 +239,8 @@ class TestDataDelivery(TestProjectManagement):
 
     def test_deliver_data_split(self):
         with patched_deliverable_project1, patched_get_species,\
-                patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'split'})):
+                patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'split'})), \
+             patch('bin.deliver_reviewed_data.get_queue_uri', return_value='http://testclarity.com/queue/999'):
             self.delivery_dry.deliver_data(project_id='test_project')
             assert os.listdir(self.delivery_dry.staging_dir) == ['deliverable_sample']
             list_files = sorted(os.listdir(os.path.join(self.delivery_dry.staging_dir, 'deliverable_sample')))
@@ -247,7 +250,8 @@ class TestDataDelivery(TestProjectManagement):
         with patched_deliverable_project1, patched_get_species,\
                 patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'merged'})),\
                 patch.object(DataDelivery, 'run_aggregate_commands'),\
-                patch('bin.deliver_reviewed_data.DataDelivery.mark_samples_as_released'):
+                patch('bin.deliver_reviewed_data.DataDelivery.mark_samples_as_released'), \
+                patch('bin.deliver_reviewed_data.get_queue_uri', return_value='http://testclarity.com/queue/999'):
             self.delivery_real.deliver_data(project_id='test_project')
             assert os.listdir(self.dest_dir) == ['test_project']
             today = datetime.date.today().isoformat()
@@ -258,9 +262,10 @@ class TestDataDelivery(TestProjectManagement):
 
     def test_deliver_data_split_real(self):
         with patched_deliverable_project1, patched_get_species,\
-                patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'split'})),\
-                patch.object(DataDelivery, 'run_aggregate_commands'),\
-                patch('bin.deliver_reviewed_data.DataDelivery.mark_samples_as_released'):
+             patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'split'})),\
+             patch.object(DataDelivery, 'run_aggregate_commands'),\
+             patch('bin.deliver_reviewed_data.DataDelivery.mark_samples_as_released'), \
+             patch('bin.deliver_reviewed_data.get_queue_uri', return_value='http://testclarity.com/queue/999'):
             self.delivery_real.deliver_data(project_id='test_project')
             assert os.listdir(self.dest_dir) == ['test_project']
             today = datetime.date.today().isoformat()
@@ -268,3 +273,15 @@ class TestDataDelivery(TestProjectManagement):
             assert os.listdir(os.path.join(self.dest_dir, 'test_project', today)) == ['deliverable_sample']
             list_files = sorted(os.listdir(os.path.join(self.dest_dir, 'test_project', today, 'deliverable_sample')))
             assert sorted(list_files) == sorted(self.final_files_split)
+
+    def test_email_report(self):
+        project_to_samples = {'test_project': [sample1, sample2]}
+        with patch('bin.deliver_reviewed_data.get_queue_uri', return_value='http://testclarity.com/queue/999'):
+            msg = self.delivery_dry._email_report(project_to_samples)
+            assert msg == '''Hi
+2 sample(s) from 1 project(s) have been delivered:
+  - test_project: 2 sample(s)
+Consult delivery queue at
+http://testclarity.com/queue/999
+Regards
+'''
