@@ -52,8 +52,8 @@ class DataDelivery(AppLogger):
         self.sample2species = {}
         self.sample2analysis_type = {}
         self.work_dir = work_dir
-        today = datetime.date.today().isoformat()
-        self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + today)
+        now = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+        self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + now)
         self.no_cleanup = no_cleanup
         self.email = email
 
