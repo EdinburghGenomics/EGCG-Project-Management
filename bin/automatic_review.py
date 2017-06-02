@@ -6,9 +6,7 @@ import logging
 from cached_property import cached_property
 from egcg_core import rest_communication, clarity
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
-from egcg_core.config import cfg
 from egcg_core.constants import ELEMENT_REVIEW_COMMENTS
-from egcg_core.notifications import send_email
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import load_config
 
@@ -216,13 +214,6 @@ def main():
     for r in reviewers:
         r.push_review()  # stdout + rest_api
 
-    if args.send_email:
-        msg = 'Report for %s automatically reviewed items:\n\n%s' % (  # stdout + email
-            len(reviewers),
-            '\n'.join(r.report() for r in reviewers)
-        )
-        send_email(msg, subject='Automatic data review', **cfg['email_notification'])
-
     return 0
 
 
@@ -230,7 +221,6 @@ def _parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dry_run', action='store_true')
     parser.add_argument('--debug', action='store_true')
-    parser.add_argument('--send_email', action='store_true')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--run', action='store_true')
     group.add_argument('--sample', action='store_true')

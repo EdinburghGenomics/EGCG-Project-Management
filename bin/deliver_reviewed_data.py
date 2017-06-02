@@ -13,8 +13,6 @@ from egcg_core.constants import ELEMENT_NB_READS_CLEANED, ELEMENT_RUN_NAME, ELEM
     ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_RUN_ELEMENT_ID, ELEMENT_USEABLE
 from egcg_core.exceptions import EGCGError
 from egcg_core.util import find_fastqs
-from egcg_core.notifications import EmailNotification
-
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import load_config
@@ -45,7 +43,7 @@ def _execute(*commands, **kwargs):
 
 
 class DataDelivery(AppLogger):
-    def __init__(self, dry_run, work_dir, no_cleanup=False, email=True):
+    def __init__(self, dry_run, work_dir, no_cleanup=False):
         self.all_commands_for_cluster = []
         self.dry_run = dry_run
         self.all_samples_values = []
@@ -55,7 +53,6 @@ class DataDelivery(AppLogger):
         today = datetime.date.today().isoformat()
         self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + today)
         self.no_cleanup = no_cleanup
-        self.email = email
 
     def get_deliverable_projects_samples(self, project_id=None, sample_id=None):
         project_to_samples = defaultdict(list)
@@ -259,13 +256,13 @@ class DataDelivery(AppLogger):
                     )
         return fastqs_files
 
-    def mark_samples_as_released(self, samples):
+    @staticmethod
+    def mark_samples_as_released(samples):
         for sample_name in samples:
             rest_communication.patch_entry(
                 'samples', payload={'delivered': 'yes'}, id_field='sample_id', element_id=sample_name
             )
         clarity.route_samples_to_delivery_workflow(samples)
-        self.report('Marked %s samples as delivered' % len(samples))
 
     def mark_only(self, project_id=None, sample_id=None):
         project_to_samples = self.get_deliverable_projects_samples(project_id, sample_id)
@@ -275,7 +272,7 @@ class DataDelivery(AppLogger):
             for sample in samples:
                 all_samples.append(sample)
         if self.dry_run:
-            self.info('Will mark %s samples as delivered' % len(all_samples))
+            self.info('Mark %s samples as delivered' % len(all_samples))
         else:
             self.mark_samples_as_released(all_samples)
 
@@ -293,7 +290,6 @@ class DataDelivery(AppLogger):
 
     def run_aggregate_commands(self):
         if self.all_commands_for_cluster:
-            self.debug('Concatenating fastqs for %s samples', len(self.all_commands_for_cluster))
             _execute(
                 *self.all_commands_for_cluster,
                 job_name='concat_delivery',
@@ -327,7 +323,6 @@ class DataDelivery(AppLogger):
             return
         if os.path.exists(self.staging_dir):
             shutil.rmtree(self.staging_dir)
-            self.debug('Cleaned up staging dir %s', self.staging_dir)
 
     def deliver_data(self, project_id=None, sample_id=None):
         delivery_dest = cfg.query('delivery_dest')
@@ -366,18 +361,11 @@ class DataDelivery(AppLogger):
                                 batch_delivery_folder)
                 self.write_metrics_file(project, batch_delivery_folder)
                 self.generate_md5_summary(project, batch_delivery_folder)
-                self.report('Delivered %s samples for project %s' % (len(project_to_samples[project]), project))
 
             self.mark_samples_as_released(list(sample2stagedirectory))
 
         self.cleanup()
         # TODO: Generate project report
-
-    def report(self, msg):
-        self.info(msg)
-        if self.email:
-            e = EmailNotification('Data delivery', **cfg['email_notification'])
-            e.notify(msg)
 
 
 def main():
@@ -385,7 +373,6 @@ def main():
     p.add_argument('--dry_run', action='store_true')
     p.add_argument('--debug', action='store_true')
     p.add_argument('--no_cleanup', action='store_true')
-    p.add_argument('--noemail', dest='email', action='store_false')
     p.add_argument('--work_dir', type=str, required=True)
     p.add_argument('--mark_only', action='store_true')
     p.add_argument('--project_id', type=str)
@@ -399,7 +386,7 @@ def main():
         log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout))
 
     cfg.merge(cfg['sample'])
-    dd = DataDelivery(args.dry_run, args.work_dir, no_cleanup=args.no_cleanup, email=args.email)
+    dd = DataDelivery(args.dry_run, args.work_dir, no_cleanup=args.no_cleanup)
     if args.mark_only:
         dd.mark_only(project_id=args.project_id, sample_id=args.sample_id)
     else:
