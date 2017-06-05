@@ -5,7 +5,7 @@ python:
 install:
   - "pip install -r requirements_no_pdf.txt"
   - "pip install python-coveralls pytest-cov"
-script: py.test tests/ --doctest-modules  -v --cov bin --cov data_deletion --cov project_report--cov-report term-missing
+script: py.test tests/ --doctest-modules  -v --cov bin --cov data_deletion --cov project_report --cov-report term-missing
 after_success:
   - coveralls
 notifications:
