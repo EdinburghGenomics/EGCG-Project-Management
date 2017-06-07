@@ -244,6 +244,15 @@ class TestDataDelivery(TestProjectManagement):
             list_files = sorted(os.listdir(os.path.join(self.delivery_dry.staging_dir, 'deliverable_sample')))
             assert sorted(list_files) == sorted(self.final_files_split)
 
+    def test_deliver_data_fluidx(self):
+        with patched_deliverable_project1, patched_get_species,\
+                patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'2D Barcode': 'FluidXBarcode', 'Delivery': 'split'})), \
+             patch('bin.deliver_reviewed_data.get_queue_uri', return_value='http://testclarity.com/queue/999'):
+            self.delivery_dry.deliver_data(project_id='test_project')
+            assert os.listdir(self.delivery_dry.staging_dir) == ['FluidXBarcode']
+            list_files = sorted(os.listdir(os.path.join(self.delivery_dry.staging_dir, 'FluidXBarcode')))
+            assert sorted(list_files) == sorted(self.final_files_split)
+
     def test_deliver_data_merged_real(self):
         with patched_deliverable_project1, patched_get_species,\
                 patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'merged'})),\
@@ -272,10 +281,24 @@ class TestDataDelivery(TestProjectManagement):
             list_files = sorted(os.listdir(os.path.join(self.dest_dir, 'test_project', today, 'deliverable_sample')))
             assert sorted(list_files) == sorted(self.final_files_split)
 
+    def test_mark_only(self):
+        with patch.object(DataDelivery, 'get_deliverable_projects_samples', return_value={'test_project': [sample1, sample2]}):
+            self.delivery_dry.mark_only()
+            # only logs the number of sample marked
+
+        with patch('egcg_core.rest_communication.patch_entry') as mocked_patch, \
+            patch('egcg_core.clarity.route_samples_to_delivery_workflow') as mocked_route, \
+            patch.object(DataDelivery, 'get_deliverable_projects_samples', return_value={'test_project': [sample1, sample2]}):
+            self.delivery_real.mark_only()
+            print(mocked_patch.call_args_list)
+            mocked_route.assert_called_with(['deliverable_sample', 'deliverable_sample2'])
+
+
+
     def test_email_report(self):
         project_to_samples = {'test_project': [sample1, sample2]}
         with patch('bin.deliver_reviewed_data.get_queue_uri', return_value='http://testclarity.com/queue/999'):
-            msg = self.delivery_dry._email_report(project_to_samples)
+            msg = self.delivery_dry.create_email_report(project_to_samples)
             assert msg == '''Hi
 2 sample(s) from 1 project(s) have been delivered:
   - test_project: 2 sample(s)

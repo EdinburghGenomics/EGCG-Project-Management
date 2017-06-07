@@ -17,6 +17,7 @@ from egcg_core.notifications.email import send_email
 from os.path import basename, join
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from project_report import ProjectReport
 from config import load_config
 
 hs_list_files = [
@@ -314,7 +315,7 @@ class DataDelivery(AppLogger):
                 'delivery_date': _now()
             }
             rest_communication.patch_entry(
-                'samples', payload=payload, id_field='sample_id', element_id=sample_id
+                'samples', payload=payload, id_field='sample_id', element_id=sample_id, update_lists=['files_delivered']
             )
         clarity.route_samples_to_delivery_workflow(samples)
 
@@ -323,8 +324,8 @@ class DataDelivery(AppLogger):
         all_samples = []
         for project in project_to_samples:
             samples = project_to_samples.get(project)
-            for sample in samples:
-                all_samples.append(sample)
+            for sample_dict in samples:
+                all_samples.append(sample_dict.get(ELEMENT_SAMPLE_INTERNAL_ID))
         if self.dry_run:
             self.info('Will mark %s samples as delivered' % len(all_samples))
         else:
@@ -406,7 +407,7 @@ class DataDelivery(AppLogger):
                 today = datetime.date.today().isoformat()
                 batch_delivery_folder = os.path.join(self.delivery_dest, project, today)
                 os.makedirs(batch_delivery_folder, exist_ok=True)
-                # move all the staged sample directory
+                # Move all the staged sample directory
                 project_to_delivery_folder[project] = batch_delivery_folder
                 for sample in project_to_samples.get(project):
                     shutil.move(
@@ -416,19 +417,40 @@ class DataDelivery(AppLogger):
                     self.update_registered_files(sample.get(ELEMENT_SAMPLE_INTERNAL_ID), batch_delivery_folder)
                 self.write_metrics_file(project, batch_delivery_folder)
                 self.generate_md5_summary(project, batch_delivery_folder)
-                self.report('Delivered %s samples for project %s' % (len(project_to_samples[project]), project))
             self.mark_samples_as_released(list(sample2stagedirectory))
 
         self.cleanup()
-        # TODO: Generate project report
-        self.report(self._email_report(project_to_samples))
 
-    def report(self, msg):
+        # Generate project report
+        project_to_reports = {}
+        for project in project_to_samples:
+            project_report = join(self.delivery_dest, project, 'project_%s_report.pdf' % project)
+            try:
+                pr = ProjectReport(project)
+                pr.generate_report('pdf')
+            except Exception:
+                self.critical('Project report generation for %s failed' % project)
+                project_report = None
+            if project_report:
+                project_to_reports[project] = project_report
+
+        # Send email confirmation with attachments
+        self.email_report(project_to_samples, project_to_reports)
+
+    def email_report(self, project_to_samples, project_to_reports):
+        msg = self.create_email_report(project_to_samples)
+        project_ids = ', '.join(list(project_to_samples))
         self.info(msg)
         if self.email:
-            send_email(msg=msg, subject='Data delivery', strict=True, **cfg['email_notification'])
+            send_email(
+                msg=msg,
+                subject='Data delivery: ' + project_ids,
+                attachments=project_to_reports.values(),
+                strict=True,
+                **cfg['delivery']['email_notification']
+        )
 
-    def _email_report(self, project_to_samples):
+    def create_email_report(self, project_to_samples):
         queue_uri = get_queue_uri(
             cfg['delivery']['clarity_workflow_name'],
             cfg.query('delivery', 'clarity_stage_name', ret_default=None)

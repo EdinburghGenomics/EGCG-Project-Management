@@ -1,6 +1,10 @@
 Changelog for EGCG-Project-Management
 =====================================
 
+0.3
+---
+ - Delivery script support FluidX and send email confirmation.
+
 0.2.4
 -----
 - Fixed a bug where multiple non-human species in a project would crash `project_report`
