@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 import sys
+import traceback
 from collections import defaultdict
 from os.path import basename, join
 
@@ -414,10 +415,15 @@ class DataDelivery(AppLogger):
         for project in project_to_samples:
             project_report = join(self.delivery_dest, project, 'project_%s_report.pdf' % project)
             try:
-                pr = ProjectReport(project)
-                pr.generate_report('pdf')
+                if not self.dry_run:
+                    pr = ProjectReport(project)
+                    pr.generate_report('pdf')
             except Exception:
                 self.critical('Project report generation for %s failed' % project)
+                etype, value, tb = sys.exc_info()
+                if tb:
+                    stacktrace = ''.join(traceback.format_exception(etype, value, tb))
+                    self.info('Stacktrace below:\n' + stacktrace)
                 project_report = None
             if project_report:
                 project_to_reports[project] = project_report
@@ -428,11 +434,15 @@ class DataDelivery(AppLogger):
     def email_report(self, project_to_samples, project_to_reports):
         msg = self.create_email_report(project_to_samples)
         project_ids = ', '.join(list(project_to_samples))
+        if self.dry_run:
+            subject = 'Dry run: ' + project_ids
+        else:
+            subject = 'Data delivery: ' + project_ids
         self.info(msg)
         if self.email:
             send_email(
                 msg=msg,
-                subject='Data delivery: ' + project_ids,
+                subject=subject,
                 attachments=project_to_reports.values(),
                 strict=True,
                 **cfg['delivery']['email_notification']
