@@ -483,10 +483,12 @@ def main():
     args = p.parse_args()
 
     load_config()
+    log_cfg.set_log_level(logging.INFO)
+    log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout))
 
     if args.debug:
         log_cfg.set_log_level(logging.DEBUG)
-        log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout))
+
 
     cfg.merge(cfg['sample'])
     dd = DataDelivery(args.dry_run, args.work_dir, no_cleanup=args.no_cleanup, email=args.email)

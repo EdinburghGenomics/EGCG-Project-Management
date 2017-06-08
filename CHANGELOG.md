@@ -3,7 +3,7 @@ Changelog for EGCG-Project-Management
 
 0.3
 ---
- - Delivery script support FluidX and send email confirmation.
+ - Delivery script support FluidX and send email confirmation. (Change in configuration)
 
 0.2.4
 -----
