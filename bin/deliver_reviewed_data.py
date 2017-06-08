@@ -6,15 +6,16 @@ import os
 import shutil
 import sys
 from collections import defaultdict
+from os.path import basename, join
+
 from egcg_core import executor, rest_communication, clarity
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
 from egcg_core.config import cfg
 from egcg_core.constants import ELEMENT_NB_READS_CLEANED, ELEMENT_RUN_NAME, ELEMENT_PROJECT_ID, ELEMENT_LANE, \
     ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_RUN_ELEMENT_ID, ELEMENT_USEABLE
 from egcg_core.exceptions import EGCGError
-from egcg_core.util import find_fastqs
 from egcg_core.notifications.email import send_email
-from os.path import basename, join
+from egcg_core.util import find_fastqs
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from project_report import ProjectReport
@@ -38,29 +39,16 @@ variant_call_list_files = [
 
 other_list_files = []
 
-def get_workflow_stage(workflow_name, stage_name=None):
-    lims = clarity.connection()
-    workflows = lims.get_workflows(name=workflow_name)
-    if len(workflows) != 1:
-        return
-    if not stage_name:
-        return workflows[0].stages[0]
-    stages = [s for s in workflows[0].stages if s.name == stage_name]
-    if len(stages) != 1:
-        return
-    return stages[0]
-
-def get_queue_uri(workflow_name, stage_name=None):
-    workflow_stage = get_workflow_stage(workflow_name, stage_name)
-    return clarity.connection().baseuri + 'clarity/queue/' + workflow_stage.step.id
 
 def _execute(*commands, **kwargs):
     exit_status = executor.execute(*commands, **kwargs).join()
     if exit_status != 0:
         raise EGCGError('Commands %s exited with status %s' % (commands, exit_status))
 
+
 def _now():
     return datetime.datetime.utcnow().strftime('%d_%m_%Y_%H:%M:%S')
+
 
 class DataDelivery(AppLogger):
     def __init__(self, dry_run, work_dir, no_cleanup=False, email=True):
@@ -87,17 +75,17 @@ class DataDelivery(AppLogger):
             where_clause["sample_id"] = sample_id
         # These samples are useable but could have been delivered already so need to check
         samples = rest_communication.get_documents(
-                'samples',
-                all_pages=True,
-                quiet=True,
-                embedded={"analysis_driver_procs": 1, "run_elements": 1},
-                where=where_clause
+            'samples',
+            all_pages=True,
+            quiet=True,
+            embedded={"analysis_driver_procs": 1, "run_elements": 1},
+            where=where_clause
         )
         for sample in samples:
             processes = sample.get('analysis_driver_procs', [{}])
             processes.sort(
-                    key=lambda x: datetime.datetime.strptime(x.get('_created', '01_01_1970_00:00:00'),
-                                                             '%d_%m_%Y_%H:%M:%S'))
+                key=lambda x: datetime.datetime.strptime(x.get('_created', '01_01_1970_00:00:00'),
+                                                         '%d_%m_%Y_%H:%M:%S'))
             if not processes[-1].get('status', 'new') == 'finished':
                 raise EGCGError("Reviewed sample %s not marked as finished" % sample.get('sample_id'))
             if sample.get('delivered', 'no') == 'no':
@@ -219,7 +207,7 @@ class DataDelivery(AppLogger):
                 res.append(str((clean_bases_r1 + clean_bases_r2) / 1000000000))
                 res.append(str((clean_q30_bases_r1 + clean_q30_bases_r2) / 1000000000))
                 if self.get_sample_species(sample.get('sample_id')) == 'Homo sapiens' or \
-                        self.get_analysis_type(sample.get('sample_id')) == 'Variant Calling':
+                                self.get_analysis_type(sample.get('sample_id')) == 'Variant Calling':
                     tr = sample.get('bam_file_reads', 0)
                     mr = sample.get('mapped_reads', 0)
                     dr = sample.get('duplicate_reads', 0)
@@ -448,10 +436,10 @@ class DataDelivery(AppLogger):
                 attachments=project_to_reports.values(),
                 strict=True,
                 **cfg['delivery']['email_notification']
-        )
+            )
 
     def create_email_report(self, project_to_samples):
-        queue_uri = get_queue_uri(
+        queue_uri = clarity.get_queue_uri(
             cfg['delivery']['clarity_workflow_name'],
             cfg.query('delivery', 'clarity_stage_name', ret_default=None)
         )
@@ -465,7 +453,9 @@ Regards
         return msg.format(
             tot_samples=sum([len(samples) for samples in project_to_samples.values()]),
             tot_projects=len(project_to_samples),
-            details='\n'.join('  - %s: %s sample(s)' % (project_id, len(project_to_samples.get(project_id))) for project_id in project_to_samples),
+            details='\n'.join(
+                '  - %s: %s sample(s)' % (project_id, len(project_to_samples.get(project_id))) for project_id in
+                project_to_samples),
             delivery_queue=queue_uri
         )
 
