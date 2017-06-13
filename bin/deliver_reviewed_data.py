@@ -39,7 +39,7 @@ other_list_files = []
 def _execute(*commands, **kwargs):
     exit_status = executor.execute(*commands, **kwargs).join()
     if exit_status != 0:
-        raise EGCGError('commands %s exited with status %s' % (commands, exit_status))
+        raise EGCGError('Commands %s exited with status %s' % (commands, exit_status))
 
 
 class DataDelivery(AppLogger):
