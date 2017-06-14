@@ -296,13 +296,36 @@ class TestDataDelivery(TestProjectManagement):
 
 
     def test_email_report(self):
-        project_to_samples = {'test_project': [sample1, sample2]}
         with patch('egcg_core.clarity.get_queue_uri', return_value='http://testclarity.com/queue/999'):
-            msg = self.delivery_dry.create_email_report(project_to_samples)
+            msg = self.delivery_dry.create_email_report('test_project', [sample1, sample2])
             assert msg == '''Hi
-2 sample(s) from 1 project(s) have been delivered:
-  - test_project: 2 sample(s)
+2 samples from project test_project have been delivered:
 Consult delivery queue at
 http://testclarity.com/queue/999
-Regards
+template delivery email is appended bellow
+----
+Dear all,
+
+The data for 2 samples from project test_project has been released to our Aspera server at:
+https://tranfer.epcc.ed.ac.uk/test_project
+
+
+Your usernames are:
+[ENTER USERNAMES]
+
+Your passwords will be sent separately.
+
+Please see the link below for guidance on how to download:
+https://genomics.ed.ac.uk/resources/download-help-clinical
+
+
+The data for your project will be stored on our server for 3 months and deleted after this time. Please check your data for corruption once downloaded. Email notifications will be sent 1 month and 1 week before deletion.
+
+If you have any questions about the data or download then please don’t hesitate to contact me.
+
+Kind regards,
+
+[NAME]
+
+[SIGNATURE]
 '''

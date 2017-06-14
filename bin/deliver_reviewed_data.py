@@ -41,6 +41,11 @@ variant_call_list_files = [
 other_list_files = []
 
 
+email_template = '''
+
+'''
+
+
 def _execute(*commands, **kwargs):
     exit_status = executor.execute(*commands, **kwargs).join()
     if exit_status != 0:
@@ -429,44 +434,66 @@ class DataDelivery(AppLogger):
                 project_to_reports[project] = project_report
 
         # Send email confirmation with attachments
-        self.email_report(project_to_samples, project_to_reports)
+        self.emails_report(project_to_samples, project_to_reports)
 
-    def email_report(self, project_to_samples, project_to_reports):
-        msg = self.create_email_report(project_to_samples)
-        project_ids = ', '.join(list(project_to_samples))
-        if self.dry_run:
-            subject = 'Dry run: ' + project_ids
-        else:
-            subject = 'Data delivery: ' + project_ids
-        self.info(msg)
-        if self.email:
-            send_email(
-                msg=msg,
-                subject=subject,
-                attachments=project_to_reports.values(),
-                strict=True,
-                **cfg['delivery']['email_notification']
-            )
+    def emails_report(self, project_to_samples, project_to_reports):
+        for project_id in project_to_samples:
 
-    def create_email_report(self, project_to_samples):
+            msg = self.create_email_report(project_id, project_to_samples[project_id])
+            if self.dry_run:
+                subject = 'Dry run: ' + project_id
+            else:
+                subject = 'Data delivery: ' + project_id
+            self.info(msg)
+            if self.email:
+                send_email(
+                    msg=msg,
+                    subject=subject,
+                    attachments=project_to_reports.values(),
+                    strict=True,
+                    **cfg['delivery']['email_notification']
+                )
+
+    def create_email_report(self, project_id, samples):
         queue_uri = clarity.get_queue_uri(
             cfg['delivery']['clarity_workflow_name'],
             cfg.query('delivery', 'clarity_stage_name', ret_default=None)
         )
         msg = '''Hi
-{tot_samples} sample(s) from {tot_projects} project(s) have been delivered:
-{details}
+{num_samples} samples from project {project} have been delivered:
 Consult delivery queue at
 {delivery_queue}
-Regards
+template delivery email is appended bellow
+----
+Dear all,
+
+The data for {num_samples} samples from project {project} has been released to our Aspera server at:
+https://tranfer.epcc.ed.ac.uk/{project}
+
+
+Your usernames are:
+[ENTER USERNAMES]
+
+Your passwords will be sent separately.
+
+Please see the link below for guidance on how to download:
+https://genomics.ed.ac.uk/resources/download-help-clinical
+
+
+The data for your project will be stored on our server for 3 months and deleted after this time. Please check your data for corruption once downloaded. Email notifications will be sent 1 month and 1 week before deletion.
+
+If you have any questions about the data or download then please don’t hesitate to contact me.
+
+Kind regards,
+
+[NAME]
+
+[SIGNATURE]
 '''
         return msg.format(
-            tot_samples=sum([len(samples) for samples in project_to_samples.values()]),
-            tot_projects=len(project_to_samples),
-            details='\n'.join(
-                '  - %s: %s sample(s)' % (project_id, len(project_to_samples.get(project_id))) for project_id in
-                project_to_samples),
-            delivery_queue=queue_uri
+            num_samples=len(samples),
+            project=project_id,
+            delivery_queue=queue_uri,
         )
 
 
