@@ -57,17 +57,17 @@ fake_run_elements_procs_complete = [
     },
     {
         # deletable
-        'run_element_id': 'passed_run_element',
-        'run_id': 'passed_run',
-        'review_statuses': ['pass'],
-        'most_recent_proc': finished_proc
-    },
-    {
-        # deletable
         'run_element_id': 'failed_run_element',
         'run_id': 'failed_run',
         'review_statuses': ['fail'],
         'most_recent_proc': aborted_proc
+    },
+{
+        # deletable
+        'run_element_id': 'passed_run_element',
+        'run_id': 'passed_run',
+        'review_statuses': ['pass'],
+        'most_recent_proc': finished_proc
     }
 
 ]

@@ -5,9 +5,14 @@ import logging
 import os
 import sys
 from collections import defaultdict
+from os.path import join
+
+import datetime
+from cached_property import cached_property
+
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
 from egcg_core.config import cfg
-from os.path import dirname, basename, join
+from egcg_core.rest_communication import get_document, patch_entry
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import load_config
@@ -19,7 +24,7 @@ file_extensions_to_check = [
 ]
 
 def parse_aspera_reports(report_csv):
-    all_files = defaultdict(list)
+    all_files = []
     with open(report_csv) as open_report:
         # ignore what is before the second blank lines
         blank_line = 0
@@ -31,8 +36,12 @@ def parse_aspera_reports(report_csv):
 
         dict_reader = csv.DictReader(open_report)
         for file_dict in dict_reader:
-            f = '/'.join(file_dict['file_path'].split('/')[3:])
-            all_files[f].append(file_dict)
+            if file_dict['level'] == '1':
+                all_files.append((
+                    '/'.join(file_dict['file_path'].split('/')[3:]),
+                    file_dict['ssh_user'],
+                    datetime.datetime.strptime(file_dict['stopped_at'], '%Y/%m/%d %H:%M:%S')  # 2016/09/08 16:30:27
+                ))
     return all_files
 
 
@@ -54,65 +63,117 @@ def check_end_file_name(f):
 def list_files_delivered(path):
     all_files = {}
     for root, dirs, files in os.walk(path):
-        relative_root = root.replace(path, '')[1:]
         for f in files:
             if check_end_file_name(f):
-                all_files[os.path.join(relative_root, f)] = os.stat(os.path.join(root, f))
+                all_files[join(root, f)] = os.stat(join(root, f))
     return all_files
 
 
+class DeliveredSample(AppLogger):
+
+    def __init__(self, sample_id):
+        self.sample_id = sample_id
+        self.delivery_dir = os.path.abspath(cfg.query('delivery_dest'))
+        self.list_file_downloaded = []
+
+    @cached_property
+    def data(self):
+        return get_document('samples', where={'sample_id': self.sample_id})
+
+    @property
+    def sample_folders(self):
+        return glob.glob(join(self.delivery_dir, self.data.get('project_id'), '*', self.sample_id)) or []
+
+    def _format_list_files(self, list_file):
+        list_file_to_upload = []
+        for f in list_file:
+            if check_end_file_name(f):
+                with open(f + '.md5') as open_file:
+                    md5, file_path = open_file.readline().strip().split()
+            rel_path = os.path.relpath(f, start=self.delivery_dir)
+            list_file_to_upload.append({'file_path': rel_path, 'md5': md5})
+        return list_file_to_upload
+
+    def upload_list_file_delivered(self, list_file):
+        list_file_to_upload = self._format_list_files(list_file)
+        patch_entry(
+            'samples',
+            payload={'files_delivered': list_file_to_upload},
+            id_field='sample_id',
+            element_id=self.sample_id,
+            update_lists=['files_delivered']
+        )
+        return list_file_to_upload
+
+    @property
+    def list_file_delivered(self):
+        list_file = self.data.get('files_delivered')
+        if not list_file:
+            list_file = []
+            for sample_folder in self.sample_folders:
+                list_file.extend(list_files_delivered(sample_folder))
+            list_file = self.upload_list_file_delivered(list_file)
+            # delete the cached data
+            del self.__dict__['data']
+        return list_file
+
+    @property
+    def list_file_already_downloaded(self):
+        return self.data.get('files_downloaded', [])
+
+    def add_file_downloaded(self, file_name, user, date_downloaded):
+        self.list_file_downloaded.append({'file_path': file_name, 'user': user, 'date': date_downloaded.strftime('%d_%m_%Y_%H:%M:%S')})
+
+    def update_list_file_downloaded(self):
+        # Make sure you're only adding files that were not there before
+        new_list_file_downloaded = set(self.list_file_downloaded).difference(set(self.list_file_already_downloaded))
+        if new_list_file_downloaded:
+            patch_entry(
+                'samples',
+                payload={'files_downloaded', list(new_list_file_downloaded)},
+                id_field='sample_id',
+                element_id=self.sample_id,
+                update_lists=['files_downloaded']
+            )
+
+    def files_missing(self):
+        file_downloaded = set([f['file_path'] for f in self.list_file_downloaded])
+        file_downloaded.update([f['file_path'] for f in self.list_file_already_downloaded])
+        return [f['file_path'] for f in self.list_file_delivered if f['file_path'] in file_downloaded]
+
+    def is_download_complete(self):
+        return len(self.files_missing()) == 0
+
 class ConfirmDelivery(AppLogger):
-    def __init__(self, aspera_report_csv_files):
-        self.confirmed_files = merge_file_lists([parse_aspera_reports(f) for f in aspera_report_csv_files])
+    def __init__(self, aspera_report_csv_files=None):
         self.delivery_dir = cfg.query('delivery_dest')
+        self.samples_delivered = defaultdict(DeliveredSample)
+        if aspera_report_csv_files:
+            for aspera_report_csv_file in aspera_report_csv_files:
+                self.read_aspera_report(aspera_report_csv_file)
+
+    def get_sample_delivered(self, sample_id):
+        if not sample_id in self.samples_delivered:
+            self.samples_delivered[sample_id] = DeliveredSample(sample_id)
+        return self.samples_delivered.get(sample_id)
+
+    def read_aspera_report(self, aspera_report_csv_file):
+        confirmed_files = parse_aspera_reports(aspera_report_csv_file)
+        for fname, user, date in confirmed_files:
+            sample_id = fname.split('/')[2]
+            self.get_sample_delivered(sample_id).add_file_downloaded(
+                file_name=fname,
+                user=user,
+                date_downloaded=date
+            )
+
+    def update_samples(self):
+        for sample in  self.samples_delivered.values():
+            sample.update_list_file_downloaded()
 
 
     def test_sample(self, sample_id):
-        sample_folders = glob.glob(os.path.join(self.delivery_dir, '*', '*', sample_id))
-        if not sample_folders:
-            raise ValueError('%s Has not been delivered yet' % (sample_id))
-        elif len(sample_folders) > 1:
-            self.warning('More than one delivery for sample %s', sample_id)
-        for sample_folder in sample_folders:
-            staging_date = basename(dirname(sample_folder))
-            project_id = basename(dirname(dirname(sample_folder)))
-            if self._test_sample(project_id, staging_date, sample_id):
-                self.info('Confirmed %s:%s -- %s', project_id, staging_date, sample_id)
-            else:
-                self.info('Not confirmed %s:%s -- %s', project_id, staging_date, sample_id)
-
-
-    def _test_sample(self, project_id, staging_date, sample_id):
-        sample_folder = os.path.join(self.delivery_dir, project_id, staging_date, sample_id)
-        files_to_test = list_files_delivered(sample_folder)
-        files_to_test = [join(project_id, staging_date, sample_id, f) for f in files_to_test]
-        files_found, files_not_found = self._compare_files_lists(files_to_test)
-        if files_not_found:
-            for f in files_not_found:
-                self.debug('Not found %s', f)
-            return False
-        else:
-            for f in files_found:
-                self.debug('found %s', f)
-            return True
-
-    def _compare_files_lists(self, files_to_test):
-        files_found = []
-        files_not_found = []
-        for f in files_to_test:
-            if f in self.confirmed_files:
-                files_found.append(f)
-            else:
-                files_not_found.append(f)
-        return (files_found, files_not_found)
-
-    def compare_all_files(self):
-        files_to_test = list_files_delivered(self.delivery_dir)
-        for f in files_to_test:
-            if f in self.confirmed_files:
-                self.info('found %s', f)
-            else:
-                self.info('Not found %s', f)
+        self.get_sample_delivered(sample_id).files_missing()
 
 
 def main():
