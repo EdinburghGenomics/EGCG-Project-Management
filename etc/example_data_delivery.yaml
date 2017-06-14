@@ -25,3 +25,9 @@ default:
         fastqc: fastqc
     executor:
         job_execution: local
+
+    email_notification:
+        mailhost: 'a_mailhost'
+        port: 1337
+        sender: 'a_sender'
+        recipients: ['some', 'recipients']

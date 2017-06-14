@@ -41,11 +41,6 @@ variant_call_list_files = [
 other_list_files = []
 
 
-email_template = '''
-
-'''
-
-
 def _execute(*commands, **kwargs):
     exit_status = executor.execute(*commands, **kwargs).join()
     if exit_status != 0:
