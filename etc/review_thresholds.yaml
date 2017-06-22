@@ -29,7 +29,7 @@ sample:
             value: 35
             comparison: '<'
 
-    homo_sapiens:
+    'Homo sapiens':
         genotype_validation.mismatching_snps:
             value: 5
             comparison: '<'
