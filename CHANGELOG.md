@@ -1,6 +1,12 @@
 Changelog for EGCG-Project-Management
 =====================================
 
+0.4 (unreleased)
+----------------
+
+- Nothing changed yet.
+
+
 0.3 (2017-06-22)
 ----------------
 - Added `reference_data` for locating and documenting sources of reference genomes and variant databases
