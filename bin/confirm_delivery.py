@@ -73,7 +73,7 @@ class DeliveredSample(AppLogger):
 
     def __init__(self, sample_id):
         self.sample_id = sample_id
-        self.delivery_dir = os.path.abspath(cfg.query('delivery_dest'))
+        self.delivery_dir = os.path.abspath(cfg.query('delivery', 'dest'))
         self.list_file_downloaded = []
 
     @cached_property
@@ -151,6 +151,7 @@ class ConfirmDelivery(AppLogger):
         if aspera_report_csv_files:
             for aspera_report_csv_file in aspera_report_csv_files:
                 self.read_aspera_report(aspera_report_csv_file)
+            self.update_samples()
 
     def get_sample_delivered(self, sample_id):
         if not sample_id in self.samples_delivered:
@@ -171,10 +172,12 @@ class ConfirmDelivery(AppLogger):
         for sample in  self.samples_delivered.values():
             sample.update_list_file_downloaded()
 
-
     def test_sample(self, sample_id):
-        self.get_sample_delivered(sample_id).files_missing()
-
+        files_missing = self.get_sample_delivered(sample_id).files_missing()
+        if files_missing:
+            self.info('Sample %s has not been fully downloaded: %s files missing', sample_id, len(files_missing))
+            for file_missing in files_missing:
+                self.info('    - '+ file_missing)
 
 def main():
     p = argparse.ArgumentParser()
@@ -191,12 +194,10 @@ def main():
 
     cfg.merge(cfg['sample'])
 
-    cd = ConfirmDelivery(args.csv_files)
+    cd = ConfirmDelivery(aspera_report_csv_files=args.csv_files)
     if args.samples:
         for sample in args.samples:
             cd.test_sample(sample)
-    else:
-        cd.compare_all_files()
 
 
 if __name__ == '__main__':

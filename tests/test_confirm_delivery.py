@@ -30,7 +30,7 @@ class TestDeliveredSample(TestProjectManagement):
         cfg.load_config_file(os.path.join(self.root_path, 'etc', 'example_data_delivery.yaml'))
         self.sample = DeliveredSample('sample1')
         # create delivered data in delivery destination
-        delivery_dir = os.path.abspath(cfg.query('delivery_dest'))
+        delivery_dir = os.path.abspath(cfg.query('delivery', 'dest'))
         self.dir_to_delete = [join(delivery_dir, 'project1')]
         self.dir_to_create = [
             join(delivery_dir, 'project1', 'date_delivery', 'sample1')
@@ -77,7 +77,7 @@ class TestDeliveredSample(TestProjectManagement):
 
     @patch('bin.confirm_delivery.get_document', return_value=sample1)
     def test_list_file_delivered_from_data(self, patched_get_doc):
-        files_delivered = self.sample.list_file_delivered()
+        files_delivered = self.sample.list_file_delivered
         assert files_delivered == sample1.get('files_delivered')
         patched_get_doc.assert_called_with('samples', where={'sample_id': 'sample1'})
 
@@ -85,7 +85,7 @@ class TestDeliveredSample(TestProjectManagement):
     @patch('bin.confirm_delivery.get_document', return_value=sample2)
     @patch('bin.confirm_delivery.patch_entry')
     def test_list_file_delivered_no_data(self, patched_get_patch_entry, patched_get_doc):
-        files_delivered = self.sample.list_file_delivered()
+        files_delivered = self.sample.list_file_delivered
         assert files_delivered == [
             {'file_path': 'project1/date_delivery/sample1/sample1.bam', 'md5': 'd41d8cd98f00b204e9800998ecf8427e'}
         ]
@@ -105,10 +105,11 @@ class TestConfirmDelivery(TestProjectManagement):
     def setUp(self):
         cfg.load_config_file(os.path.join(self.root_path, 'etc', 'example_data_delivery.yaml'))
         self.c = ConfirmDelivery()
+
     def test_parse_aspera_reports(self):
         aspera_report = os.path.join(self.assets_path, 'confirm_delivery', 'filesreport_test.csv')
         file_list = parse_aspera_reports(aspera_report)
-        assert len(file_list) == 422
+        assert len(file_list) == 421
 
     def test_read_aspera_report(self):
         aspera_report = os.path.join(self.assets_path, 'confirm_delivery', 'filesreport_test.csv')
