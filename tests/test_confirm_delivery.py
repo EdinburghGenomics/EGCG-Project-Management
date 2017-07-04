@@ -4,6 +4,8 @@ from unittest.mock import patch
 from os.path import join
 
 import shutil
+
+import datetime
 from egcg_core.config import cfg
 
 from bin.confirm_delivery import parse_aspera_reports, DeliveredSample, ConfirmDelivery
@@ -15,7 +17,8 @@ sample1 = {
     'files_delivered': [
         {'file_path': 'path/to/file.bam', 'md5': 'md5stringforbam'},
         {'file_path': 'path/to/file.g.vcf.gz', 'md5': 'md5stringforvcf'}
-    ]
+    ],
+    'project_id': 'project1'
 }
 
 sample2 = {
@@ -84,13 +87,13 @@ class TestDeliveredSample(TestProjectManagement):
 
     @patch('bin.confirm_delivery.get_document', return_value=sample2)
     @patch('bin.confirm_delivery.patch_entry')
-    def test_list_file_delivered_no_data(self, patched_get_patch_entry, patched_get_doc):
+    def test_list_file_delivered_no_data(self, patched_patch_entry, patched_get_doc):
         files_delivered = self.sample.list_file_delivered
         assert files_delivered == [
             {'file_path': 'project1/date_delivery/sample1/sample1.bam', 'md5': 'd41d8cd98f00b204e9800998ecf8427e'}
         ]
         patched_get_doc.assert_called_with('samples', where={'sample_id': 'sample1'})
-        patched_get_patch_entry.assert_called_with(
+        patched_patch_entry.assert_called_with(
             'samples',
             element_id='sample1',
             id_field='sample_id',
@@ -99,6 +102,44 @@ class TestDeliveredSample(TestProjectManagement):
                 {'file_path': 'project1/date_delivery/sample1/sample1.bam', 'md5': 'd41d8cd98f00b204e9800998ecf8427e'}
             ]}
         )
+
+    @patch('bin.confirm_delivery.get_document', return_value=sample1)
+    def test_add_file_downloaded(self, patched_get_doc):
+        date_download = datetime.datetime.now()
+        self.sample.add_file_downloaded('path/to/file.bam', 'testuser', date_download)
+        expected_files_downloaded = [
+            {'date': date_download.strftime('%d_%m_%Y_%H:%M:%S'), 'user': 'testuser', 'file_path': 'path/to/file.bam'}
+        ]
+        assert self.sample.list_file_downloaded == expected_files_downloaded
+
+    @patch('bin.confirm_delivery.get_document', return_value=sample1)
+    def test_add_file_downloaded_starting_with_project(self, patched_get_doc):
+        date_download = datetime.datetime.now()
+        self.sample.add_file_downloaded('project1/path/to/file.bam', 'testuser', date_download)
+        expected_files_downloaded = [
+            {'date': date_download.strftime('%d_%m_%Y_%H:%M:%S'), 'user': 'testuser', 'file_path': 'path/to/file.bam'}
+        ]
+        assert self.sample.list_file_downloaded == expected_files_downloaded
+
+
+    @patch('bin.confirm_delivery.get_document', return_value=sample1)
+    @patch('bin.confirm_delivery.patch_entry')
+    def test_update_list_file_downloaded(self, patched_patch_entry, patched_get_doc):
+        date_download = datetime.datetime.now()
+        self.sample.add_file_downloaded( 'path/to/file.bam', 'testuser', date_download)
+
+        self.sample.update_list_file_downloaded()
+
+        patched_patch_entry.assert_called_with('samples',
+            element_id='sample1',
+            id_field='sample_id',
+            update_lists=['files_downloaded'],
+            payload={'files_downloaded': [
+                {'file_path': 'path/to/file.bam', 'user': 'testuser', 'date': date_download.strftime('%d_%m_%Y_%H:%M:%S')}
+        ]})
+
+
+
 
 class TestConfirmDelivery(TestProjectManagement):
 
@@ -111,7 +152,8 @@ class TestConfirmDelivery(TestProjectManagement):
         file_list = parse_aspera_reports(aspera_report)
         assert len(file_list) == 421
 
-    def test_read_aspera_report(self):
+    @patch('bin.confirm_delivery.get_document', return_value=sample1)
+    def test_read_aspera_report(self, patched_get_doc):
         aspera_report = os.path.join(self.assets_path, 'confirm_delivery', 'filesreport_test.csv')
 
         self.c.read_aspera_report(aspera_report)

@@ -5,16 +5,17 @@ import logging
 import os
 import sys
 from collections import defaultdict
-from os.path import join
-
+from os.path import join, dirname, abspath, relpath
 import datetime
+import itertools
+
 from cached_property import cached_property
 
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
 from egcg_core.config import cfg
 from egcg_core.rest_communication import get_document, patch_entry
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(dirname(dirname(abspath(__file__))))
 from config import load_config
 
 file_extensions_to_check = [
@@ -73,7 +74,7 @@ class DeliveredSample(AppLogger):
 
     def __init__(self, sample_id):
         self.sample_id = sample_id
-        self.delivery_dir = os.path.abspath(cfg.query('delivery', 'dest'))
+        self.delivery_dir = abspath(cfg.query('delivery', 'dest'))
         self.list_file_downloaded = []
 
     @cached_property
@@ -90,7 +91,7 @@ class DeliveredSample(AppLogger):
             if check_end_file_name(f):
                 with open(f + '.md5') as open_file:
                     md5, file_path = open_file.readline().strip().split()
-            rel_path = os.path.relpath(f, start=self.delivery_dir)
+            rel_path = relpath(f, start=self.delivery_dir)
             list_file_to_upload.append({'file_path': rel_path, 'md5': md5})
         return list_file_to_upload
 
@@ -122,15 +123,21 @@ class DeliveredSample(AppLogger):
         return self.data.get('files_downloaded', [])
 
     def add_file_downloaded(self, file_name, user, date_downloaded):
+        # remove the project folder from the file name
+        if file_name.startswith(self.data['project_id']):
+            file_name = join(* file_name.split('/')[1:])
         self.list_file_downloaded.append({'file_path': file_name, 'user': user, 'date': date_downloaded.strftime('%d_%m_%Y_%H:%M:%S')})
 
     def update_list_file_downloaded(self):
+
         # Make sure you're only adding files that were not there before
-        new_list_file_downloaded = set(self.list_file_downloaded).difference(set(self.list_file_already_downloaded))
+        new_list_file_downloaded = list(
+            itertools.filterfalse(lambda x: x in self.list_file_already_downloaded, self.list_file_downloaded)
+        )
         if new_list_file_downloaded:
             patch_entry(
                 'samples',
-                payload={'files_downloaded', list(new_list_file_downloaded)},
+                payload={'files_downloaded': list(new_list_file_downloaded)},
                 id_field='sample_id',
                 element_id=self.sample_id,
                 update_lists=['files_downloaded']
@@ -139,7 +146,7 @@ class DeliveredSample(AppLogger):
     def files_missing(self):
         file_downloaded = set([f['file_path'] for f in self.list_file_downloaded])
         file_downloaded.update([f['file_path'] for f in self.list_file_already_downloaded])
-        return [f['file_path'] for f in self.list_file_delivered if f['file_path'] in file_downloaded]
+        return [f['file_path'] for f in self.list_file_delivered if f['file_path'] not in file_downloaded]
 
     def is_download_complete(self):
         return len(self.files_missing()) == 0
@@ -174,6 +181,7 @@ class ConfirmDelivery(AppLogger):
 
     def test_sample(self, sample_id):
         files_missing = self.get_sample_delivered(sample_id).files_missing()
+        print(files_missing)
         if files_missing:
             self.info('Sample %s has not been fully downloaded: %s files missing', sample_id, len(files_missing))
             for file_missing in files_missing:
@@ -182,7 +190,7 @@ class ConfirmDelivery(AppLogger):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--samples', type=str, nargs='+')
-    p.add_argument('--csv_files', type=str, required=True, nargs='+')
+    p.add_argument('--csv_files', type=str, nargs='+')
     p.add_argument('--debug', action='store_true')
     args = p.parse_args()
 
