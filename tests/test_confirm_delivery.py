@@ -1,5 +1,5 @@
 import os
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 from os.path import join
 
@@ -138,6 +138,25 @@ class TestDeliveredSample(TestProjectManagement):
                 {'file_path': 'path/to/file.bam', 'user': 'testuser', 'date': date_download.strftime('%d_%m_%Y_%H:%M:%S')}
         ]})
 
+    @patch('bin.confirm_delivery.get_document', return_value=sample1)
+    def test_file_missing(self, patched_get_doc):
+        missing_files = ['path/to/file.bam', 'path/to/file.g.vcf.gz']
+        assert self.sample.files_missing() == missing_files
+
+        date_download = datetime.datetime.now()
+        self.sample.add_file_downloaded('path/to/file.bam', 'testuser', date_download)
+
+        missing_files = ['path/to/file.g.vcf.gz']
+        assert self.sample.files_missing() == missing_files
+
+        self.sample.add_file_downloaded('project1/path/to/file.g.vcf.gz', 'testuser', date_download)
+        assert self.sample.files_missing() == []
+
+    def test_is_download_complete(self):
+        with patch.object(DeliveredSample, 'files_missing', return_value=['file1']):
+            assert not self.sample.is_download_complete()
+        with patch.object(DeliveredSample, 'files_missing', return_value=[]):
+            assert self.sample.is_download_complete()
 
 
 
@@ -150,10 +169,15 @@ class TestConfirmDelivery(TestProjectManagement):
     def test_parse_aspera_reports(self):
         aspera_report = os.path.join(self.assets_path, 'confirm_delivery', 'filesreport_test.csv')
         file_list = parse_aspera_reports(aspera_report)
-        assert len(file_list) == 421
+        assert len(file_list) == 31
 
     @patch('bin.confirm_delivery.get_document', return_value=sample1)
     def test_read_aspera_report(self, patched_get_doc):
         aspera_report = os.path.join(self.assets_path, 'confirm_delivery', 'filesreport_test.csv')
 
         self.c.read_aspera_report(aspera_report)
+        assert len(self.c.samples_delivered) == 2
+
+    @patch('bin.confirm_delivery.get_document', return_value=sample1)
+    def test_test_sample(self, patched_get_doc):
+        self.c.test_sample('sample1')

@@ -46,14 +46,6 @@ def parse_aspera_reports(report_csv):
     return all_files
 
 
-def merge_file_lists(file_lists):
-    all_files = defaultdict(list)
-    for file_list in file_lists:
-        for f in file_list:
-            all_files[f].extend(file_list[f])
-    return all_files
-
-
 def check_end_file_name(f):
     for ext in file_extensions_to_check:
         if f.endswith(ext):
@@ -181,7 +173,6 @@ class ConfirmDelivery(AppLogger):
 
     def test_sample(self, sample_id):
         files_missing = self.get_sample_delivered(sample_id).files_missing()
-        print(files_missing)
         if files_missing:
             self.info('Sample %s has not been fully downloaded: %s files missing', sample_id, len(files_missing))
             for file_missing in files_missing:
