@@ -15,7 +15,7 @@ from egcg_core import clarity
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
 from egcg_core.config import cfg
 from egcg_core.rest_communication import get_document, patch_entry
-from pyclarity_lims.entities import Step, Container
+from pyclarity_lims.entities import Step, Queue
 
 sys.path.append(dirname(dirname(abspath(__file__))))
 from config import load_config
@@ -195,17 +195,34 @@ class ConfirmDelivery(AppLogger):
             lims = clarity.connection()
             stage = clarity.get_workflow_stage(workflow_name=lims_workflow_name, stage_name=lims_stage_name)
 
-            samples = clarity.get_list_of_samples(sample_names=list(self.confirmed_samples))
-            artifacts = [s.artifact for s in samples]
-            lims.route_artifacts(artifact_list=artifacts, stage_uri=stage.uri)
+            queue = Queue(lims, id=stage.step.id)
+            samples_name_queued = set()
+            artifacts_to_confirm = []
+
+            # find all samples that are queued and confirmed
+            artifacts = queue.artifacts
+            for a in artifacts:
+                assert len(a.samples) == 1
+                if a.samples[0].name in self.confirmed_samples:
+                    artifacts_to_confirm.append(a)
+                samples_name_queued.add(a.samples[0].name)
+
+            # find all samples that are confirmed but not queued
+            confirmed_but_not_queued = set(self.confirmed_samples).difference(samples_name_queued)
+            if confirmed_but_not_queued:
+                samples_to_confirm = clarity.get_list_of_samples(sample_names=list(confirmed_but_not_queued))
+                artifacts = [s.artifact for s in samples_to_confirm]
+                #Queue the artifacts there were not already there
+                lims.route_artifacts(artifact_list=artifacts, stage_uri=stage.uri)
+                artifacts_to_confirm.extend(artifacts)
 
             # Create a new step from that queued artifact
-            s = Step.create(lims, protocol_step=stage.step, inputs=artifacts)
+            s = Step.create(lims, protocol_step=stage.step, inputs=artifacts_to_confirm)
 
             # Move from "Record detail" window to the "Next Step"
             s.advance()
 
-            # Set the next step
+            # Set the next step to complete
             for action in s.actions.next_actions:
                 action['action'] = 'complete'
             s.actions.put()
@@ -215,11 +232,30 @@ class ConfirmDelivery(AppLogger):
 
             self.confirmed_samples = list()
 
+
+    def test_all_queued_samples(self):
+        lims = clarity.connection()
+        stage = clarity.get_workflow_stage(workflow_name=lims_workflow_name, stage_name=lims_stage_name)
+        # Queue have the same id as the ProtocolStep
+        queue = Queue(lims, id=stage.step.id)
+        samples = set()
+        artifacts = queue.artifacts
+        for a in artifacts:
+            samples.update(a.samples)
+        for sample in samples:
+            self.test_sample(sample.name)
+
+
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument('--samples', type=str, nargs='+')
     p.add_argument('--csv_files', type=str, nargs='+')
-    p.add_argument('--confirm_in_lims', action='store_true', default=False)
+    group = p.add_mutually_exclusive_group()
+    group.add_argument('--samples', type=str, nargs='+')
+    group.add_argument('--queued_samples', action='store_true', default=False,
+                   help='Test samples queued to the Data Download confirmation step.')
+    p.add_argument('--confirm_in_lims', action='store_true', default=False,
+                   help='Confirm all successfully tested samples.')
+
     p.add_argument('--debug', action='store_true')
     args = p.parse_args()
 
@@ -235,8 +271,10 @@ def main():
     if args.samples:
         for sample in args.samples:
             cd.test_sample(sample)
-        if args.confirm_in_lims:
-            cd.confirm_download_in_lims()
+    elif args.queued_samples:
+        cd.test_all_queued_samples()
+    if args.confirm_in_lims:
+        cd.confirm_download_in_lims()
 
 
 if __name__ == '__main__':
