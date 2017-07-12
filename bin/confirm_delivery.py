@@ -10,10 +10,12 @@ import datetime
 import itertools
 
 from cached_property import cached_property
+from egcg_core import clarity
 
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
 from egcg_core.config import cfg
 from egcg_core.rest_communication import get_document, patch_entry
+from pyclarity_lims.entities import Step, Container
 
 sys.path.append(dirname(dirname(abspath(__file__))))
 from config import load_config
@@ -23,6 +25,11 @@ file_extensions_to_check = [
     'bam',
     'g.vcf.gz'
 ]
+
+lims_workflow_name = 'PostSeqLab EG 1.0 WF'
+lims_protocol_name = 'Data Release EG 2.0 PR'
+lims_stage_name = 'Download Confirmation EG 1.0 ST'
+
 
 def parse_aspera_reports(report_csv):
     all_files = []
@@ -147,6 +154,7 @@ class ConfirmDelivery(AppLogger):
     def __init__(self, aspera_report_csv_files=None):
         self.delivery_dir = cfg.query('delivery_dest')
         self.samples_delivered = defaultdict(DeliveredSample)
+        self.confirmed_samples = list()
         if aspera_report_csv_files:
             for aspera_report_csv_file in aspera_report_csv_files:
                 self.read_aspera_report(aspera_report_csv_file)
@@ -177,11 +185,41 @@ class ConfirmDelivery(AppLogger):
             self.info('Sample %s has not been fully downloaded: %s files missing', sample_id, len(files_missing))
             for file_missing in files_missing:
                 self.info('    - '+ file_missing)
+            return False
+        else:
+            self.confirmed_samples.append(sample_id)
+            return True
+
+    def confirm_download_in_lims(self):
+        if len(self.confirmed_samples):
+            lims = clarity.connection()
+            stage = clarity.get_workflow_stage(workflow_name=lims_workflow_name, stage_name=lims_stage_name)
+
+            samples = clarity.get_list_of_samples(sample_names=list(self.confirmed_samples))
+            artifacts = [s.artifact for s in samples]
+            lims.route_artifacts(artifact_list=artifacts, stage_uri=stage.uri)
+
+            # Create a new step from that queued artifact
+            s = Step.create(lims, protocol_step=stage.step, inputs=artifacts)
+
+            # Move from "Record detail" window to the "Next Step"
+            s.advance()
+
+            # Set the next step
+            for action in s.actions.next_actions:
+                action['action'] = 'complete'
+            s.actions.put()
+
+            # Complete the step
+            s.advance()
+
+            self.confirmed_samples = list()
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--samples', type=str, nargs='+')
     p.add_argument('--csv_files', type=str, nargs='+')
+    p.add_argument('--confirm_in_lims', action='store_true', default=False)
     p.add_argument('--debug', action='store_true')
     args = p.parse_args()
 
@@ -197,6 +235,8 @@ def main():
     if args.samples:
         for sample in args.samples:
             cd.test_sample(sample)
+        if args.confirm_in_lims:
+            cd.confirm_download_in_lims()
 
 
 if __name__ == '__main__':

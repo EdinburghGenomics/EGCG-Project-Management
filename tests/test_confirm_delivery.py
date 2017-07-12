@@ -7,6 +7,7 @@ import shutil
 
 import datetime
 from egcg_core.config import cfg
+from pyclarity_lims.entities import ProtocolStep, Artifact
 
 from bin.confirm_delivery import parse_aspera_reports, DeliveredSample, ConfirmDelivery
 from tests import TestProjectManagement
@@ -25,6 +26,19 @@ sample2 = {
     'sample_id': 'sample1',
     'project_id': 'project1',
     'files_delivered': []
+}
+
+sample3 = {
+    'sample_id': 'sample3',
+    'files_delivered': [
+        {'file_path': 'path/to/file.bam', 'md5': 'md5stringforbam'},
+        {'file_path': 'path/to/file.g.vcf.gz', 'md5': 'md5stringforvcf'}
+    ],
+    'files_downloaded': [
+        {'date': '', 'user': 'testuser', 'file_path': 'path/to/file.bam'},
+        {'date': '', 'user': 'testuser', 'file_path': 'path/to/file.g.vcf.gz'}
+    ],
+    'project_id': 'project1'
 }
 
 class TestDeliveredSample(TestProjectManagement):
@@ -179,5 +193,22 @@ class TestConfirmDelivery(TestProjectManagement):
         assert len(self.c.samples_delivered) == 2
 
     @patch('bin.confirm_delivery.get_document', return_value=sample1)
-    def test_test_sample(self, patched_get_doc):
-        self.c.test_sample('sample1')
+    def test_test_sample_false(self, patched_get_doc):
+        self.c.info = Mock()
+        assert not self.c.test_sample('sample1')
+        assert self.c.info.call_count == 3
+
+    @patch('bin.confirm_delivery.get_document', return_value=sample3)
+    def test_test_sample_true(self, patched_get_doc):
+        assert self.c.test_sample('sample3')
+
+    @patch('egcg_core.clarity.connection')
+    @patch('egcg_core.clarity.get_workflow_stage')
+    @patch('egcg_core.clarity.get_list_of_samples')
+    def test_confirm_download_in_lims(self, mocked_get_list_of_samples, mocked_get_workflow_stage, mocked_lims_connection):
+        mocked_get_list_of_samples.return_value=[Mock(artifact=Mock(spec=Artifact))]
+        mocked_get_workflow_stage.return_value=Mock(step=Mock(spec=ProtocolStep, permittedcontainers=list()))
+        self.c.confirmed_samples.append('sample1')
+        self.c.confirm_download_in_lims()
+        mocked_get_list_of_samples.assert_called_with(sample_names=['sample1'])
+        mocked_get_workflow_stage.assert_called_with(stage_name='Download Confirmation EG 1.0 ST', workflow_name='PostSeqLab EG 1.0 WF')
