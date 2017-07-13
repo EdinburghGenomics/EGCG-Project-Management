@@ -78,7 +78,11 @@ class DeliveredSample(AppLogger):
 
     @cached_property
     def data(self):
-        return get_document('samples', where={'sample_id': self.sample_id})
+        d = get_document('samples', where={'sample_id': self.sample_id})
+        if not d:
+            self.warning('No data found for sample %s', self.sample_id)
+            return {}
+        return d
 
     @property
     def sample_folders(self):
@@ -168,12 +172,16 @@ class ConfirmDelivery(AppLogger):
     def read_aspera_report(self, aspera_report_csv_file):
         confirmed_files = parse_aspera_reports(aspera_report_csv_file)
         for fname, user, date in confirmed_files:
-            sample_id = fname.split('/')[2]
-            self.get_sample_delivered(sample_id).add_file_downloaded(
-                file_name=fname,
-                user=user,
-                date_downloaded=date
-            )
+            if len(fname.split('/')) > 2:
+                sample_id = fname.split('/')[2]
+
+                self.get_sample_delivered(sample_id).add_file_downloaded(
+                    file_name=fname,
+                    user=user,
+                    date_downloaded=date
+                )
+            else:
+                self.warning('Cannot detect sample name from %s', fname)
 
     def update_samples(self):
         for sample in  self.samples_delivered.values():
