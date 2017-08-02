@@ -156,17 +156,6 @@ class TestDataDelivery(TestProjectManagement):
         self._remove_run_elements(sample1.get('run_elements') + sample2.get('run_elements'))
         pass
 
-    def _touch(self, f):
-        return open(f, 'w').close()
-
-    def _md5(self, fname):
-        hash_md5 = hashlib.md5()
-        with open(fname, "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                hash_md5.update(chunk)
-        with open(fname + '.md5', "w") as f:
-            f.write(hash_md5.hexdigest() + "  " + fname)
-
     def _remove_run_elements(self, list_run_elements):
         sample_dirs = set()
         for run_element in list_run_elements:
@@ -183,8 +172,8 @@ class TestDataDelivery(TestProjectManagement):
                 'S1_L00%s_R1_fastqc.html', 'S1_L00%s_R2_fastqc.html',
                 'S1_L00%s_R1_fastqc.zip', 'S1_L00%s_R2_fastqc.zip'
             ]:
-                self._touch(os.path.join(sample_dir, t % e['lane']))
-                self._md5(os.path.join(sample_dir, t % e['lane']))
+                self.touch(os.path.join(sample_dir, t % e['lane']))
+                self.md5(os.path.join(sample_dir, t % e['lane']))
 
     def create_analysed_sample_file(self):
         pass

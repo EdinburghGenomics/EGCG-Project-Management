@@ -3,7 +3,6 @@ from unittest.mock import Mock, patch
 from project_report import ProjectReport
 from egcg_core.config import cfg
 from tests import TestProjectManagement
-cfg.load_config_file(TestProjectManagement.etc_config)
 
 
 def ppath(ext):
@@ -79,6 +78,7 @@ class FakeLims:
 
 class TestProjectReport(TestProjectManagement):
     def setUp(self):
+        cfg.load_config_file(TestProjectManagement.etc_config)
         self.pr = ProjectReport('a_project_name')
         self.pr.lims = FakeLims()
         self.fake_samples = fake_samples['a_project_name']
