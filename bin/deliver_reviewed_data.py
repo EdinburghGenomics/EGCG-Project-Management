@@ -463,7 +463,7 @@ template delivery email is appended bellow
 Dear all,
 
 The data for {num_samples} samples from project {project} has been released to our Aspera server at:
-https://tranfer.epcc.ed.ac.uk/{project}
+https://transfer.epcc.ed.ac.uk/{project}
 
 
 Your usernames are:
