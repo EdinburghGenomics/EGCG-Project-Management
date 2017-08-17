@@ -296,7 +296,7 @@ template delivery email is appended bellow
 Dear all,
 
 The data for 2 samples from project test_project has been released to our Aspera server at:
-https://tranfer.epcc.ed.ac.uk/test_project
+https://transfer.epcc.ed.ac.uk/test_project
 
 
 Your usernames are:
