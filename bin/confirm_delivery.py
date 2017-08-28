@@ -48,7 +48,8 @@ def parse_aspera_reports(report_csv):
                 all_files.append((
                     '/'.join(file_dict['file_path'].split('/')[3:]),
                     file_dict['ssh_user'],
-                    datetime.datetime.strptime(file_dict['stopped_at'], '%Y/%m/%d %H:%M:%S')  # 2016/09/08 16:30:27
+                    datetime.datetime.strptime(file_dict['stopped_at'], '%Y/%m/%d %H:%M:%S'),  # 2016/09/08 16:30:27
+                    file_dict['bytes_transferred']
                 ))
     return all_files
 
@@ -73,6 +74,13 @@ class DeliveredSample(AppLogger):
 
     def __init__(self, sample_id):
         self.sample_id = sample_id
+        # resolve fluidX sample name
+        if self.sample_id.startswith('FD'):
+            # might be FluidX tube barcdeo
+            lims = clarity.connection()
+            arts = lims.get_artifacts(type='Analyte', udf={'2D Barcode': self.sample_id})
+            if arts and len(arts) == 1:
+                self.sample_id = arts[0].samples[0].name
         self.delivery_dir = abspath(cfg.query('delivery', 'dest'))
         self.list_file_downloaded = []
 
@@ -95,7 +103,7 @@ class DeliveredSample(AppLogger):
                 with open(f + '.md5') as open_file:
                     md5, file_path = open_file.readline().strip().split()
             rel_path = relpath(f, start=self.delivery_dir)
-            list_file_to_upload.append({'file_path': rel_path, 'md5': md5})
+            list_file_to_upload.append({'file_path': rel_path, 'md5': md5, 'size': os.stat(f).st_size})
         return list_file_to_upload
 
     def upload_list_file_delivered(self, list_file):
@@ -125,11 +133,13 @@ class DeliveredSample(AppLogger):
     def list_file_already_downloaded(self):
         return self.data.get('files_downloaded', [])
 
-    def add_file_downloaded(self, file_name, user, date_downloaded):
-        # remove the project folder from the file name
-        if file_name.startswith(self.data['project_id']):
-            file_name = join(* file_name.split('/')[1:])
-        self.list_file_downloaded.append({'file_path': file_name, 'user': user, 'date': date_downloaded.strftime('%d_%m_%Y_%H:%M:%S')})
+    def add_file_downloaded(self, file_name, user, date_downloaded, file_size):
+        self.list_file_downloaded.append({
+            'file_path': file_name,
+            'user': user,
+            'date': date_downloaded.strftime('%d_%m_%Y_%H:%M:%S'),
+            'size': file_size}
+        )
 
     def update_list_file_downloaded(self):
 
@@ -166,19 +176,21 @@ class ConfirmDelivery(AppLogger):
 
     def get_sample_delivered(self, sample_id):
         if not sample_id in self.samples_delivered:
-            self.samples_delivered[sample_id] = DeliveredSample(sample_id)
+            s = DeliveredSample(sample_id)
+            # Check that the sample exists before caching it
+            if s.data:
+                self.samples_delivered[sample_id] = s
         return self.samples_delivered.get(sample_id)
 
     def read_aspera_report(self, aspera_report_csv_file):
         confirmed_files = parse_aspera_reports(aspera_report_csv_file)
-        for fname, user, date in confirmed_files:
-            if len(fname.split('/')) > 2:
-                sample_id = fname.split('/')[2]
-
-                self.get_sample_delivered(sample_id).add_file_downloaded(
+        for fname, user, date, size in confirmed_files:
+            if len(fname.split('/')) > 2 and self.get_sample_delivered(fname.split('/')[2]):
+                self.get_sample_delivered(fname.split('/')[2]).add_file_downloaded(
                     file_name=fname,
                     user=user,
-                    date_downloaded=date
+                    date_downloaded=date,
+                    file_size=size
                 )
             else:
                 self.warning('Cannot detect sample name from %s', fname)

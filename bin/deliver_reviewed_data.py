@@ -7,7 +7,7 @@ import shutil
 import sys
 import traceback
 from collections import defaultdict
-from os.path import basename, join
+from os.path import basename, join, dirname
 
 from egcg_core import executor, rest_communication, clarity
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
@@ -177,11 +177,12 @@ class DataDelivery(AppLogger):
         with open(md5_file) as open_file:
             md5, file_path = open_file.readline().strip().split()
         rel_path = os.path.relpath(data_file, start=self.staging_dir)
-        self.samples2list_files[sample_id].append({'file_path': rel_path, 'md5': md5})
+        file_size = os.stat(data_file).st_size
+        self.samples2list_files[sample_id].append({'file_path': rel_path, 'md5': md5, 'size': file_size})
 
     def update_registered_files(self, sample_id, delivery_folder):
         for file_dict in self.samples2list_files.get(sample_id):
-            file_dict['file_path'] = join(basename(delivery_folder), file_dict['file_path'])
+            file_dict['file_path'] = join(basename(dirname(delivery_folder)), basename(delivery_folder), file_dict['file_path'])
 
     def summarise_metrics_per_sample(self, project_id, delivery_folder):
         headers = ['Project', 'Sample Id', 'User sample id', 'Read pair sequenced', 'Yield', 'Yield Q30',
