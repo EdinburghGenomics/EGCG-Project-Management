@@ -54,6 +54,7 @@ def _now():
 class DataDelivery(AppLogger):
     def __init__(self, dry_run, work_dir, no_cleanup=False, email=True):
         self.all_commands_for_cluster = []
+        self.postponed_register = []
         self.dry_run = dry_run
         self.all_samples_values = []
         self.sample2species = {}
@@ -126,8 +127,8 @@ class DataDelivery(AppLogger):
             else:
                 r1_files = [r1 for r1, r2 in original_fastq_files.values()]
                 r2_files = [r2 for r1, r2 in original_fastq_files.values()]
-                self._on_cluster_concat_file_to_sample(r1_files, sample_dir, rename=external_sample_id + '_R1.fastq.gz')
-                self._on_cluster_concat_file_to_sample(r2_files, sample_dir, rename=external_sample_id + '_R2.fastq.gz')
+                self._on_cluster_concat_file_to_sample(sample_id, r1_files, sample_dir, rename=external_sample_id + '_R1.fastq.gz')
+                self._on_cluster_concat_file_to_sample(sample_id, r2_files, sample_dir, rename=external_sample_id + '_R2.fastq.gz')
         else:
             fastq_folder = os.path.join(sample_dir, 'raw_data')
             os.makedirs(fastq_folder)
@@ -241,12 +242,15 @@ class DataDelivery(AppLogger):
         _execute(command, env='local')
         return link_file
 
-    def _on_cluster_concat_file_to_sample(self, list_files, sample_folder, rename):
+    def _on_cluster_concat_file_to_sample(self, sample_id, list_files, sample_folder, rename):
         command = 'cat {list_files} > {fq}; {md5sum} {fq} > {fq}.md5; {fastqc} --nogroup -q {fq}'.format(
             list_files=' '.join(list_files),
             fq=os.path.join(sample_folder, rename),
             md5sum=cfg.query('tools', 'md5sum', ret_default='md5sum'),
             fastqc=cfg['tools']['fastqc']
+        )
+        self.postponed_register.append(
+            (sample_id, os.path.join(sample_folder, rename), os.path.join(sample_folder, rename) + '.md5')
         )
         self.all_commands_for_cluster.append(command)
 
@@ -343,6 +347,9 @@ class DataDelivery(AppLogger):
                 mem=2,
                 log_commands=False
             )
+
+            for tuple_val in self.postponed_register:
+                self.register_file(*tuple_val)
 
     def generate_md5_summary(self, project, batch_folder):
         all_md5_files = glob.glob(os.path.join(batch_folder, '*', '*.md5'))
