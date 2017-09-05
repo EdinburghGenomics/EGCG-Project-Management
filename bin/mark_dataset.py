@@ -26,6 +26,9 @@ def main():
     elif args.run_element:
         end_point = 'run_elements'
         filters = [{'run_element_id': r} for r in args.run_element]
+    elif args.run_element_per_sample:
+        end_point = 'run_elements'
+        filters = [{'sample_id': s} for s in args.run_element_per_sample]
     elif args.sample:
         end_point = 'samples'
         filters = [{'sample_id': s} for s in args.sample]
@@ -57,7 +60,10 @@ def _parse_args():
     group = p.add_mutually_exclusive_group(required=True)
     group.add_argument('--run', nargs='+', default=[], help='Mark provided run with specific annotation')
     group.add_argument('--lane', nargs='+', default=[], help='Mark provided lane with specific annotation')
-    group.add_argument('--run_element', nargs='+', default=[], help='Mark provided run element (barcode) with specific annotation')
+    group.add_argument('--run_element', nargs='+', default=[],
+                       help='Mark provided run element (barcode) with specific annotation')
+    group.add_argument('--run_element_per_sample', nargs='+', default=[],
+                       help='Mark run element of the provided sample with specific annotation')
     group.add_argument('--sample', nargs='+', default=[], help='Mark provided sample with specific annotation')
     group = p.add_mutually_exclusive_group(required=False)
     group.add_argument('--useable', action='store_true', default=False)
