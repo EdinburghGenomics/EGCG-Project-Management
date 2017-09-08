@@ -210,7 +210,7 @@ class DataDelivery(AppLogger):
                 res.append(str((clean_bases_r1 + clean_bases_r2) / 1000000000))
                 res.append(str((clean_q30_bases_r1 + clean_q30_bases_r2) / 1000000000))
                 if self.get_sample_species(sample.get('sample_id')) == 'Homo sapiens' or \
-                                self.get_analysis_type(sample.get('sample_id')) == 'Variant Calling':
+                   self.get_analysis_type(sample.get('sample_id')) in ['Variant Calling', 'Variant Calling gatk'] :
                     tr = sample.get('bam_file_reads', 0)
                     mr = sample.get('mapped_reads', 0)
                     dr = sample.get('duplicate_reads', 0)
@@ -272,7 +272,7 @@ class DataDelivery(AppLogger):
             raise EGCGError('No species information found in the LIMS for ' + sample_name)
         elif species == 'Homo sapiens':
             list_of_file = hs_list_files
-        elif analysis_type == 'Variant Calling':
+        elif analysis_type in ['Variant Calling', 'Variant Calling gatk']:
             list_of_file = variant_call_list_files
         else:
             list_of_file = other_list_files
