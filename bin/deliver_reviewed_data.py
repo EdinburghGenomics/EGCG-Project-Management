@@ -243,6 +243,8 @@ class DataDelivery(AppLogger):
         return link_file
 
     def _on_cluster_concat_file_to_sample(self, sample_id, list_files, sample_folder, rename):
+        print(list_files)
+        print([os.path.exists(p) for p in list_files])
         command = 'cat {list_files} > {fq}; {md5sum} {fq} > {fq}.md5; {fastqc} --nogroup -q {fq}'.format(
             list_files=' '.join(list_files),
             fq=os.path.join(sample_folder, rename),
@@ -337,6 +339,7 @@ class DataDelivery(AppLogger):
                 open_file.write('\n'.join(lines) + '\n')
 
     def run_aggregate_commands(self):
+        print(self.all_commands_for_cluster)
         if self.all_commands_for_cluster:
             self.debug('Concatenating fastqs for %s samples', len(self.all_commands_for_cluster))
             _execute(
