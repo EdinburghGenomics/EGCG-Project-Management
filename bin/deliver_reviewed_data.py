@@ -5,16 +5,21 @@ import logging
 import os
 import shutil
 import sys
+import traceback
 from collections import defaultdict
+from os.path import basename, join
+
 from egcg_core import executor, rest_communication, clarity
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
 from egcg_core.config import cfg
 from egcg_core.constants import ELEMENT_NB_READS_CLEANED, ELEMENT_RUN_NAME, ELEMENT_PROJECT_ID, ELEMENT_LANE, \
     ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_RUN_ELEMENT_ID, ELEMENT_USEABLE
 from egcg_core.exceptions import EGCGError
+from egcg_core.notifications.email import send_email
 from egcg_core.util import find_fastqs
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from project_report import ProjectReport
 from config import load_config
 
 hs_list_files = [
@@ -39,20 +44,27 @@ other_list_files = []
 def _execute(*commands, **kwargs):
     exit_status = executor.execute(*commands, **kwargs).join()
     if exit_status != 0:
-        raise EGCGError('commands %s exited with status %s' % (commands, exit_status))
+        raise EGCGError('Commands %s exited with status %s' % (commands, exit_status))
+
+
+def _now():
+    return datetime.datetime.utcnow().strftime('%d_%m_%Y_%H:%M:%S')
 
 
 class DataDelivery(AppLogger):
-    def __init__(self, dry_run, work_dir, no_cleanup=False):
+    def __init__(self, dry_run, work_dir, no_cleanup=False, email=True):
         self.all_commands_for_cluster = []
         self.dry_run = dry_run
         self.all_samples_values = []
         self.sample2species = {}
         self.sample2analysis_type = {}
         self.work_dir = work_dir
-        today = datetime.date.today().isoformat()
-        self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + today)
+        self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + _now())
         self.no_cleanup = no_cleanup
+        self.email = email
+        self.delivery_dest = cfg.query('delivery', 'dest')
+        self.delivery_source = cfg.query('delivery', 'source')
+        self.samples2list_files = defaultdict(list)
 
     def get_deliverable_projects_samples(self, project_id=None, sample_id=None):
         project_to_samples = defaultdict(list)
@@ -64,17 +76,17 @@ class DataDelivery(AppLogger):
             where_clause["sample_id"] = sample_id
         # These samples are useable but could have been delivered already so need to check
         samples = rest_communication.get_documents(
-                'samples',
-                all_pages=True,
-                quiet=True,
-                embedded={"analysis_driver_procs": 1, "run_elements": 1},
-                where=where_clause
+            'samples',
+            all_pages=True,
+            quiet=True,
+            embedded={"analysis_driver_procs": 1, "run_elements": 1},
+            where=where_clause
         )
         for sample in samples:
             processes = sample.get('analysis_driver_procs', [{}])
             processes.sort(
-                    key=lambda x: datetime.datetime.strptime(x.get('_created', '01_01_1970_00:00:00'),
-                                                             '%d_%m_%Y_%H:%M:%S'))
+                key=lambda x: datetime.datetime.strptime(x.get('_created', '01_01_1970_00:00:00'),
+                                                         '%d_%m_%Y_%H:%M:%S'))
             if not processes[-1].get('status', 'new') == 'finished':
                 raise EGCGError("Reviewed sample %s not marked as finished" % sample.get('sample_id'))
             if sample.get('delivered', 'no') == 'no':
@@ -83,8 +95,15 @@ class DataDelivery(AppLogger):
         return project_to_samples
 
     def stage_data(self, sample):
+        # test sample has arrived in fuildX tube
+        sample_id = sample.get(ELEMENT_SAMPLE_INTERNAL_ID)
+        fluidX_barcode = clarity.get_sample(sample_id).udf.get('2D Barcode')
+
         # Create staging_directory
-        sample_dir = os.path.join(self.staging_dir, sample.get(ELEMENT_SAMPLE_INTERNAL_ID))
+        if fluidX_barcode:
+            sample_dir = os.path.join(self.staging_dir, fluidX_barcode)
+        else:
+            sample_dir = os.path.join(self.staging_dir, sample_id)
         os.makedirs(sample_dir, exist_ok=True)
 
         # Find the fastq files
@@ -95,14 +114,15 @@ class DataDelivery(AppLogger):
         return sample_dir
 
     def _stage_fastq_files(self, sample, sample_dir):
-        delivery_type = clarity.get_sample(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)).udf.get('Delivery', 'merged')
+        sample_id = sample.get(ELEMENT_SAMPLE_INTERNAL_ID)
+        delivery_type = clarity.get_sample(sample_id).udf.get('Delivery', 'merged')
         original_fastq_files = self._get_fastq_file_for_sample(sample)
         external_sample_id = sample.get(ELEMENT_SAMPLE_EXTERNAL_ID)
 
         if delivery_type == 'merged':
             if len(original_fastq_files) == 1:
                 r1, r2 = list(original_fastq_files.values())[0]
-                self._link_run_element_files(r1, r2, sample_dir, external_sample_id)
+                self._link_run_element_files(sample_id, r1, r2, sample_dir, external_sample_id)
             else:
                 r1_files = [r1 for r1, r2 in original_fastq_files.values()]
                 r2_files = [r2 for r1, r2 in original_fastq_files.values()]
@@ -113,13 +133,17 @@ class DataDelivery(AppLogger):
             os.makedirs(fastq_folder)
             for run_element_id in original_fastq_files:
                 r1, r2 = original_fastq_files.get(run_element_id)
-                self._link_run_element_files(r1, r2, fastq_folder, run_element_id)
+                self._link_run_element_files(sample_id, r1, r2, fastq_folder, run_element_id)
 
-    def _link_run_element_files(self, r1, r2, fastq_folder, rename):
-        self._link_file_to_sample_folder(r1, fastq_folder, rename=rename + '_R1.fastq.gz')
-        self._link_file_to_sample_folder(r2, fastq_folder, rename=rename + '_R2.fastq.gz')
-        self._link_file_to_sample_folder(r1 + '.md5', fastq_folder, rename=rename + '_R1.fastq.gz.md5')
-        self._link_file_to_sample_folder(r2 + '.md5', fastq_folder, rename=rename + '_R2.fastq.gz.md5')
+    def _link_run_element_files(self, sample_id, r1, r2, fastq_folder, rename):
+        fastq1 = self._link_file_to_sample_folder(r1, fastq_folder, rename=rename + '_R1.fastq.gz')
+        fastq2 = self._link_file_to_sample_folder(r2, fastq_folder, rename=rename + '_R2.fastq.gz')
+        md5_fastq1 = self._link_file_to_sample_folder(r1 + '.md5', fastq_folder, rename=rename + '_R1.fastq.gz.md5')
+        md5_fastq2 = self._link_file_to_sample_folder(r2 + '.md5', fastq_folder, rename=rename + '_R2.fastq.gz.md5')
+
+        self.register_file(sample_id, fastq1, md5_fastq1)
+        self.register_file(sample_id, fastq2, md5_fastq2)
+
         self._link_file_to_sample_folder(r1.replace('.fastq.gz', '_fastqc.html'), fastq_folder,
                                          rename=rename + '_R1_fastqc.html')
         self._link_file_to_sample_folder(r2.replace('.fastq.gz', '_fastqc.html'), fastq_folder,
@@ -132,9 +156,8 @@ class DataDelivery(AppLogger):
     def _stage_analysed_files(self, sample, sample_dir):
         sample_id = sample.get(ELEMENT_SAMPLE_INTERNAL_ID)
         external_sample_id = sample.get(ELEMENT_SAMPLE_EXTERNAL_ID)
-
         project_id = sample.get(ELEMENT_PROJECT_ID)
-        origin_sample_dir = os.path.join(cfg.query('delivery_source'), project_id, sample_id)
+        origin_sample_dir = os.path.join(self.delivery_source, project_id, sample_id)
 
         if not os.path.isdir(origin_sample_dir):
             raise EGCGError('Directory for sample %s in project %s does not exist' % (sample_id, project_id))
@@ -143,7 +166,22 @@ class DataDelivery(AppLogger):
             origin_file = os.path.join(origin_sample_dir, file_to_move)
             if not os.path.isfile(origin_file):
                 raise EGCGError('File %s for sample %s does not exist' % (file_to_move, sample))
-            self._link_file_to_sample_folder(origin_file, sample_dir)
+            data_file = self._link_file_to_sample_folder(origin_file, sample_dir)
+            origin_file = os.path.join(origin_sample_dir, file_to_move + '.md5')
+            if not os.path.isfile(origin_file):
+                raise EGCGError('File %s for sample %s does not exist' % (file_to_move, sample))
+            md5_file = self._link_file_to_sample_folder(origin_file, sample_dir)
+            self.register_file(sample_id, data_file, md5_file)
+
+    def register_file(self, sample_id, data_file, md5_file):
+        with open(md5_file) as open_file:
+            md5, file_path = open_file.readline().strip().split()
+        rel_path = os.path.relpath(data_file, start=self.staging_dir)
+        self.samples2list_files[sample_id].append({'file_path': rel_path, 'md5': md5})
+
+    def update_registered_files(self, sample_id, delivery_folder):
+        for file_dict in self.samples2list_files.get(sample_id):
+            file_dict['file_path'] = join(basename(delivery_folder), file_dict['file_path'])
 
     def summarise_metrics_per_sample(self, project_id, delivery_folder):
         headers = ['Project', 'Sample Id', 'User sample id', 'Read pair sequenced', 'Yield', 'Yield Q30',
@@ -170,7 +208,7 @@ class DataDelivery(AppLogger):
                 res.append(str((clean_bases_r1 + clean_bases_r2) / 1000000000))
                 res.append(str((clean_q30_bases_r1 + clean_q30_bases_r2) / 1000000000))
                 if self.get_sample_species(sample.get('sample_id')) == 'Homo sapiens' or \
-                        self.get_analysis_type(sample.get('sample_id')) == 'Variant Calling':
+                                self.get_analysis_type(sample.get('sample_id')) == 'Variant Calling':
                     tr = sample.get('bam_file_reads', 0)
                     mr = sample.get('mapped_reads', 0)
                     dr = sample.get('duplicate_reads', 0)
@@ -197,8 +235,10 @@ class DataDelivery(AppLogger):
     def _link_file_to_sample_folder(file_to_link, sample_folder, rename=None):
         if rename is None:
             rename = os.path.basename(file_to_link)
-        command = 'ln %s %s' % (file_to_link, os.path.join(sample_folder, rename))
+        link_file = os.path.join(sample_folder, rename)
+        command = 'ln %s %s' % (file_to_link, link_file)
         _execute(command, env='local')
+        return link_file
 
     def _on_cluster_concat_file_to_sample(self, list_files, sample_folder, rename):
         command = 'cat {list_files} > {fq}; {md5sum} {fq} > {fq}.md5; {fastqc} --nogroup -q {fq}'.format(
@@ -234,12 +274,12 @@ class DataDelivery(AppLogger):
         final_list = []
         for f in list_of_file:
             final_list.append(f.format(ext_sample_id=external_sample_name))
-            final_list.append(f.format(ext_sample_id=external_sample_name) + '.md5')
         return final_list
 
     @staticmethod
     def _get_fastq_file_for_sample(sample):
         fastqs_files = {}
+        # TODO: make sure that the list of run elements is the same as the one that was QC.
         for run_element in sample.get('run_elements'):
             if run_element.get(ELEMENT_USEABLE) == 'yes' and int(run_element.get(ELEMENT_NB_READS_CLEANED, 0)) > 0:
                 local_fastq_dir = os.path.join(cfg['input_dir'], run_element.get(ELEMENT_RUN_NAME))
@@ -256,11 +296,15 @@ class DataDelivery(AppLogger):
                     )
         return fastqs_files
 
-    @staticmethod
-    def mark_samples_as_released(samples):
-        for sample_name in samples:
+    def mark_samples_as_released(self, samples):
+        for sample_id in samples:
+            payload = {
+                'delivered': 'yes',
+                'files_delivered': self.samples2list_files.get(sample_id, []),
+                'delivery_date': _now()
+            }
             rest_communication.patch_entry(
-                'samples', payload={'delivered': 'yes'}, id_field='sample_id', element_id=sample_name
+                'samples', payload=payload, id_field='sample_id', element_id=sample_id, update_lists=['files_delivered']
             )
         clarity.route_samples_to_delivery_workflow(samples)
 
@@ -269,17 +313,16 @@ class DataDelivery(AppLogger):
         all_samples = []
         for project in project_to_samples:
             samples = project_to_samples.get(project)
-            for sample in samples:
-                all_samples.append(sample)
+            for sample_dict in samples:
+                all_samples.append(sample_dict.get(ELEMENT_SAMPLE_INTERNAL_ID))
         if self.dry_run:
-            self.info('Mark %s samples as delivered' % len(all_samples))
+            self.info('Will mark %s samples as delivered' % len(all_samples))
         else:
             self.mark_samples_as_released(all_samples)
 
     def write_metrics_file(self, project, delivery_folder):
-        delivery_dest = cfg.query('delivery_dest')
         header, lines = self.summarise_metrics_per_sample(project, delivery_folder)
-        summary_metrics_file = os.path.join(delivery_dest, project, 'summary_metrics.csv')
+        summary_metrics_file = os.path.join(self.delivery_dest, project, 'summary_metrics.csv')
         if os.path.isfile(summary_metrics_file):
             with open(summary_metrics_file, 'a') as open_file:
                 open_file.write('\n'.join(lines) + '\n')
@@ -290,6 +333,7 @@ class DataDelivery(AppLogger):
 
     def run_aggregate_commands(self):
         if self.all_commands_for_cluster:
+            self.debug('Concatenating fastqs for %s samples', len(self.all_commands_for_cluster))
             _execute(
                 *self.all_commands_for_cluster,
                 job_name='concat_delivery',
@@ -299,8 +343,7 @@ class DataDelivery(AppLogger):
                 log_commands=False
             )
 
-    @staticmethod
-    def generate_md5_summary(project, batch_folder):
+    def generate_md5_summary(self, project, batch_folder):
         all_md5_files = glob.glob(os.path.join(batch_folder, '*', '*.md5'))
         all_md5_files.extend(glob.glob(os.path.join(batch_folder, '*', 'raw_data', '*.md5')))
         md5_summary = []
@@ -313,8 +356,7 @@ class DataDelivery(AppLogger):
             with open(md5_file, 'w') as open_file:
                 open_file.write('%s  %s' % (md5, file_name))
             md5_summary.append('%s  %s' % (md5, batch_name + suffix))
-        delivery_dest = cfg.query('delivery_dest')
-        all_md5_files = os.path.join(delivery_dest, project, 'all_md5sums.txt')
+        all_md5_files = os.path.join(self.delivery_dest, project, 'all_md5sums.txt')
         with open(all_md5_files, 'a') as open_file:
             open_file.write('\n'.join(md5_summary) + '\n')
 
@@ -323,9 +365,9 @@ class DataDelivery(AppLogger):
             return
         if os.path.exists(self.staging_dir):
             shutil.rmtree(self.staging_dir)
+            self.debug('Cleaned up staging dir %s', self.staging_dir)
 
     def deliver_data(self, project_id=None, sample_id=None):
-        delivery_dest = cfg.query('delivery_dest')
         project_to_samples = self.get_deliverable_projects_samples(project_id, sample_id)
         project_to_delivery_folder = {}
         sample2stagedirectory = {}
@@ -340,7 +382,7 @@ class DataDelivery(AppLogger):
             print('Will move')
             for project in project_to_samples:
                 today = datetime.date.today().isoformat()
-                batch_delivery_folder = os.path.join(delivery_dest, project, today)
+                batch_delivery_folder = os.path.join(self.delivery_dest, project, today)
                 for sample in project_to_samples.get(project):
                     print('%s --> %s' % (sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)),
                                          batch_delivery_folder))
@@ -352,20 +394,102 @@ class DataDelivery(AppLogger):
             for project in project_to_samples:
                 # Create the batch directory
                 today = datetime.date.today().isoformat()
-                batch_delivery_folder = os.path.join(delivery_dest, project, today)
+                batch_delivery_folder = os.path.join(self.delivery_dest, project, today)
                 os.makedirs(batch_delivery_folder, exist_ok=True)
-                # move all the staged sample directory
+                # Move all the staged sample directory
                 project_to_delivery_folder[project] = batch_delivery_folder
                 for sample in project_to_samples.get(project):
-                    shutil.move(sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)),
-                                batch_delivery_folder)
+                    shutil.move(
+                        sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)),
+                        batch_delivery_folder
+                    )
+                    self.update_registered_files(sample.get(ELEMENT_SAMPLE_INTERNAL_ID), batch_delivery_folder)
                 self.write_metrics_file(project, batch_delivery_folder)
                 self.generate_md5_summary(project, batch_delivery_folder)
-
             self.mark_samples_as_released(list(sample2stagedirectory))
 
         self.cleanup()
-        # TODO: Generate project report
+
+        # Generate project report
+        project_to_reports = {}
+        for project in project_to_samples:
+            project_report = join(self.delivery_dest, project, 'project_%s_report.pdf' % project)
+            try:
+                if not self.dry_run:
+                    pr = ProjectReport(project)
+                    pr.generate_report('pdf')
+            except Exception:
+                self.critical('Project report generation for %s failed' % project)
+                etype, value, tb = sys.exc_info()
+                if tb:
+                    stacktrace = ''.join(traceback.format_exception(etype, value, tb))
+                    self.info('Stacktrace below:\n' + stacktrace)
+                project_report = None
+            if project_report:
+                project_to_reports[project] = project_report
+
+        # Send email confirmation with attachments
+        self.emails_report(project_to_samples, project_to_reports)
+
+    def emails_report(self, project_to_samples, project_to_reports):
+        for project_id in project_to_samples:
+
+            msg = self.create_email_report(project_id, project_to_samples[project_id])
+            if self.dry_run:
+                subject = 'Dry run: ' + project_id
+            else:
+                subject = 'Data delivery: ' + project_id
+            self.info(msg)
+            if self.email:
+                send_email(
+                    msg=msg,
+                    subject=subject,
+                    attachments=project_to_reports.values(),
+                    strict=True,
+                    **cfg['delivery']['email_notification']
+                )
+
+    def create_email_report(self, project_id, samples):
+        queue_uri = clarity.get_queue_uri(
+            cfg['delivery']['clarity_workflow_name'],
+            cfg.query('delivery', 'clarity_stage_name', ret_default=None)
+        )
+        msg = '''Hi
+{num_samples} samples from project {project} have been delivered:
+Consult delivery queue at
+{delivery_queue}
+template delivery email is appended bellow
+----
+Dear all,
+
+The data for {num_samples} samples from project {project} has been released to our Aspera server at:
+https://transfer.epcc.ed.ac.uk/{project}
+
+
+Your usernames are:
+[ENTER USERNAMES]
+
+Your passwords will be sent separately.
+
+Please see the link below for guidance on how to download:
+https://genomics.ed.ac.uk/resources/download-help-clinical
+
+
+The data for your project will be stored on our server for 3 months and deleted after this time. Please check your data for corruption once downloaded. Email notifications will be sent 1 month and 1 week before deletion.
+
+If you have any questions about the data or download then please don’t hesitate to contact me.
+
+Kind regards,
+
+[NAME]
+
+[SIGNATURE]
+'''
+        return msg.format(
+            num_samples=len(samples),
+            project=project_id,
+            delivery_queue=queue_uri,
+        )
 
 
 def main():
@@ -373,6 +497,7 @@ def main():
     p.add_argument('--dry_run', action='store_true')
     p.add_argument('--debug', action='store_true')
     p.add_argument('--no_cleanup', action='store_true')
+    p.add_argument('--noemail', dest='email', action='store_false')
     p.add_argument('--work_dir', type=str, required=True)
     p.add_argument('--mark_only', action='store_true')
     p.add_argument('--project_id', type=str)
@@ -380,13 +505,15 @@ def main():
     args = p.parse_args()
 
     load_config()
+    log_cfg.set_log_level(logging.INFO)
+    log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout))
 
     if args.debug:
         log_cfg.set_log_level(logging.DEBUG)
-        log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout))
+
 
     cfg.merge(cfg['sample'])
-    dd = DataDelivery(args.dry_run, args.work_dir, no_cleanup=args.no_cleanup)
+    dd = DataDelivery(args.dry_run, args.work_dir, no_cleanup=args.no_cleanup, email=args.email)
     if args.mark_only:
         dd.mark_only(project_id=args.project_id, sample_id=args.sample_id)
     else:

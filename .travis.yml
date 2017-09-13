@@ -1,13 +1,13 @@
 language: python
 python:
+  - "3.3"
   - "3.4"
-  - "3.5"
-  - "3.6"
-install: "pip install -r requirements_no_pdf.txt"
-script: py.test
-# branches:
-#   only:
-#     - master
+install:
+  - "pip install -r requirements_no_pdf.txt"
+  - "pip install python-coveralls pytest-cov"
+script: py.test tests/ --doctest-modules  -v --cov bin --cov data_deletion --cov project_report --cov-report term-missing
+after_success:
+  - coveralls
 notifications:
   email:
     on_success: change # default: change

@@ -44,8 +44,7 @@ class Deleter(app_logging.AppLogger):
         self.deletion_limit = deletion_limit
 
     @cached_property
-    def deletion_dir(self):
-        '''need caching because of reference to datetime.now'''
+    def deletion_dir(self):  # need caching because of reference to datetime.now
         return join(self.data_dir, '.data_deletion_' + self._strnow())
 
     def delete_dir(self, d):

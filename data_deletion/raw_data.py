@@ -1,3 +1,4 @@
+import operator
 from os import listdir
 from os.path import join, isdir
 from egcg_core import rest_communication
@@ -20,6 +21,7 @@ class RawDataDeleter(Deleter):
         for r in runs:
             if (self.list_runs and r[ELEMENT_RUN_NAME] in self.list_runs) or self._run_deletable(r):
                 deletable_runs.append(r)
+        deletable_runs.sort(key=operator.itemgetter('run_id'))
         return deletable_runs[:self.deletion_limit]
 
     def _setup_run_for_deletion(self, run_id):
