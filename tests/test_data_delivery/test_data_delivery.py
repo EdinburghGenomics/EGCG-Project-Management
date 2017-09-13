@@ -3,10 +3,8 @@ import os
 from unittest.mock import patch, Mock
 import shutil
 import datetime
-
 from egcg_core.exceptions import EGCGError
 from egcg_core.config import cfg
-
 from tests import TestProjectManagement
 from bin.deliver_reviewed_data import DataDelivery
 
@@ -80,23 +78,17 @@ sample2 = {
             ]
         }
 
-def ppath(*parts):
-    return 'egcg_core.' + '.'.join(parts)
 
 patched_deliverable_project1 = patch(
-    ppath('rest_communication.get_documents'),
-    return_value=[
-        sample1
-    ]
+    'egcg_core.rest_communication.get_documents',
+    return_value=[sample1]
 )
 patched_deliverable_project2 = patch(
-    ppath('rest_communication.get_documents'),
-    return_value=[
-        sample2
-    ]
+    'egcg_core.rest_communication.get_documents',
+    return_value=[sample2]
 )
 patched_error_project = patch(
-    ppath('rest_communication.get_documents'),
+    'egcg_core.rest_communication.get_documents',
     return_value=[
         {
             'sample_id': 'deliverable_sample',
@@ -119,13 +111,12 @@ patched_error_project = patch(
 )
 
 patched_get_species = patch(
-    ppath('clarity.get_species_from_sample'),
-    return_value = 'Homo sapiens'
+    'egcg_core.clarity.get_species_from_sample',
+    return_value='Homo sapiens'
 )
 
 
 class TestDataDelivery(TestProjectManagement):
-
     def __init__(self, *args, **kwargs):
         super(TestDataDelivery, self).__init__(*args, **kwargs)
         cfg.load_config_file(os.path.join(os.path.dirname(self.root_test_path), 'etc', 'example_data_delivery.yaml'))
@@ -142,88 +133,70 @@ class TestDataDelivery(TestProjectManagement):
             '{ext_sample_id}_R1_fastqc.zip', '{ext_sample_id}_R2.fastq.gz', '{ext_sample_id}_R2.fastq.gz.md5',
             '{ext_sample_id}_R2_fastqc.html', '{ext_sample_id}_R2_fastqc.zip'
         ]
-        self.final_files_merged = self._format_list( analysis_files + raw_data_files,  ext_sample_id='user_s_id')
-        self.final_files_merged2 = self._format_list( analysis_files,  ext_sample_id='user_s_id2')
-        self.final_files_split = self._format_list( analysis_files + ['raw_data'], ext_sample_id='user_s_id')
+        self.final_files_merged = self._format_list(analysis_files + raw_data_files,  ext_sample_id='user_s_id')
+        self.final_files_merged2 = self._format_list(analysis_files,  ext_sample_id='user_s_id2')
+        self.final_files_split = self._format_list(analysis_files + ['raw_data'], ext_sample_id='user_s_id')
 
-        self.dest_dir = cfg.query('delivery_dest')
-
+        self.dest_dir = cfg.query('delivery', 'dest')
 
     def _format_list(self, list_, **kwargs):
         return [v.format(**kwargs) for v in list_]
 
-
     def setUp(self):
         os.makedirs(self.dest_dir, exist_ok=True)
-        self.delivery_dry = DataDelivery(dry_run=True, work_dir=os.path.join(self.assets_delivery, 'staging'), no_cleanup=True)
-        self.delivery_real = DataDelivery(dry_run=False, work_dir=os.path.join(self.assets_delivery, 'staging'))
+        self.delivery_dry = DataDelivery(dry_run=True, work_dir=os.path.join(self.assets_delivery, 'staging'), no_cleanup=True, email=False)
+        self.delivery_real = DataDelivery(dry_run=False, work_dir=os.path.join(self.assets_delivery, 'staging'), email=False)
         self._create_run_elements(sample1.get('run_elements') + sample2.get('run_elements'))
 
     def tearDown(self):
         if os.path.exists(self.delivery_dry.staging_dir):
             shutil.rmtree(self.delivery_dry.staging_dir)
         for d in os.listdir(self.dest_dir):
-            shutil.rmtree(os.path.join(self.dest_dir,d))
+            shutil.rmtree(os.path.join(self.dest_dir, d))
         self._remove_run_elements(sample1.get('run_elements') + sample2.get('run_elements'))
         pass
-
-    def _touch(self, f):
-        return open(f, 'w').close()
-
-    def _md5(self, fname):
-        hash_md5 = hashlib.md5()
-        with open(fname, "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                hash_md5.update(chunk)
-        with open(fname + '.md5', "w") as f:
-            f.write(hash_md5.hexdigest() + "  " + fname)
 
     def _remove_run_elements(self, list_run_elements):
         sample_dirs = set()
         for run_element in list_run_elements:
-            sample_dirs.add(os.path.join(self.assets_delivery,'runs', run_element.get('run_id')))
+            sample_dirs.add(os.path.join(self.assets_delivery, 'runs', run_element.get('run_id')))
         for s in sample_dirs:
             shutil.rmtree(s)
 
     def _create_run_elements(self, list_run_elements):
-        for run_element in list_run_elements:
-            sample_dir = os.path.join(self.assets_delivery,
-                                      'runs',
-                                      run_element.get('run_id'),
-                                      run_element.get('project_id'),
-                                      run_element.get('sample_id'))
+        for e in list_run_elements:
+            sample_dir = os.path.join(self.assets_delivery, 'runs', e['run_id'], e['project_id'], e['sample_id'])
             os.makedirs(sample_dir, exist_ok=True)
             for t in [
                 'S1_L00%s_R1.fastq.gz', 'S1_L00%s_R2.fastq.gz',
                 'S1_L00%s_R1_fastqc.html', 'S1_L00%s_R2_fastqc.html',
                 'S1_L00%s_R1_fastqc.zip', 'S1_L00%s_R2_fastqc.zip'
             ]:
-                self._touch(os.path.join(sample_dir, t%run_element.get('lane')))
-                self._md5(os.path.join(sample_dir, t%run_element.get('lane')))
+                self.touch(os.path.join(sample_dir, t % e['lane']))
+                self.md5(os.path.join(sample_dir, t % e['lane']))
 
     def create_analysed_sample_file(self):
         pass
 
-
     def test_get_deliverable_projects_samples(self):
-        with patched_deliverable_project1 as mocked_get_doc:
+        with patched_deliverable_project1:
             project_to_samples = self.delivery_dry.get_deliverable_projects_samples(project_id='test_project')
             assert list(project_to_samples) == ['test_project']
             assert list([sample.get('sample_id') for samples in project_to_samples.values() for sample in samples]) == ['deliverable_sample']
 
-        with patched_error_project as mocked_get_doc:
+        with patched_error_project:
             self.assertRaises(EGCGError, self.delivery_dry.get_deliverable_projects_samples)
 
     def test_summarise_metrics_per_sample(self):
-        with patched_deliverable_project1 as mocked_get_doc:
+        with patched_deliverable_project1:
             self.delivery_dry.get_deliverable_projects_samples(project_id='test_project')
-            expected_header = ['Project', 'Sample Id', 'User sample id', 'Read pair sequenced',
-                               'Yield', 'Yield Q30', 'Nb reads in bam', 'mapping rate', 'properly mapped reads rate',
+            expected_header = ['Project', 'Sample Id', 'User sample id', 'Read pair sequenced', 'Yield',
+                               'Yield Q30', 'Nb reads in bam', 'mapping rate', 'properly mapped reads rate',
                                'duplicate rate', 'Mean coverage', 'Delivery folder']
             expected_lines = [
                 'test_project\tdeliverable_sample\tuser_s_id\t15\t0.0\t0.0\t1\t0.0\t0.0\t0.0\t0\tdate_delivery'
             ]
-            with patch(ppath('clarity.get_species_from_sample'), return_value='Homo sapiens'):
+            with patch('egcg_core.clarity.get_species_from_sample', return_value='Homo sapiens'):
                 header, lines = self.delivery_dry.summarise_metrics_per_sample(
                     project_id='test_project',
                     delivery_folder='date_delivery'
@@ -231,23 +204,20 @@ class TestDataDelivery(TestProjectManagement):
                 assert header == expected_header
                 assert lines == expected_lines
 
-    #def test_generate_md5_summary(self):
-    #    self.delivery_dry.generate_md5_summary()
-
 
     def test_deliver_data_merged(self):
-        with patched_deliverable_project1 as mocked_get_doc , \
-                patched_get_species as mocked_get_species,\
-                patch(ppath('clarity','get_sample'), return_value=Mock(udf={'Delivery':'merged'})):
+        with patched_deliverable_project1, patched_get_species,\
+                patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'merged'})), \
+                patch('egcg_core.clarity.get_queue_uri', return_value='http://testclarity.com/queue/999'):
             self.delivery_dry.deliver_data(project_id='test_project')
             assert os.listdir(self.delivery_dry.staging_dir) == ['deliverable_sample']
             list_files = sorted(os.listdir(os.path.join(self.delivery_dry.staging_dir, 'deliverable_sample')))
             assert sorted(list_files) == sorted(self.final_files_merged)
 
     def test_deliver_data_merged_concat(self):
-        with patched_deliverable_project2 as mocked_get_doc , \
-                patched_get_species as mocked_get_species,\
-                patch(ppath('clarity','get_sample'), return_value=Mock(udf={'Delivery':'merged'})):
+        with patched_deliverable_project2, patched_get_species,\
+                patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'merged'})), \
+             patch('egcg_core.clarity.get_queue_uri', return_value='http://testclarity.com/queue/999'):
             self.delivery_dry.deliver_data(project_id='test_project')
             assert os.listdir(self.delivery_dry.staging_dir) == ['deliverable_sample2']
             list_files = sorted(os.listdir(os.path.join(self.delivery_dry.staging_dir, 'deliverable_sample2')))
@@ -256,41 +226,95 @@ class TestDataDelivery(TestProjectManagement):
 
     def test_deliver_data_split(self):
         with patched_deliverable_project1, patched_get_species,\
-                patch(ppath('clarity','get_sample'), return_value=Mock(udf={'Delivery':'split'})):
+             patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'split'})), \
+             patch('egcg_core.clarity.get_queue_uri', return_value='http://testclarity.com/queue/999'):
             self.delivery_dry.deliver_data(project_id='test_project')
             assert os.listdir(self.delivery_dry.staging_dir) == ['deliverable_sample']
             list_files = sorted(os.listdir(os.path.join(self.delivery_dry.staging_dir, 'deliverable_sample')))
             assert sorted(list_files) == sorted(self.final_files_split)
 
+    def test_deliver_data_fluidx(self):
+        with patched_deliverable_project1, patched_get_species,\
+                patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'2D Barcode': 'FluidXBarcode', 'Delivery': 'split'})), \
+             patch('egcg_core.clarity.get_queue_uri', return_value='http://testclarity.com/queue/999'):
+            self.delivery_dry.deliver_data(project_id='test_project')
+            assert os.listdir(self.delivery_dry.staging_dir) == ['FluidXBarcode']
+            list_files = sorted(os.listdir(os.path.join(self.delivery_dry.staging_dir, 'FluidXBarcode')))
+            assert sorted(list_files) == sorted(self.final_files_split)
+
     def test_deliver_data_merged_real(self):
-        with patched_deliverable_project1 as mocked_get_doc , \
-                patched_get_species as mocked_get_species,\
-                patch(ppath('clarity','get_sample'), return_value=Mock(udf={'Delivery':'merged'})),\
-                patch.object(DataDelivery, 'run_aggregate_commands', side_effect=print_args),\
-                patch('bin.deliver_reviewed_data.DataDelivery.mark_samples_as_released') :
+        with patched_deliverable_project1, patched_get_species,\
+                patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'merged'})),\
+                patch.object(DataDelivery, 'run_aggregate_commands'),\
+                patch('bin.deliver_reviewed_data.DataDelivery.mark_samples_as_released'), \
+                patch('egcg_core.clarity.get_queue_uri', return_value='http://testclarity.com/queue/999'):
             self.delivery_real.deliver_data(project_id='test_project')
             assert os.listdir(self.dest_dir) == ['test_project']
             today = datetime.date.today().isoformat()
-            assert sorted(os.listdir(os.path.join(self.dest_dir, 'test_project'))) == sorted([today, 'all_md5sums.txt', 'summary_metrics.csv'])
+            assert sorted(os.listdir(os.path.join(self.dest_dir, 'test_project'))) == [today, 'all_md5sums.txt', 'summary_metrics.csv']
             assert os.listdir(os.path.join(self.dest_dir, 'test_project', today)) == ['deliverable_sample']
             list_files = sorted(os.listdir(os.path.join(self.dest_dir, 'test_project', today, 'deliverable_sample')))
             assert sorted(list_files) == sorted(self.final_files_merged)
 
     def test_deliver_data_split_real(self):
-        with patched_deliverable_project1 as mocked_get_doc , \
-                patched_get_species as mocked_get_species,\
-                patch(ppath('clarity','get_sample'), return_value=Mock(udf={'Delivery':'split'})),\
-                patch.object(DataDelivery, 'run_aggregate_commands', side_effect=print_args),\
-                patch('bin.deliver_reviewed_data.DataDelivery.mark_samples_as_released') :
+        with patched_deliverable_project1, patched_get_species,\
+             patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'split'})),\
+             patch.object(DataDelivery, 'run_aggregate_commands'),\
+             patch('bin.deliver_reviewed_data.DataDelivery.mark_samples_as_released'), \
+             patch('egcg_core.clarity.get_queue_uri', return_value='http://testclarity.com/queue/999'):
             self.delivery_real.deliver_data(project_id='test_project')
             assert os.listdir(self.dest_dir) == ['test_project']
             today = datetime.date.today().isoformat()
-            assert sorted(os.listdir(os.path.join(self.dest_dir, 'test_project'))) == sorted([today, 'all_md5sums.txt', 'summary_metrics.csv'])
+            assert sorted(os.listdir(os.path.join(self.dest_dir, 'test_project'))) == [today, 'all_md5sums.txt', 'summary_metrics.csv']
             assert os.listdir(os.path.join(self.dest_dir, 'test_project', today)) == ['deliverable_sample']
             list_files = sorted(os.listdir(os.path.join(self.dest_dir, 'test_project', today, 'deliverable_sample')))
             assert sorted(list_files) == sorted(self.final_files_split)
 
+    def test_mark_only(self):
+        with patch.object(DataDelivery, 'get_deliverable_projects_samples', return_value={'test_project': [sample1, sample2]}):
+            self.delivery_dry.mark_only()
+            # only logs the number of sample marked
+
+        with patch('egcg_core.rest_communication.patch_entry') as mocked_patch, \
+            patch('egcg_core.clarity.route_samples_to_delivery_workflow') as mocked_route, \
+            patch.object(DataDelivery, 'get_deliverable_projects_samples', return_value={'test_project': [sample1, sample2]}):
+            self.delivery_real.mark_only()
+            print(mocked_patch.call_args_list)
+            mocked_route.assert_called_with(['deliverable_sample', 'deliverable_sample2'])
 
 
-def print_args(*args, **kwargs):
-    pass
+
+    def test_email_report(self):
+        with patch('egcg_core.clarity.get_queue_uri', return_value='http://testclarity.com/queue/999'):
+            msg = self.delivery_dry.create_email_report('test_project', [sample1, sample2])
+            assert msg == '''Hi
+2 samples from project test_project have been delivered:
+Consult delivery queue at
+http://testclarity.com/queue/999
+template delivery email is appended bellow
+----
+Dear all,
+
+The data for 2 samples from project test_project has been released to our Aspera server at:
+https://transfer.epcc.ed.ac.uk/test_project
+
+
+Your usernames are:
+[ENTER USERNAMES]
+
+Your passwords will be sent separately.
+
+Please see the link below for guidance on how to download:
+https://genomics.ed.ac.uk/resources/download-help-clinical
+
+
+The data for your project will be stored on our server for 3 months and deleted after this time. Please check your data for corruption once downloaded. Email notifications will be sent 1 month and 1 week before deletion.
+
+If you have any questions about the data or download then please don’t hesitate to contact me.
+
+Kind regards,
+
+[NAME]
+
+[SIGNATURE]
+'''

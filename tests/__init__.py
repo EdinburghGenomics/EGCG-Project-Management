@@ -1,3 +1,4 @@
+import hashlib
 import os
 from os.path import join, abspath, dirname
 from unittest import TestCase
@@ -13,6 +14,15 @@ class TestProjectManagement(TestCase):
     @staticmethod
     def touch(file_path):
         open(file_path, 'w').close()
+
+    @staticmethod
+    def md5(fname):
+        hash_md5 = hashlib.md5()
+        with open(fname, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        with open(fname + '.md5', "w") as f:
+            f.write(hash_md5.hexdigest() + "  " + fname)
 
     @staticmethod
     def mkdir(file_path):

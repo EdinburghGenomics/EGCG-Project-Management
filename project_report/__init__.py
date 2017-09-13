@@ -5,16 +5,14 @@ from os import path, listdir
 from jinja2 import Environment, FileSystemLoader
 from egcg_core.util import find_file
 from egcg_core.clarity import connection
-from egcg_core.app_logging import logging_default as log_cfg
+from egcg_core.app_logging import AppLogger, logging_default as log_cfg
 from config import cfg
 
-app_logger = log_cfg.get_logger(__name__)
-log_cfg.get_logger('weasyprint', 40)
+log_cfg.get_logger('weasyprint', 40)  # register the WeasyPrint logger
 
 try:
     from weasyprint import HTML
 except ImportError:
-    app_logger.info('WeasyPrint is not installed. PDF output will be unavailable')
     HTML = None
 
 species_alias = {
@@ -23,7 +21,7 @@ species_alias = {
 }
 
 
-class ProjectReport:
+class ProjectReport(AppLogger):
     _samples_for_project = None
     template_alias = {
         'TruSeq Nano DNA Sample Prep': 'truseq_nano',
@@ -76,9 +74,9 @@ class ProjectReport:
     def get_library_workflow_from_sample(self, sample_name):
         return self.get_sample(sample_name).udf.get('Prep Workflow')
 
-    def get_species_from_sample(self, sample_name):
+    def get_report_type_from_sample(self, sample_name):
         s = self.get_sample(sample_name).udf.get('Species')
-        return species_alias.get(s, s)
+        return species_alias.get(s, 'non_human')
 
     def update_from_program_csv(self, program_csv):
         all_programs = {}
@@ -137,7 +135,7 @@ class ProjectReport:
             coverage = [float(samples_delivered[s]['Mean coverage']) for s in samples_delivered]
             results.append(('Average coverage per sample:', '%.2f' % (sum(coverage)/max(len(coverage), 1))))
         except KeyError:
-            app_logger.warning('Not adding mean coverage')
+            self.warning('Not adding mean coverage')
 
         project_size = self.get_folder_size(self.project_delivery)
         results.append(('Total folder size:', '%.2fTb' % (project_size/1000000000000.0)))
@@ -146,21 +144,21 @@ class ProjectReport:
     def get_html_template(self):
         samples = self.get_all_sample_names(modify_names=False)
         library_workflow = set()
-        species = set()
+        report_types = set()
         for sample in samples:
             library_workflow.add(self.get_library_workflow_from_sample(sample))
-            species.add(self.get_species_from_sample(sample))
+            report_types.add(self.get_report_type_from_sample(sample))
 
         if len(library_workflow) != 1:
             raise ValueError('%s workflows used for this project: %s' % (len(library_workflow), library_workflow))
         library_workflow = library_workflow.pop()
 
-        if len(species) != 1:
-            raise ValueError('%s species used for this project: %s' % (len(species), species))
-        species = species.pop()
+        if len(report_types) != 1:
+            raise ValueError('Tried to use %s report types for this project: %s' % (len(report_types), report_types))
+        report_type = report_types.pop()
 
         template_base = self.template_alias[library_workflow]
-        if species == 'Human':
+        if report_type == 'Human':
             return template_base + '.html'
         return template_base + '_non_human.html'
 
@@ -169,8 +167,12 @@ class ProjectReport:
         h = self.get_html_content()
         if output_format == 'html':
             open(project_file, 'w').write(h)
-        else:
+        elif HTML:
             HTML(string=h).write_pdf(project_file)
+        else:
+            raise ImportError('Could not import WeasyPrint - PDF output not available')
+
+        self.info('Written %s project report to %s', output_format, project_file)
 
     def get_html_content(self):
         template_dir = path.join(path.dirname(path.abspath(__file__)), 'templates')

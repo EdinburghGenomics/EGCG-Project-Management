@@ -6,11 +6,28 @@ default:
 
     ncbi_cache: ':memory:'
 
-    delivery_source: tests/assets/data_delivery/source
-    delivery_dest: tests/assets/data_delivery/dest
+    delivery:
+        source: tests/assets/data_delivery/source
+        dest: tests/assets/data_delivery/dest
+        clarity_workflow_name: 'Data Release'
+        clarity_stage_name: 'Data Release'
+        email_notification:
+            mailhost: smtp.test.me
+            port: 25
+            sender: sender@email.com
+            recipients:
+              - recipient1@email.com
+              - recipient2@email.com
+
     input_dir: tests/assets/data_delivery/runs
 
     tools:
         fastqc: fastqc
     executor:
         job_execution: local
+
+    email_notification:
+        mailhost: 'a_mailhost'
+        port: 1337
+        sender: 'a_sender'
+        recipients: ['some', 'recipients']

@@ -13,7 +13,7 @@ def main():
     load_config()
 
     log_cfg.cfg = cfg.content
-    log_cfg.default_level = logging.DEBUG
+    log_cfg.set_log_level(logging.DEBUG)
     log_cfg.add_stdout_handler()
 
     args = _parse_args()
@@ -22,7 +22,7 @@ def main():
         filters = [{'run_id': r} for r in args.run]
     elif args.lane:
         end_point = 'run_elements'
-        filters = [{'run_id': '_'.join(l.split('_')[:-1]), 'lane':l.split('_')[-1]} for l in args.lane]
+        filters = [{'run_id': '_'.join(l.split('_')[:-1]), 'lane': int(l.split('_')[-1])} for l in args.lane]
     elif args.run_element:
         end_point = 'run_elements'
         filters = [{'run_element_id': r} for r in args.run_element]
@@ -39,6 +39,7 @@ def main():
         patch['useable'] = 'no'
     elif args.resetuseable:
         patch['useable'] = 'not marked'
+
     if args.review_pass:
         patch['reviewed'] = 'pass'
     elif args.review_fail:
