@@ -93,7 +93,7 @@ class DeliveredSample(AppLogger):
         for f in list_file:
             if check_end_file_name(f):
                 with open(f + '.md5') as open_file:
-                    md5, file_path = open_file.readline().strip().split()
+                    md5 = open_file.readline().strip().split()[0]
             rel_path = relpath(f, start=self.delivery_dir)
             list_file_to_upload.append({'file_path': rel_path, 'md5': md5})
         return list_file_to_upload
