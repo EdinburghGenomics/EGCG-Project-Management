@@ -213,12 +213,6 @@ class ProjectReport:
         yield_metrics = {'samples': [], 'clean_yield': [], 'clean_yield_Q30': []}
         for sample in self.samples_for_project_restapi:
 
-        try:
-            coverage = [float(samples_delivered[s]['Mean coverage']) for s in samples_delivered]
-            results.append(('Average coverage per sample:', '%.2f' % (sum(coverage)/max(len(coverage), 1))))
-        except KeyError:
-            self.warning('Not adding mean coverage')
-
             all_yield_metrics = [sample.get('sample_id'),
                                  sample.get('clean_yield_in_gb'),
                                  sample.get('clean_yield_q30')]
