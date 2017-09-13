@@ -1,3 +1,4 @@
+import glob
 import os
 import shutil
 
@@ -50,11 +51,11 @@ class GelDataDelivery(AppLogger):
             shutil.rmtree(self.staging_dir)
 
     def link_fastq_files(self, original_delivery, fastq_path, external_id, sample_barcode):
-        os.link(
+        os.symlink(
             os.path.join(original_delivery, external_id + '_R1.fastq.gz'),
             os.path.join(fastq_path, sample_barcode +'_R1.fastq.gz')
         )
-        os.link(
+        os.symlink(
             os.path.join(original_delivery, external_id + '_R2.fastq.gz'),
             os.path.join(fastq_path, sample_barcode + '_R2.fastq.gz')
         )
@@ -84,7 +85,7 @@ class GelDataDelivery(AppLogger):
                        '-i %s'%cfg.query('gel_upload', 'ssh_key'), '-p 22']
         destination = '%s@%s:upload/%s'%(cfg.query('gel_upload', 'username'), cfg.query('gel_upload', 'host'), delivery_id)
 
-        cmd = ' '.join(['rsync',  ' '.join(options), '-e ssh', ' '.join(ssh_options), sample_path, destination])
+        cmd = ' '.join(['rsync',  ' '.join(options), '-e ssh "%s"' % ' '.join(ssh_options), sample_path, destination])
         return executor.local_execute(cmd).join()
 
     def try_rsync(self, sample_path, delivery_id, max_nb_tries=3):
@@ -110,9 +111,14 @@ class GelDataDelivery(AppLogger):
         return sample[ELEMENT_SAMPLE_EXTERNAL_ID]
 
     def deliver_data(self):
-        delivery_dest = cfg.query('delivery_dest')
+        delivery_dest = cfg.query('sample', 'delivery_dest')
         # find the batch directory
         sample_delivery_folder = os.path.join(delivery_dest, self.project_id, '*', self.sample_id)
+        tmp = glob.glob(sample_delivery_folder)
+        if len(tmp) == 1 :
+            sample_delivery_folder = tmp[0]
+        else:
+            raise ValueError('Could not find delivery folder: %s ' % sample_delivery_folder)
 
         sample = self.get_sample(self.sample_id)
         external_id = sample[ELEMENT_SAMPLE_EXTERNAL_ID]

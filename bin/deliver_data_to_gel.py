@@ -23,8 +23,8 @@ def main():
         log_cfg.set_log_level(logging.DEBUG)
         log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout))
 
-    GelDataDelivery(args.project_id, args.sample_id, args.dry_run, args.work_dir)
-    GelDataDelivery.deliver_data()
+    gel_delivery = GelDataDelivery(args.project_id, args.sample_id, args.dry_run, args.work_dir)
+    gel_delivery.deliver_data()
 
 
 if __name__ == '__main__':

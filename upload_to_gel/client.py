@@ -93,7 +93,7 @@ class DeliveryAPIClient:
                     raise ArgumentException('You need to pass a sample id')
                 return self.do_action(self.action, self.delivery_id, self.sample_id)
         except ArgumentException as ex:
-            print('Wrong parameters passed:' + ex.message)
+            print('Wrong parameters passed:' + str(ex))
             raise ex
 
     def create(self, delivery_id, sample_id):
@@ -174,6 +174,8 @@ class DeliveryAPIClient:
         """
         method = getattr(requests, http_method)
         try:
+            print('Sending %s request to %s' % (http_method, url))
+            print('Parameters: ' + str(self.params))
             r = method(url, **self.params)
         except ConnectionError as e:
             print('Connection error. Is the server running?')
@@ -189,7 +191,7 @@ class DeliveryAPIClient:
 
 def main():
     try:
-        client = DeliveryAPIClient(get_args())
+        client = DeliveryAPIClient(**get_args())
         client.make_call()
     except KeyboardInterrupt:
         pass
@@ -227,7 +229,7 @@ python client.py --action=upload_failed --delivery_id=DELIVERY_1 --sample_id=SAM
     parser.add_argument(
         '--sample_id', help='Sample id for the target delivery')
     parser.add_argument(
-        '--failurereason',
+        '--failure_reason',
         help='failure message containing the reason in the case of failure actions')
     args = parser.parse_args()
 
@@ -245,7 +247,8 @@ python client.py --action=upload_failed --delivery_id=DELIVERY_1 --sample_id=SAM
             'Incorrect parameters provided: host, user, password and action are all required\n')
         parser.print_help()
         sys.exit()
-    return dict(args.keyvalues)
+    args.pswd = pswd
+    return vars(args)
 
 
 if __name__ == '__main__':
