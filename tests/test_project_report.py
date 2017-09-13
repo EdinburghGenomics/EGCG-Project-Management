@@ -80,6 +80,7 @@ class FakeLims:
 
 class TestProjectReport(TestProjectManagement):
     def setUp(self):
+        cfg.load_config_file(TestProjectManagement.etc_config)
         self.pr = ProjectReport('a_project_name')
         self.pr.lims = FakeLims()
         self.fake_samples = fake_samples['a_project_name']
