@@ -107,7 +107,7 @@ class GelDataDelivery(AppLogger):
         return self.samples_to_delivery_id[sample_id]
 
     def get_sample_barcode(self, sample):
-        return sample[ELEMENT_SAMPLE_EXTERNAL_ID].split('_')[0]
+        return sample[ELEMENT_SAMPLE_EXTERNAL_ID]
 
     def deliver_data(self):
         delivery_dest = cfg.query('delivery_dest')
@@ -116,7 +116,7 @@ class GelDataDelivery(AppLogger):
 
         sample = self.get_sample(self.sample_id)
         external_id = sample[ELEMENT_SAMPLE_EXTERNAL_ID]
-        # external sample_id should be start with Gel id which what GEL used as a sample barcode
+        # external sample_id is what GEL used as a sample barcode
         sample_barcode = self.get_sample_barcode(sample)
         sample_path = os.path.join(self.staging_dir, self.sample_id, sample_barcode)
         fastq_path = os.path.join(sample_path, 'fastq')
