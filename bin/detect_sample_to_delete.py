@@ -51,10 +51,10 @@ def check_deletable_samples(age_threshold=cfg['deletion']['age_threshold']):
             project_batches[pb].append((r.get('sample_id'), confirmation))
 
     today = datetime.datetime.now().strptime('%Y-%m-%d')
-    output_dir = cfg.query('deletion', 'log_dir')
+    output_dir = cfg.query('data_deletion', 'log_dir')
     if not os.path.exists(output_dir):
         output_dir = os.getcwd()
-    output_file = os.path.join(output_dir, 'Candidate_samples_for_deletion_%s_.csv' % today)
+    output_file = os.path.join(output_dir, 'Candidate_samples_for_deletion_%s_days_old_%s_.csv' % (age_threshold, today))
     write_report(project_batches, output_file)
     subject = 'Samples ready for deletion'
     msg = '''Hi,
@@ -66,7 +66,7 @@ Please review them and get back to the bioinformatics team with sample that can 
         subject=subject,
         attachments=[output_file],
         strict=True,
-        **cfg['deletion']['email_notification']
+        **cfg['data_deletion']['email_notification']
     )
 
 
@@ -75,7 +75,7 @@ def write_report(project_batches, output_file):
     headers = ['Project id', 'Release date', 'Nb sample confirmed', 'Nb sample not confirmed',
                'Download not confirmed', 'Download confirmed']
     with open(output_file, 'w') as csvfile:
-        writer = csv.writer(csvfile, delimiter='\t')
+        writer = csv.writer(csvfile, delimiter=',')
         writer.writerow(headers)
 
         #sort by release date
@@ -88,8 +88,8 @@ def write_report(project_batches, output_file):
             sample_not_confirmed = [sample for sample, confirmed in list_sample if not confirmed]
             out.append(str(len(sample_confirmed)))
             out.append(str(len(sample_not_confirmed)))
-            out.append(', '.join(sorted(sample_not_confirmed)))
-            out.append(', '.join(sorted(sample_confirmed)))
+            out.append(' '.join(sorted(sample_not_confirmed)))
+            out.append(' '.join(sorted(sample_confirmed)))
             writer.writerow(out)
 
 
