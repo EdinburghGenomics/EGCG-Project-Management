@@ -56,6 +56,7 @@ class TestDetectSample(TestProjectManagement):
              patch('bin.detect_sample_to_delete._utcnow', return_value=datetime(2017, 1, 1)):
             patched_get_doc.return_value = [sample1, sample2]
             patch_release_date.return_value = '2016-09-12'
+            os.makedirs(cfg.query('data_deletion', 'log_dir'), exist_ok=True)
             check_deletable_samples(90)
             candidate_file = os.path.join(
                 cfg.query('data_deletion', 'log_dir'),
