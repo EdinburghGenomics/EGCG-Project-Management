@@ -16,10 +16,12 @@ from config import load_config
 from egcg_core.notifications import send_email
 from egcg_core.config import cfg
 
+def _utcnow():
+    return datetime.utcnow()
 
 def old_enough_for_deletion(date_run, age_threshold=90):
     year, month, day = date_run.split('-')
-    age = datetime.utcnow() - datetime(int(year), int(month), int(day))
+    age = _utcnow() - datetime(int(year), int(month), int(day))
     return age.days > age_threshold
 
 
@@ -52,7 +54,7 @@ def check_deletable_samples(age_threshold=None):
             pb = (r.get('project_id'), release_date)
             project_batches[pb].append((r.get('sample_id'), confirmation))
 
-    today = datetime.now().strftime('%Y-%m-%d')
+    today = _utcnow().strftime('%Y-%m-%d')
     output_dir = cfg.query('data_deletion', 'log_dir')
     if not output_dir or not os.path.exists(output_dir):
         output_dir = os.getcwd()
@@ -61,7 +63,7 @@ def check_deletable_samples(age_threshold=None):
     subject = 'Samples ready for deletion'
     msg = '''Hi,
 The attached csv file contains all samples ready for deletion on the {today}.
-Please review them and get back to the bioinformatics team with sample that can be deleted.
+Please review them and get back to the bioinformatics team with samples that can be deleted.
 '''.format(today=today)
     send_email(
         msg=msg,
