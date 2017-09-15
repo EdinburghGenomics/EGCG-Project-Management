@@ -36,7 +36,6 @@ class GelDataDelivery(AppLogger):
     def __init__(self, project_id, sample_id, dry_run, work_dir, no_cleanup=False):
         self.project_id = project_id
         self.sample_id = sample_id
-        self.all_commands_for_cluster = []
         self.dry_run = dry_run
         self.work_dir = work_dir
         self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + self.project_id + '_' + self.sample_id)
@@ -104,7 +103,7 @@ class GelDataDelivery(AppLogger):
     def get_delivery_id(self, sample_id, external_sample_id):
         if sample_id not in self.samples_to_delivery_id:
             delivery_number = self.deliver_db.create_delivery(sample_id, external_sample_id)
-            self.samples_to_delivery_id[sample_id] = 'ED%010d' % delivery_number
+            self.samples_to_delivery_id[sample_id] = 'ED%08d' % delivery_number
         return self.samples_to_delivery_id[sample_id]
 
     def get_sample_barcode(self, sample):
