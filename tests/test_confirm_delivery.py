@@ -184,7 +184,6 @@ class TestConfirmDelivery(TestProjectManagement):
     def test_parse_aspera_reports(self):
         aspera_report = os.path.join(self.assets_path, 'confirm_delivery', 'filesreport_test.csv')
         file_list = parse_aspera_reports(aspera_report)
-        print(file_list)
         assert len(file_list) == 31
 
     @patch('bin.confirm_delivery.get_document', return_value=sample1)
