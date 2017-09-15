@@ -66,8 +66,8 @@ The attached csv file contains all samples ready for deletion on the 2017-01-01.
 Please review them and get back to the bioinformatics team with samples that can be deleted.
 '''
             patch_send_email.assert_called_once_with(
-                attachments=[candidate_file],
-                mailhost='smtp.mail.com',        msg=msg,  port=25, recipients=['recipient@email.com'], sender='sender@email.com', strict=True,
+                attachments=[candidate_file], mailhost='smtp.mail.com', msg=msg, port=25,
+                recipients=['recipient@email.com'], sender='sender@email.com', strict=True,
                 subject='Samples ready for deletion'
             )
 
