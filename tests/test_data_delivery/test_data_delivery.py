@@ -9,74 +9,74 @@ from tests import TestProjectManagement
 from bin.deliver_reviewed_data import DataDelivery, _execute
 
 sample1 = {
+    'sample_id': 'deliverable_sample',
+    'project_id': 'test_project',
+    'user_sample_id': 'user_s_id',
+    'useable': 'yes',
+    'analysis_driver_procs': [
+        {
+            'proc_id': 'most_recent_proc',
+            '_created': '06_03_2016_12:00:00',
+            'status': 'finished'
+        },
+        {
+            'proc_id': 'old_recent_proc',
+            '_created': '01_02_2016_12:00:00',
+            'status': 'aborted'
+        }
+    ],
+    'bam_file_reads': 1,
+    'run_elements': [
+        {
+            'run_element_id': 'run_el_id1',
+            'clean_reads': 15,
+            'run_id': 'run1',
+            'project_id': 'test_project',
             'sample_id': 'deliverable_sample',
-            'project_id': 'test_project',
-            'user_sample_id': 'user_s_id',
-            'useable': 'yes',
-            'analysis_driver_procs': [
-                {
-                    'proc_id': 'most_recent_proc',
-                    '_created': '06_03_2016_12:00:00',
-                    'status': 'finished'
-                },
-                {
-                    'proc_id': 'old_recent_proc',
-                    '_created': '01_02_2016_12:00:00',
-                    'status': 'aborted'
-                }
-            ],
-            'bam_file_reads': 1,
-            'run_elements': [
-                {
-                    'run_element_id': 'run_el_id1',
-                    'clean_reads': 15,
-                    'run_id': 'run1',
-                    'project_id': 'test_project',
-                    'sample_id': 'deliverable_sample',
-                    'lane': 1,
-                    'useable': 'yes'
-                }
-            ]
+            'lane': 1,
+            'useable': 'yes'
         }
+    ]
+}
 sample2 = {
-            'sample_id': 'deliverable_sample2',
-            'project_id': 'test_project',
-            'user_sample_id': 'user_s_id2',
-            'useable': 'yes',
-            'analysis_driver_procs': [
-                {
-                    'proc_id': 'most_recent_proc',
-                    '_created': '06_03_2016_12:00:00',
-                    'status': 'finished'
-                },
-                {
-                    'proc_id': 'old_recent_proc',
-                    '_created': '01_02_2016_12:00:00',
-                    'status': 'aborted'
-                }
-            ],
-            'bam_file_reads': 1,
-            'run_elements': [
-                {
-                    'run_element_id': 'run_el_id2',
-                    'clean_reads': 15,
-                    'run_id': 'run1',
-                    'project_id': 'test_project',
-                    'sample_id': 'deliverable_sample2',
-                    'lane': 2,
-                    'useable': 'yes'
-                },
-                {
-                    'run_element_id': 'run_el_id3',
-                    'clean_reads': 15,
-                    'run_id': 'run1',
-                    'project_id': 'test_project',
-                    'sample_id': 'deliverable_sample2',
-                    'lane': 3,
-                    'useable': 'yes'
-                }
-            ]
+    'sample_id': 'deliverable_sample2',
+    'project_id': 'test_project',
+    'user_sample_id': 'user_s_id2',
+    'useable': 'yes',
+    'analysis_driver_procs': [
+        {
+            'proc_id': 'most_recent_proc',
+            '_created': '06_03_2016_12:00:00',
+            'status': 'finished'
+        },
+        {
+            'proc_id': 'old_recent_proc',
+            '_created': '01_02_2016_12:00:00',
+            'status': 'aborted'
         }
+    ],
+    'bam_file_reads': 1,
+    'run_elements': [
+        {
+            'run_element_id': 'run_el_id2',
+            'clean_reads': 15,
+            'run_id': 'run1',
+            'project_id': 'test_project',
+            'sample_id': 'deliverable_sample2',
+            'lane': 2,
+            'useable': 'yes'
+        },
+        {
+            'run_element_id': 'run_el_id3',
+            'clean_reads': 15,
+            'run_id': 'run1',
+            'project_id': 'test_project',
+            'sample_id': 'deliverable_sample2',
+            'lane': 3,
+            'useable': 'yes'
+        }
+    ]
+}
 
 
 patched_deliverable_project1 = patch(
@@ -115,9 +115,36 @@ patched_get_species = patch(
     return_value='Homo sapiens'
 )
 
+
 def execute_local(*args, **kwargs):
     if 'env' in kwargs and kwargs['env'] == 'local':
         _execute(*args, **kwargs)
+
+
+def touch(f, content=None):
+    with open(f, 'w') as open_file:
+        if content:
+            open_file.write(content)
+
+
+def create_fake_fastq_fastqc_md5_from_commands(instance):
+    '''
+    This function replaces run_aggregate_commands and take an instance of DataDelivery.
+    It will create the output as if the command were run.
+    It only supports fastqc and command that redirects there outputs
+    '''
+    for commands in instance.all_commands_for_cluster:
+        for command in commands.split(';'):
+            if len(command.split('>')) > 1:
+                output = command.split('>')[1].strip()
+                if output.endswith('.md5'):
+                    touch(output, 'd41d8cd98f00b204e9800998ecf8427e  ' + os.path.basename(output))
+                else:
+                    touch(output)
+            elif command.strip().startswith('fastqc'):
+                touch(command.split()[-1].split('.fastq')[0] + '_fastqc.zip')
+                touch(command.split()[-1].split('.fastq')[0] + '_fastqc.html')
+
 
 class TestDataDelivery(TestProjectManagement):
     def __init__(self, *args, **kwargs):
@@ -250,6 +277,8 @@ class TestDataDelivery(TestProjectManagement):
         with patched_deliverable_project2, patched_get_species,\
                 patch('egcg_core.clarity.get_sample', return_value=Mock(udf={'Delivery': 'merged'})),\
                 patch('bin.deliver_reviewed_data.DataDelivery.mark_samples_as_released'), \
+                patch.object(DataDelivery, 'run_aggregate_commands', new=create_fake_fastq_fastqc_md5_from_commands), \
+                patch.object(DataDelivery, 'register_postponed_files'), \
                 patch('egcg_core.clarity.get_queue_uri', return_value='http://testclarity.com/queue/999'):
             self.delivery_real.deliver_data(project_id='test_project')
             assert os.listdir(self.dest_dir) == ['test_project']
@@ -257,11 +286,9 @@ class TestDataDelivery(TestProjectManagement):
             assert sorted(os.listdir(os.path.join(self.dest_dir, 'test_project'))) == [today, 'all_md5sums.txt', 'summary_metrics.csv']
             assert os.listdir(os.path.join(self.dest_dir, 'test_project', today)) == ['deliverable_sample2']
             list_files = sorted(os.listdir(os.path.join(self.dest_dir, 'test_project', today, 'deliverable_sample2')))
-
             assert sorted(list_files) == sorted(self.final_files_merged2)
 
-            list_file = ['user_s_id2_R1.fastq.gz', 'user_s_id2_R2.fastq.gz', 'user_s_id2.g.vcf.gz',
-                         'user_s_id2.g.vcf.gz.tbi', 'user_s_id2.vcf.gz', 'user_s_id2.vcf.gz.tbi',
+            list_file = ['user_s_id2.g.vcf.gz', 'user_s_id2.g.vcf.gz.tbi', 'user_s_id2.vcf.gz', 'user_s_id2.vcf.gz.tbi',
                          'user_s_id2.bam', 'user_s_id2.bam.bai']
             expected_list_files = [
                 {
@@ -270,16 +297,6 @@ class TestDataDelivery(TestProjectManagement):
                     'md5': 'd41d8cd98f00b204e9800998ecf8427e'
                 } for f in list_file
             ]
-            {'deliverable_sample2': [
-                {'md5': 'd41d8cd98f00b204e9800998ecf8427e', 'file_path': 'test_project/2017-09-08/deliverable_sample2/user_s_id2.g.vcf.gz', 'size': 0},
-                {'md5': 'd41d8cd98f00b204e9800998ecf8427e', 'file_path': 'test_project/2017-09-08/deliverable_sample2/user_s_id2.g.vcf.gz.tbi', 'size': 0},
-                {'md5': 'd41d8cd98f00b204e9800998ecf8427e', 'file_path': 'test_project/2017-09-08/deliverable_sample2/user_s_id2.vcf.gz', 'size': 0},
-                {'md5': 'd41d8cd98f00b204e9800998ecf8427e', 'file_path': 'test_project/2017-09-08/deliverable_sample2/user_s_id2.vcf.gz.tbi', 'size': 0},
-                {'md5': 'd41d8cd98f00b204e9800998ecf8427e', 'file_path': 'test_project/2017-09-08/deliverable_sample2/user_s_id2.bam', 'size': 0},
-                {'md5': 'd41d8cd98f00b204e9800998ecf8427e', 'file_path': 'test_project/2017-09-08/deliverable_sample2/user_s_id2.bam.bai', 'size': 0}
-            ]}
-
-            print(self.delivery_real.samples2list_files)
             assert self.delivery_real.samples2list_files == {'deliverable_sample2': expected_list_files}
 
     def test_deliver_data_split_real(self):
@@ -317,7 +334,6 @@ class TestDataDelivery(TestProjectManagement):
             patch('egcg_core.clarity.route_samples_to_delivery_workflow') as mocked_route, \
             patch.object(DataDelivery, 'get_deliverable_projects_samples', return_value={'test_project': [sample1, sample2]}):
             self.delivery_real.mark_only()
-            print(mocked_patch.call_args_list)
             mocked_route.assert_called_with(['deliverable_sample', 'deliverable_sample2'])
 
     def test_email_report(self):

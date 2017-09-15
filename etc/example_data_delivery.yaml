@@ -22,8 +22,8 @@ default:
     input_dir: tests/assets/data_delivery/runs
 
     tools:
-        fastqc: echo
-        md5sum: md5
+        fastqc: fastqc
+        md5sum: md5sum
     executor:
         job_execution: local
 

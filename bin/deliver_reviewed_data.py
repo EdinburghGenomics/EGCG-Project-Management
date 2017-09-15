@@ -185,6 +185,10 @@ class DataDelivery(AppLogger):
         for file_dict in self.samples2list_files.get(sample_id):
             file_dict['file_path'] = join(basename(dirname(delivery_folder)), basename(delivery_folder), file_dict['file_path'])
 
+    def register_postponed_files(self):
+        for tuple_val in self.postponed_register:
+            self.register_file(*tuple_val)
+
     def summarise_metrics_per_sample(self, project_id, delivery_folder):
         headers = ['Project', 'Sample Id', 'User sample id', 'Read pair sequenced', 'Yield', 'Yield Q30',
                    'Nb reads in bam', 'mapping rate', 'properly mapped reads rate', 'duplicate rate',
@@ -243,8 +247,6 @@ class DataDelivery(AppLogger):
         return link_file
 
     def _on_cluster_concat_file_to_sample(self, sample_id, list_files, sample_folder, rename):
-        print(list_files)
-        print([os.path.exists(p) for p in list_files])
         command = 'cat {list_files} > {fq}; {md5sum} {fq} > {fq}.md5; {fastqc} --nogroup -q {fq}'.format(
             list_files=' '.join(list_files),
             fq=os.path.join(sample_folder, rename),
@@ -339,7 +341,6 @@ class DataDelivery(AppLogger):
                 open_file.write('\n'.join(lines) + '\n')
 
     def run_aggregate_commands(self):
-        print(self.all_commands_for_cluster)
         if self.all_commands_for_cluster:
             self.debug('Concatenating fastqs for %s samples', len(self.all_commands_for_cluster))
             _execute(
@@ -350,9 +351,6 @@ class DataDelivery(AppLogger):
                 mem=2,
                 log_commands=False
             )
-
-            for tuple_val in self.postponed_register:
-                self.register_file(*tuple_val)
 
     def generate_md5_summary(self, project, batch_folder):
         all_md5_files = glob.glob(os.path.join(batch_folder, '*', '*.md5'))
@@ -401,7 +399,9 @@ class DataDelivery(AppLogger):
                 print('\t'.join(header))
                 print('\n'.join(lines))
         else:
+            # run the command on the cluster and register the output
             self.run_aggregate_commands()
+            self.register_postponed_files()
             for project in project_to_samples:
                 # Create the batch directory
                 today = datetime.date.today().isoformat()

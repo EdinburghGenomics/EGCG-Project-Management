@@ -26,21 +26,23 @@ def old_enough_for_deletion(date_run, age_threshold=90):
 def download_confirmation(sample_data):
     # TODO: need to check the LIMS for download confirmation when implemented there
     # for now look only at the files downloaded
-    file_downloaded = sample_data.get('files_downloaded', [])
+    file_downloaded = set([f['file_path'] for f in sample_data.get('files_downloaded', [])])
     files_delivered = sample_data.get('files_delivered', [])
     file_missing = [f['file_path'] for f in files_delivered if f['file_path'] not in file_downloaded]
     return not bool(file_missing)
 
 
-def check_deletable_samples(age_threshold=cfg['deletion']['age_threshold']):
+def check_deletable_samples(age_threshold=None):
     where = {'useable': 'yes', 'delivered': 'yes', 'data_deleted': 'none'}
     sample_records = rest_communication.get_documents(
         'samples',
         quiet=True,
         where=where,
         all_pages=True,
-        paginate=False
+        max_results=100
     )
+    if age_threshold is None:
+        age_threshold = cfg.query('data_deletion', 'age_threshold')
 
     project_batches = defaultdict(list)
     for r in sample_records:
@@ -50,11 +52,11 @@ def check_deletable_samples(age_threshold=cfg['deletion']['age_threshold']):
             pb = (r.get('project_id'), release_date)
             project_batches[pb].append((r.get('sample_id'), confirmation))
 
-    today = datetime.datetime.now().strptime('%Y-%m-%d')
+    today = datetime.now().strftime('%Y-%m-%d')
     output_dir = cfg.query('data_deletion', 'log_dir')
-    if not os.path.exists(output_dir):
+    if not output_dir or not os.path.exists(output_dir):
         output_dir = os.getcwd()
-    output_file = os.path.join(output_dir, 'Candidate_samples_for_deletion_%s_days_old_%s_.csv' % (age_threshold, today))
+    output_file = os.path.join(output_dir, 'Candidate_samples_for_deletion_gt_%s_days_old_%s.csv' % (age_threshold, today))
     write_report(project_batches, output_file)
     subject = 'Samples ready for deletion'
     msg = '''Hi,
@@ -100,16 +102,14 @@ def main():
     if args.debug:
         log_cfg.set_log_level(logging.DEBUG)
 
-    check_deletable_samples(args.project_id, args.age_threshold, args.only_confirm)
+    check_deletable_samples(args.age_threshold)
 
     return 0
 
 
 def _parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--project_id', type=str)
     parser.add_argument('--age_threshold', type=int)
-    parser.add_argument('--only_confirm', action='store_true')
     parser.add_argument('--debug', action='store_true')
 
     return parser.parse_args()
