@@ -5,7 +5,7 @@ import shutil
 import sqlite3
 
 from cached_property import cached_property
-from egcg_core import executor
+from egcg_core import executor, clarity
 from egcg_core import rest_communication
 from egcg_core.app_logging import AppLogger
 from egcg_core.config import cfg
@@ -18,24 +18,43 @@ class DeliveryDB:
     def __init__(self):
         self.delivery_db = sqlite3.connect(cfg.query('gel_upload', 'delivery_db'))
         self.cursor = self.delivery_db.cursor()
-        self.cursor.execute('''CREATE TABLE delivery(
-           id INTEGER AUTOINCREMENT,
+        self.cursor.execute('''CREATE TABLE  IF NOT EXISTS delivery(
+           id INTEGER PRIMARY KEY,
            sample_id TEXT,
            external_sample_id TEXT,
-           creation_date DATETIME DEFAULT CURRENT_TIMESTAMP
+           creation_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+           upload_confirm_date DATETIME DEFAULT NULL,
+           md5_confirm_date DATETIME DEFAULT NULL
         );''')
 
 
     def create_delivery(self, sample_id, external_sample_id):
-        self.cursor.execute('INSERT INTO delivery VALUES (?, ?)', (sample_id, external_sample_id))
+        self.cursor.execute('INSERT INTO delivery (sample_id, external_sample_id) VALUES (?, ?)', (sample_id, external_sample_id))
         self.delivery_db.commit()
         return self.cursor.lastrowid
 
+    def get_info_from(self, delivery_number):
+        self.cursor.execute('SELECT * from delivery WHERE id=?', (delivery_number,))
+        return self.cursor.fetchone()
+
+    def get_sample_from(self, delivery_number):
+        return self.get_info_from(delivery_number)[1]
+
+    def set_upload_date(self, delivery_number):
+        self.cursor.execute('UPDATE delivery SET upload_confirm_date = datetime("now") WHERE id = ?;', (delivery_number,))
+        self.delivery_db.commit()
+
+    def set_md5_date(self, delivery_number):
+        self.cursor.execute('UPDATE delivery SET md5_confirm_date = datetime("now") WHERE id = ?;', (delivery_number,))
+        self.delivery_db.commit()
+
 
 class GelDataDelivery(AppLogger):
-    def __init__(self, project_id, sample_id, dry_run, work_dir, no_cleanup=False):
+    def __init__(self, work_dir, project_id, sample_id, user_sample_id=None, dry_run=False, no_cleanup=False):
         self.project_id = project_id
         self.sample_id = sample_id
+        if not self.sample_id:
+            self.sample_id = self.resolve_sample_id(user_sample_id)
         self.dry_run = dry_run
         self.work_dir = work_dir
         self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + self.project_id + '_' + self.sample_id)
@@ -49,15 +68,22 @@ class GelDataDelivery(AppLogger):
         if os.path.exists(self.staging_dir):
             shutil.rmtree(self.staging_dir)
 
+    @staticmethod
+    def resolve_sample_id(user_sample_id):
+        samples = clarity.connection().get_samples(udf={'User Sample Name': user_sample_id})
+        if len(samples) != 1:
+            raise ValueError('User sample name %s resolve to %s sample' % (user_sample_id, len(samples)))
+        return samples[0].name
+
     def link_fastq_files(self, original_delivery, fastq_path, external_id, sample_barcode):
-        os.symlink(
-            os.path.join(original_delivery, external_id + '_R1.fastq.gz'),
-            os.path.join(fastq_path, sample_barcode +'_R1.fastq.gz')
-        )
-        os.symlink(
-            os.path.join(original_delivery, external_id + '_R2.fastq.gz'),
-            os.path.join(fastq_path, sample_barcode + '_R2.fastq.gz')
-        )
+        source1 = os.path.join(original_delivery, external_id + '_R1.fastq.gz')
+        source2 = os.path.join(original_delivery, external_id + '_R2.fastq.gz')
+        if not os.path.isfile(source1):
+            raise FileNotFoundError(source1 + ' does not exists')
+        if not os.path.isfile(source2):
+            raise FileNotFoundError(source2 + ' does not exists')
+        os.symlink(source1, os.path.join(fastq_path, sample_barcode + '_R1.fastq.gz'))
+        os.symlink(source2, os.path.join(fastq_path, sample_barcode + '_R2.fastq.gz'))
 
     def create_md5sum_txt(self, original_delivery, sample_path, external_id, gel_id):
         with open(os.path.join(original_delivery, external_id + '_R1.fastq.gz.md5')) as fh:
