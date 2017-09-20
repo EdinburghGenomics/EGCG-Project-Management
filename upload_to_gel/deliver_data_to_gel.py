@@ -9,7 +9,7 @@ from egcg_core import executor, clarity
 from egcg_core import rest_communication
 from egcg_core.app_logging import AppLogger
 from egcg_core.config import cfg
-from egcg_core.constants import  ELEMENT_SAMPLE_EXTERNAL_ID
+from egcg_core.constants import ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_PROJECT_ID
 from upload_to_gel.client import DeliveryAPIClient
 
 
@@ -27,9 +27,9 @@ class DeliveryDB:
            md5_confirm_date DATETIME DEFAULT NULL
         );''')
 
-
     def create_delivery(self, sample_id, external_sample_id):
-        self.cursor.execute('INSERT INTO delivery (sample_id, external_sample_id) VALUES (?, ?)', (sample_id, external_sample_id))
+        q = 'INSERT INTO delivery (sample_id, external_sample_id) VALUES (?, ?);'
+        self.cursor.execute(q, (sample_id, external_sample_id))
         self.delivery_db.commit()
         return self.cursor.lastrowid
 
@@ -41,32 +41,24 @@ class DeliveryDB:
         return self.get_info_from(delivery_number)[1]
 
     def set_upload_date(self, delivery_number):
-        self.cursor.execute('UPDATE delivery SET upload_confirm_date = datetime("now") WHERE id = ?;', (delivery_number,))
+        q = 'UPDATE delivery SET upload_confirm_date = datetime("now") WHERE id = ?;'
+        self.cursor.execute(q, (delivery_number,))
         self.delivery_db.commit()
 
     def set_md5_date(self, delivery_number):
-        self.cursor.execute('UPDATE delivery SET md5_confirm_date = datetime("now") WHERE id = ?;', (delivery_number,))
+        q = 'UPDATE delivery SET md5_confirm_date = datetime("now") WHERE id = ?;'
+        self.cursor.execute(q, (delivery_number,))
         self.delivery_db.commit()
 
 
 class GelDataDelivery(AppLogger):
-    def __init__(self, work_dir, project_id, sample_id, user_sample_id=None, dry_run=False, no_cleanup=False):
-        self.project_id = project_id
+    def __init__(self, work_dir, sample_id, user_sample_id=None, dry_run=False, no_cleanup=False):
         self.sample_id = sample_id
         if not self.sample_id:
             self.sample_id = self.resolve_sample_id(user_sample_id)
         self.dry_run = dry_run
         self.work_dir = work_dir
-        self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + self.project_id + '_' + self.sample_id)
         self.no_cleanup = no_cleanup
-        self._samples = {}
-        self.samples_to_delivery_id = {}
-
-    def cleanup(self):
-        if self.no_cleanup:
-            return
-        if os.path.exists(self.staging_dir):
-            shutil.rmtree(self.staging_dir)
 
     @staticmethod
     def resolve_sample_id(user_sample_id):
@@ -75,117 +67,137 @@ class GelDataDelivery(AppLogger):
             raise ValueError('User sample name %s resolve to %s sample' % (user_sample_id, len(samples)))
         return samples[0].name
 
-    def link_fastq_files(self, original_delivery, fastq_path, external_id, sample_barcode):
-        source1 = os.path.join(original_delivery, external_id + '_R1.fastq.gz')
-        source2 = os.path.join(original_delivery, external_id + '_R2.fastq.gz')
-        if not os.path.isfile(source1):
-            raise FileNotFoundError(source1 + ' does not exists')
-        if not os.path.isfile(source2):
-            raise FileNotFoundError(source2 + ' does not exists')
-        os.symlink(source1, os.path.join(fastq_path, sample_barcode + '_R1.fastq.gz'))
-        os.symlink(source2, os.path.join(fastq_path, sample_barcode + '_R2.fastq.gz'))
+    @cached_property
+    def project_id(self):
+        return self.sample_data[ELEMENT_PROJECT_ID]
 
-    def create_md5sum_txt(self, original_delivery, sample_path, external_id, gel_id):
-        with open(os.path.join(original_delivery, external_id + '_R1.fastq.gz.md5')) as fh:
-            md5_1, fp = fh.readline().strip().split()
-        with open(os.path.join(original_delivery, external_id + '_R2.fastq.gz.md5')) as fh:
-            md5_2, fp = fh.readline().strip().split()
-        with open(os.path.join(sample_path,'md5sums.txt'), 'w') as fh:
-            fh.write('%s %s' % (md5_1, 'fastq/' + gel_id + '_R1.fastq.gz'))
-            fh.write('%s %s' % (md5_2, 'fastq/' + gel_id + '_R2.fastq.gz'))
+    @cached_property
+    def staging_dir(self):
+        return os.path.join(self.work_dir, 'data_delivery_' + self.project_id + '_' + self.sample_id)
 
-    def get_sample(self, sample_id):
-        if not sample_id in self._samples:
-            self._samples[sample_id] = rest_communication.get_document(
-                'samples',
-                quiet=True,
-                where={'sample_id': sample_id}
-            )
-        return self._samples[sample_id]
-
-    def rsync_to_destination(self, sample_path, delivery_id):
-        options = ['-rv', '-L', '--timeout=300', '--append', '--partial', '--chmod ug+rwx,o-rwx', '--perms']
-        ssh_options = ['-o StrictHostKeyChecking=no', '-o TCPKeepAlive=yes', '-o ServerAliveInterval=100',
-                       '-o KeepAlive=yes', '-o BatchMode=yes', '-o LogLevel=Error',
-                       '-i %s'%cfg.query('gel_upload', 'ssh_key'), '-p 22']
-        destination = '%s@%s:upload/%s'%(cfg.query('gel_upload', 'username'), cfg.query('gel_upload', 'host'), delivery_id)
-
-        cmd = ' '.join(['rsync',  ' '.join(options), '-e ssh "%s"' % ' '.join(ssh_options), sample_path, destination])
-        return executor.local_execute(cmd).join()
-
-    def try_rsync(self, sample_path, delivery_id, max_nb_tries=3):
-        tries = 1
-        while tries < max_nb_tries:
-            exit_code = self.rsync_to_destination(sample_path, delivery_id)
-            if exit_code == 0:
-                return exit_code
-            tries += 1
-        return exit_code
+    @cached_property
+    def sample_data(self):
+        return rest_communication.get_document(
+            'samples',
+            quiet=True,
+            where={'sample_id': self.sample_id}
+        )
 
     @cached_property
     def deliver_db(self):
         return DeliveryDB()
 
-    def get_delivery_id(self, sample_id, external_sample_id):
-        if sample_id not in self.samples_to_delivery_id:
-            delivery_number = self.deliver_db.create_delivery(sample_id, external_sample_id)
-            self.samples_to_delivery_id[sample_id] = 'ED%08d' % delivery_number
-        return self.samples_to_delivery_id[sample_id]
+    @cached_property
+    def delivery_id(self):
+        if self.dry_run:
+            return 'ED00TEST'
+        delivery_number = self.deliver_db.create_delivery(self.sample_id, self.external_id)
+        return 'ED%08d' % delivery_number
 
-    def get_sample_barcode(self, sample):
-        return sample[ELEMENT_SAMPLE_EXTERNAL_ID]
+    @cached_property
+    def fluidx_barcode(self):
+        lims_sample = clarity.get_sample(self.sample_id)
+        return lims_sample.udf['2D Barcode']
+
+    @cached_property
+    def sample_delivery_folder(self):
+        delivery_dest = cfg.query('sample', 'delivery_dest')
+        path_to_glob = os.path.join(delivery_dest, self.project_id, '*', self.fluidx_barcode)
+        tmp = glob.glob(path_to_glob)
+        if len(tmp) == 1:
+            return tmp[0]
+        else:
+            raise ValueError('Could not find a single delivery folder: %s ' % path_to_glob)
+
+    @property
+    def sample_barcode(self):
+        return self.sample_data[ELEMENT_SAMPLE_EXTERNAL_ID]
+
+    @property
+    def external_id(self):
+        return self.sample_data[ELEMENT_SAMPLE_EXTERNAL_ID]
+
+    def cleanup(self):
+        if self.no_cleanup:
+            return
+        if os.path.exists(self.staging_dir):
+            shutil.rmtree(self.staging_dir)
+
+    def link_fastq_files(self, fastq_path):
+        source1 = os.path.join(self.sample_delivery_folder, self.external_id + '_R1.fastq.gz')
+        source2 = os.path.join(self.sample_delivery_folder, self.external_id + '_R2.fastq.gz')
+        if not os.path.isfile(source1):
+            raise FileNotFoundError(source1 + ' does not exists')
+        if not os.path.isfile(source2):
+            raise FileNotFoundError(source2 + ' does not exists')
+        os.symlink(source1, os.path.join(fastq_path, self.sample_barcode + '_R1.fastq.gz'))
+        os.symlink(source2, os.path.join(fastq_path, self.sample_barcode + '_R2.fastq.gz'))
+
+    def create_md5sum_txt(self, sample_path):
+        with open(os.path.join(self.sample_delivery_folder, self.external_id + '_R1.fastq.gz.md5')) as fh:
+            md5_1, fp = fh.readline().strip().split()
+        with open(os.path.join(self.sample_delivery_folder, self.external_id + '_R2.fastq.gz.md5')) as fh:
+            md5_2, fp = fh.readline().strip().split()
+        with open(os.path.join(sample_path,'md5sum.txt'), 'w') as fh:
+            fh.write('%s %s' % (md5_1, 'fastq/' + self.sample_barcode + '_R1.fastq.gz'))
+            fh.write('%s %s' % (md5_2, 'fastq/' + self.sample_barcode + '_R2.fastq.gz'))
+
+    def rsync_to_destination(self, delivery_id_path):
+        options = ['-rv', '-L', '--timeout=300', '--append', '--partial', '--chmod ug+rwx,o-rwx', '--perms']
+        ssh_options = ['-o StrictHostKeyChecking=no', '-o TCPKeepAlive=yes', '-o ServerAliveInterval=100',
+                       '-o KeepAlive=yes', '-o BatchMode=yes', '-o LogLevel=Error',
+                       '-i %s'%cfg.query('gel_upload', 'ssh_key'), '-p 22']
+        destination = '%s@%s:/delivery/' % (cfg.query('gel_upload', 'username'), cfg.query('gel_upload', 'host'))
+
+        cmd = ' '.join(['rsync',  ' '.join(options), '-e ssh "%s"' % ' '.join(ssh_options), delivery_id_path, destination])
+        return executor.local_execute(cmd).join()
+
+    def try_rsync(self, delivery_id_path, max_nb_tries=3):
+        tries = 1
+        while tries < max_nb_tries:
+            exit_code = self.rsync_to_destination(delivery_id_path)
+            if exit_code == 0:
+                return exit_code
+            tries += 1
+        return exit_code
 
     def deliver_data(self):
-        delivery_dest = cfg.query('sample', 'delivery_dest')
-        # find the batch directory
-        sample_delivery_folder = os.path.join(delivery_dest, self.project_id, '*', self.sample_id)
-        tmp = glob.glob(sample_delivery_folder)
-        if len(tmp) == 1 :
-            sample_delivery_folder = tmp[0]
-        else:
-            raise ValueError('Could not find delivery folder: %s ' % sample_delivery_folder)
-
-        sample = self.get_sample(self.sample_id)
-        external_id = sample[ELEMENT_SAMPLE_EXTERNAL_ID]
         # external sample_id is what GEL used as a sample barcode
-        sample_barcode = self.get_sample_barcode(sample)
-        sample_path = os.path.join(self.staging_dir, self.sample_id, sample_barcode)
+        delivery_id_path = os.path.join(self.staging_dir, self.delivery_id)
+        sample_path = os.path.join(delivery_id_path, self.sample_barcode)
         fastq_path = os.path.join(sample_path, 'fastq')
 
         os.makedirs(fastq_path, exist_ok=True)
-        self.link_fastq_files(sample_delivery_folder, fastq_path, external_id, sample_barcode)
-        self.create_md5sum_txt(sample_delivery_folder, sample_path, external_id, sample_barcode)
+        self.link_fastq_files(fastq_path)
+        self.create_md5sum_txt(sample_path)
 
         if not self.dry_run:
-            delivery_id = self.get_delivery_id(self.sample_id, external_sample_id=sample[ELEMENT_SAMPLE_EXTERNAL_ID])
-            send_action_to_rest_api(action='create', delivery_id=delivery_id, sample_id=sample_barcode)
-            exit_code = self.try_rsync(sample_path, delivery_id)
+            send_action_to_rest_api(action='create', delivery_id=self.delivery_id, sample_id=self.sample_barcode)
+            exit_code = self.try_rsync(delivery_id_path)
             if exit_code == 0:
-                send_action_to_rest_api(action='delivered', delivery_id=delivery_id, sample_id=sample_barcode)
+                send_action_to_rest_api(action='delivered', delivery_id=self.delivery_id, sample_id=self.sample_barcode)
             else:
                 send_action_to_rest_api(
                     action='upload_failed',
-                    delivery_id=delivery_id,
-                    sample_id=sample_barcode,
+                    delivery_id=self.delivery_id,
+                    sample_id=self.sample_barcode,
                     failurereason='rsync returned %s exit code' % (exit_code)
                 )
         else:
             self.info('Create delivery id from sample_id=%s' % (self.sample_id,))
-            self.info('Create delivery plateform sample_barcode=%s' % (sample_barcode,))
+            self.info('Create delivery plateform sample_barcode=%s' % (self.sample_barcode,))
             self.info('Run rsync')
 
         if self.dry_run:
             return
 
-        sample = self.get_sample(self.sample_id)
-        if not sample.get('md5sum check'):
-            delivery_id = self.get_delivery_id(self.sample_id)
-            req = send_action_to_rest_api(action='get', delivery_id=delivery_id)
+        if not self.sample_data.get('md5sum check'):
+            req = send_action_to_rest_api(action='get', delivery_id= self.delivery_id)
             sample_json = req.json()
             if sample_json['state'] == "md5_passed":
-                sample['md5sum check'] == 'passed'
+                self.sample_data['md5sum check'] == 'passed'
             elif sample_json['state'] == "md5_failed":
-                sample['md5sum check'] == 'failed'
+                self.sample_data['md5sum check'] == 'failed'
 
         self.cleanup()
 

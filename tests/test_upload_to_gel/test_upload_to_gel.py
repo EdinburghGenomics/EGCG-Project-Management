@@ -15,13 +15,18 @@ patched_response = patch(
         return_value=Mock(status_code=200, content='')
     )
 
-sample1 = {'sample_id': 'sample1', 'user_sample_id': '123456789_ext_sample1'}
-sample2 = {'sample_id': 'sample2', 'user_sample_id': '223456789_ext_sample2'}
-sample3 = {'sample_id': 'sample3', 'user_sample_id': '323456789_ext_sample3'}
+sample1 = {'project_id': 'project1', 'sample_id': 'sample1', 'user_sample_id': '123456789_ext_sample1'}
+sample2 = {'project_id': 'project1', 'sample_id': 'sample2', 'user_sample_id': '223456789_ext_sample2'}
+sample3 = {'project_id': 'project1', 'sample_id': 'sample3', 'user_sample_id': '323456789_ext_sample3'}
 samples = {
     'sample1': sample1,
     'sample2': sample2,
     'sample3': sample3
+}
+fluidx = {
+    'sample1': 'FD1',
+    'sample2': 'FD2',
+    'sample3': 'FD3'
 }
 
 def fake_get_sample(self, sample_id):
@@ -79,6 +84,24 @@ class TestDeliveryDB(TestProjectManagement):
 
 
 class TestGelDataDelivery(TestProjectManagement):
+    patch_sample_data1 = patch.object(
+        GelDataDelivery,
+        'sample_data',
+        new_callable=PropertyMock(return_value=sample1)
+    )
+    patch_fluidxbarcode1 = patch.object(
+        GelDataDelivery,
+        'fluidx_barcode',
+        new_callable=PropertyMock(return_value='FD1')
+    )
+    patch_fluidxbarcode2 = patch.object(
+        GelDataDelivery,
+        'fluidx_barcode',
+        new_callable=PropertyMock(return_value='FD2')
+    )
+    patch_create_delivery = patch.object(GelDataDelivery, 'deliver_db', new_callable=PropertyMock(
+        return_value=Mock(create_delivery=Mock(return_value=5)))
+        )
 
     def __init__(self, *args, **kwargs):
         super(TestProjectManagement, self).__init__(*args, **kwargs)
@@ -92,7 +115,7 @@ class TestGelDataDelivery(TestProjectManagement):
         self.staging_dir = os.path.join(self.assets_delivery, 'staging')
 
         for sample in ['sample1', 'sample2', 'sample3']:
-            sample_dir = os.path.join(self.dest_proj1, sample)
+            sample_dir = os.path.join(self.dest_proj1, fluidx.get(sample))
             os.makedirs(sample_dir, exist_ok=True)
             for suffix in ['_R1.fastq.gz', '_R2.fastq.gz', ]:
                 f = os.path.join(sample_dir,samples.get(sample).get(ELEMENT_SAMPLE_EXTERNAL_ID) + suffix)
@@ -100,14 +123,12 @@ class TestGelDataDelivery(TestProjectManagement):
                 md5(f)
         self.gel_data_delivery_dry = GelDataDelivery(
             self.staging_dir,
-            'project1',
             'sample1',
             dry_run=True,
             no_cleanup=True
         )
         self.gel_data_delivery = GelDataDelivery(
             self.staging_dir,
-            'project1',
             'sample1',
             dry_run=False,
             no_cleanup=True
@@ -123,25 +144,18 @@ class TestGelDataDelivery(TestProjectManagement):
                 os.unlink(fp)
 
     def test_link_fastq_files(self):
-        source = os.path.join(self.dest_proj1, sample1.get('sample_id'))
-        self.gel_data_delivery_dry.link_fastq_files(
-            source,
-            self.staging_dir,
-            sample1.get('user_sample_id'),
-            sample1.get('user_sample_id')
-        )
-        assert os.path.islink(os.path.join(self.staging_dir, sample1.get('user_sample_id') + '_R1.fastq.gz'))
-        assert os.path.islink(os.path.join(self.staging_dir, sample1.get('user_sample_id') + '_R2.fastq.gz'))
+        with self.patch_sample_data1, self.patch_fluidxbarcode1:
+            self.gel_data_delivery_dry.link_fastq_files(self.staging_dir)
+            assert os.path.islink(os.path.join(self.staging_dir, sample1.get('user_sample_id') + '_R1.fastq.gz'))
+            assert os.path.islink(os.path.join(self.staging_dir, sample1.get('user_sample_id') + '_R2.fastq.gz'))
 
-        # Mixing sample 1 and sample 2 id won't work
-        source = os.path.join(self.dest_proj1, sample2.get('sample_id'))
-        with pytest.raises(FileNotFoundError):
-            self.gel_data_delivery_dry.link_fastq_files(
-                source,
-                self.staging_dir,
-                sample1.get('user_sample_id'),
-                sample1.get('user_sample_id')
-            )
+    def test_link_fastq_files_fail(self):
+        with self.patch_sample_data1, self.patch_fluidxbarcode2:
+            # Mixing sample 1 and sample 2 id won't work
+            with pytest.raises(FileNotFoundError):
+                self.gel_data_delivery_dry.link_fastq_files(
+                    self.staging_dir,
+                )
 
     @patch('upload_to_gel.deliver_data_to_gel.DeliveryAPIClient')
     def test_send_action_to_rest_api(self, mocked_request):
@@ -155,24 +169,35 @@ class TestGelDataDelivery(TestProjectManagement):
             user='restuser'
         )
 
-    def test_get_delivery_id(self):
-        with patch.object(GelDataDelivery, 'deliver_db', new_callable=PropertyMock()) as deliver_db:
-            deliver_db.create_delivery = Mock(return_value=5)
-            assert self.gel_data_delivery.get_delivery_id('s', 'e') == 'ED00000005'
-
+    def test_delivery_id(self):
+        with self.patch_create_delivery, self.patch_sample_data1:
+            assert self.gel_data_delivery.delivery_id == 'ED00000005'
 
     def test_deliver_data_dry(self):
-        with patch('upload_to_gel.deliver_data_to_gel.GelDataDelivery.get_sample', new=fake_get_sample), \
+        with self.patch_sample_data1, self.patch_fluidxbarcode1, \
              patch('upload_to_gel.deliver_data_to_gel.GelDataDelivery.info') as mock_info:
             self.gel_data_delivery_dry.deliver_data()
+            print(mock_info.mock_calls)
             mock_info.assert_any_call('Create delivery id from sample_id=sample1')
             mock_info.assert_any_call('Create delivery plateform sample_barcode=123456789_ext_sample1')
             mock_info.assert_called_with('Run rsync')
 
 
     def test_deliver_data(self):
-        with patch('upload_to_gel.deliver_data_to_gel.GelDataDelivery.get_sample', new=fake_get_sample), \
-             patch.object(GelDataDelivery, 'get_delivery_id', side_effect = ['ED01', 'ED01', 'ED02', 'ED02', 'ED03', 'ED03']), \
+        with self.patch_sample_data1, self.patch_fluidxbarcode1, \
+             patch.object(GelDataDelivery, 'delivery_id', PropertyMock(return_value='ED01')), \
              patch('upload_to_gel.deliver_data_to_gel.send_action_to_rest_api'), \
-             patch('egcg_core.executor.local_execute'):
+             patch('egcg_core.executor.local_execute') as mock_execute:
+            mock_execute.return_value = Mock(join=Mock(return_value = 0))
             self.gel_data_delivery.deliver_data()
+            source = os.path.join(self.gel_data_delivery.staging_dir, self.gel_data_delivery.delivery_id)
+
+            rsync_cmd = ('rsync -rv -L --timeout=300 --append --partial --chmod ug+rwx,o-rwx --perms ',
+                         '-e ssh "-o StrictHostKeyChecking=no -o TCPKeepAlive=yes -o ServerAliveInterval=100 ',
+                         '-o KeepAlive=yes -o BatchMode=yes -o LogLevel=Error -i path/to/id_rsa.pub -p 22" ',
+                         '{source} user@gelupload.com:/delivery/'.format(source=source))
+
+            mock_execute.assert_any_call(''.join(rsync_cmd))
+            mock_execute().join.assert_called_with()
+            assert os.listdir(source) == [self.gel_data_delivery.external_id]
+            assert os.listdir(source + '/' + self.gel_data_delivery.external_id) == ['fastq', 'md5sum.txt']
