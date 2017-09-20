@@ -16,7 +16,7 @@ default:
         job_execution: local
 
     gel_upload:
-        delivery_db: tests/assets/gel_upload/gel_upload.sqlite
+        delivery_db: tests/assets/data_delivery/gel_upload.sqlite
         ssh_key: path/to/id_rsa.pub
         username: user
         host: gelupload.com
