@@ -13,7 +13,7 @@ def main():
     p.add_argument('--dry_run', action='store_true')
     p.add_argument('--debug', action='store_true')
     p.add_argument('--work_dir', type=str, required=True)
-    group = p.add_mutually_exclusive_group(required=True)
+    group = p.add_mutually_exclusive_group()
     group.add_argument('--sample_id', type=str)
     group.add_argument('--user_sample_id', type=str)
     p.add_argument('--force_new_delivery', action='store_true')

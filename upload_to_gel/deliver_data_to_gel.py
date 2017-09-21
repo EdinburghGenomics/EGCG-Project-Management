@@ -188,6 +188,7 @@ class GelDataDelivery(AppLogger):
             if exit_code == 0:
                 return exit_code
             tries += 1
+        self.info('Rsync exit code is %s' % exit_code)
         return exit_code
 
     def deliver_data(self):
@@ -242,8 +243,8 @@ class GelDataDelivery(AppLogger):
 
 def check_all_md5sums(work_dir):
     delivery_db = DeliveryDB()
-    delivery_db.crusor.execute('SELECT sample_id from delivery WHERE upload_state=? AND md5_state IS NULL', (SUCCESS_KW))
-    samples = delivery_db.crusor.fetchall()
+    delivery_db.cursor.execute('SELECT sample_id from delivery WHERE upload_state=? AND md5_state IS NULL', (SUCCESS_KW, ))
+    samples = delivery_db.cursor.fetchall()
     if samples:
         for sample_id, in samples:
             dd = GelDataDelivery(work_dir, sample_id)
