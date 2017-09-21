@@ -13,7 +13,6 @@ def main():
     p.add_argument('--dry_run', action='store_true')
     p.add_argument('--debug', action='store_true')
     p.add_argument('--work_dir', type=str, required=True)
-    p.add_argument('--project_id', type=str, required=True)
     group = p.add_mutually_exclusive_group(required=True)
     group.add_argument('--sample_id', type=str)
     group.add_argument('--user_sample_id', type=str)
@@ -31,7 +30,7 @@ def main():
     if args.check_all_md5:
         check_all_md5sums(args.work_dir)
     else:
-        gel_delivery = GelDataDelivery(args.work_dir, args.project_id, args.sample_id, args.user_sample_id, args.dry_run)
+        gel_delivery = GelDataDelivery(args.work_dir, args.sample_id, args.user_sample_id, args.dry_run)
         gel_delivery.deliver_data()
 
 

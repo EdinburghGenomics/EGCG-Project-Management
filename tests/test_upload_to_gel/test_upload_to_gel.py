@@ -214,9 +214,9 @@ class TestGelDataDelivery(TestProjectManagement):
             source = os.path.join(self.gel_data_delivery.staging_dir, self.gel_data_delivery.delivery_id)
 
             rsync_cmd = ('rsync -rv -L --timeout=300 --append --partial --chmod ug+rwx,o-rwx --perms ',
-                         '-e ssh "-o StrictHostKeyChecking=no -o TCPKeepAlive=yes -o ServerAliveInterval=100 ',
+                         '-e "ssh -o StrictHostKeyChecking=no -o TCPKeepAlive=yes -o ServerAliveInterval=100 ',
                          '-o KeepAlive=yes -o BatchMode=yes -o LogLevel=Error -i path/to/id_rsa.pub -p 22" ',
-                         '{source} user@gelupload.com:/delivery/'.format(source=source))
+                         '{source} user@gelupload.com:/destination/'.format(source=source))
 
             mock_execute.assert_any_call(''.join(rsync_cmd))
             mock_execute().join.assert_called_with()

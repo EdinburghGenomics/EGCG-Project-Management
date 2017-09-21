@@ -27,9 +27,9 @@ class DeliveryDB:
            sample_id TEXT,
            external_sample_id TEXT,
            creation_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-           upload_state TEXT DEFAULT NULL,,
+           upload_state TEXT DEFAULT NULL,
            upload_confirm_date DATETIME DEFAULT NULL,
-           md5_state TEXT DEFAULT NULL,,
+           md5_state TEXT DEFAULT NULL,
            md5_confirm_date DATETIME DEFAULT NULL
         );''')
 
@@ -122,12 +122,16 @@ class GelDataDelivery(AppLogger):
     @cached_property
     def fluidx_barcode(self):
         lims_sample = clarity.get_sample(self.sample_id)
-        return lims_sample.udf['2D Barcode']
+        return lims_sample.udf.get('2D Barcode')
+
 
     @cached_property
     def sample_delivery_folder(self):
-        delivery_dest = cfg.query('sample', 'delivery_dest')
-        path_to_glob = os.path.join(delivery_dest, self.project_id, '*', self.fluidx_barcode)
+        delivery_dest = cfg.query('delivery', 'dest')
+        if self.fluidx_barcode:
+            path_to_glob = os.path.join(delivery_dest, self.project_id, '*', self.fluidx_barcode)
+        else:
+            path_to_glob = os.path.join(delivery_dest, self.project_id, '*', self.sample_id)
         tmp = glob.glob(path_to_glob)
         if len(tmp) == 1:
             return tmp[0]
@@ -169,12 +173,12 @@ class GelDataDelivery(AppLogger):
 
     def rsync_to_destination(self, delivery_id_path):
         options = ['-rv', '-L', '--timeout=300', '--append', '--partial', '--chmod ug+rwx,o-rwx', '--perms']
-        ssh_options = ['-o StrictHostKeyChecking=no', '-o TCPKeepAlive=yes', '-o ServerAliveInterval=100',
+        ssh_options = ['ssh', '-o StrictHostKeyChecking=no', '-o TCPKeepAlive=yes', '-o ServerAliveInterval=100',
                        '-o KeepAlive=yes', '-o BatchMode=yes', '-o LogLevel=Error',
                        '-i %s'%cfg.query('gel_upload', 'ssh_key'), '-p 22']
-        destination = '%s@%s:/delivery/' % (cfg.query('gel_upload', 'username'), cfg.query('gel_upload', 'host'))
+        destination = '%s@%s:%s' % (cfg.query('gel_upload', 'username'), cfg.query('gel_upload', 'host'), cfg.query('gel_upload', 'dest'))
 
-        cmd = ' '.join(['rsync',  ' '.join(options), '-e ssh "%s"' % ' '.join(ssh_options), delivery_id_path, destination])
+        cmd = ' '.join(['rsync',  ' '.join(options), '-e "%s"' % ' '.join(ssh_options), delivery_id_path, destination])
         return executor.local_execute(cmd).join()
 
     def try_rsync(self, delivery_id_path, max_nb_tries=3):
@@ -208,7 +212,7 @@ class GelDataDelivery(AppLogger):
                     action='upload_failed',
                     delivery_id=self.delivery_id,
                     sample_id=self.sample_barcode,
-                    failurereason='rsync returned %s exit code' % (exit_code)
+                    failure_reason='rsync returned %s exit code' % (exit_code)
                 )
         else:
             self.info('Create delivery id %s from sample_id=%s' % (self.delivery_id, self.sample_id,))
