@@ -4,12 +4,15 @@ import shutil
 
 import sqlite3
 
+import re
 from cached_property import cached_property
 from egcg_core import executor, clarity
 from egcg_core import rest_communication
 from egcg_core.app_logging import AppLogger
 from egcg_core.config import cfg
 from egcg_core.constants import ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_PROJECT_ID
+from requests.exceptions import HTTPError
+
 from upload_to_gel.client import DeliveryAPIClient
 
 
@@ -149,11 +152,16 @@ class GelDataDelivery(AppLogger):
 
     @property
     def sample_barcode(self):
-        return self.sample_data[ELEMENT_SAMPLE_EXTERNAL_ID]
+        eid = self.sample_data[ELEMENT_SAMPLE_EXTERNAL_ID]
+        m = re.match('[0-9]{9}_[0-9A-Za-z]{7}_[0-9]{4}_[0-9A-Za-z]{10}', eid)
+        if not m:
+            self.error('%s does not match the require regex', eid)
+        return eid
 
     @property
     def external_id(self):
         return self.sample_data[ELEMENT_SAMPLE_EXTERNAL_ID]
+
 
     def cleanup(self):
         if self.no_cleanup:
@@ -199,6 +207,13 @@ class GelDataDelivery(AppLogger):
             tries += 1
         return exit_code
 
+    def delivery_id_exist(self):
+        try:
+            send_action_to_rest_api(action='get', delivery_id=self.delivery_id)
+            return True
+        except HTTPError:
+            return False
+
     def deliver_data(self):
         # external sample_id is what GEL used as a sample barcode
         delivery_id_path = os.path.join(self.staging_dir, self.delivery_id)
@@ -210,7 +225,8 @@ class GelDataDelivery(AppLogger):
         self.create_md5sum_txt(sample_path)
 
         if not self.dry_run:
-            send_action_to_rest_api(action='create', delivery_id=self.delivery_id, sample_id=self.sample_barcode)
+            if not self.delivery_id_exist():
+                send_action_to_rest_api(action='create', delivery_id=self.delivery_id, sample_id=self.sample_barcode)
             exit_code = self.try_rsync(delivery_id_path)
             self.info('Rsync exit code is %s' % exit_code)
             if exit_code == 0:

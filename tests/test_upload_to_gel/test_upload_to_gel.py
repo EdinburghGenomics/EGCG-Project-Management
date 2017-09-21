@@ -208,7 +208,8 @@ class TestGelDataDelivery(TestProjectManagement):
         with self.patch_sample_data1, self.patch_fluidxbarcode1, \
              patch.object(GelDataDelivery, 'delivery_id', PropertyMock(return_value='ED01')), \
              self.patch_send_action as mocked_send_action, \
-             patch('egcg_core.executor.local_execute') as mock_execute:
+             patch('egcg_core.executor.local_execute') as mock_execute, \
+             patch.object(GelDataDelivery, 'delivery_id_exist', return_value=False):
             mock_execute.return_value = Mock(join=Mock(return_value = 0))
             self.gel_data_delivery.deliver_data()
             source = os.path.join(self.gel_data_delivery.staging_dir, self.gel_data_delivery.delivery_id)

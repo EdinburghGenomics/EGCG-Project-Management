@@ -78,14 +78,13 @@ class DeliveryAPIClient:
                 return self.create(self.delivery_id, self.sample_id)
 
             elif self.action.endswith('failed'):
-                if not (self.delivery_id and self.sample_id and self.failurereason):
+                if not (self.delivery_id and self.sample_id and self.failure_reason):
                     raise ArgumentException(
-                        'You need to pass a delivery id, sample id, and a failurereason')
+                        'You need to pass a delivery id, sample id, and a failure_reason')
                 return self.do_failure(self.action,
                                 self.delivery_id,
                                 self.sample_id,
-                                self.failurereason)
-
+                                self.failure_reason)
             else:
                 if not self.delivery_id:
                     raise ArgumentException('You need to pass a delivery id')
@@ -209,7 +208,7 @@ python client.py --action=all
 python client.py --action=create --delivery_id=DELIVERY_1 --sample_id=SAMPLE_1
 python client.py --action=delivered --delivery_id=DELIVERY_1 --sample_id=SAMPLE_1
 python client.py --action=deleted --delivery_id=DELIVERY_1 --sample_id=SAMPLE_1
-python client.py --action=upload_failed --delivery_id=DELIVERY_1 --sample_id=SAMPLE_1 --failurereason='ran out of disk space'
+python client.py --action=upload_failed --delivery_id=DELIVERY_1 --sample_id=SAMPLE_1 --failure_reason='ran out of disk space'
     ''')
     parser.add_argument(
         '--host',
