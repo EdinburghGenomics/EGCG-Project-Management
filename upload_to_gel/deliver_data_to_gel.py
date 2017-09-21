@@ -13,6 +13,10 @@ from egcg_core.constants import ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_PROJECT_ID
 from upload_to_gel.client import DeliveryAPIClient
 
 
+SUCCESS_KW = 'passed'
+FAILURE_KW = 'failed'
+
+
 class DeliveryDB:
 
     def __init__(self):
@@ -23,7 +27,9 @@ class DeliveryDB:
            sample_id TEXT,
            external_sample_id TEXT,
            creation_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+           upload_state TEXT DEFAULT NULL,,
            upload_confirm_date DATETIME DEFAULT NULL,
+           md5_state TEXT DEFAULT NULL,,
            md5_confirm_date DATETIME DEFAULT NULL
         );''')
 
@@ -40,25 +46,42 @@ class DeliveryDB:
     def get_sample_from(self, delivery_number):
         return self.get_info_from(delivery_number)[1]
 
-    def set_upload_date(self, delivery_number):
-        q = 'UPDATE delivery SET upload_confirm_date = datetime("now") WHERE id = ?;'
-        self.cursor.execute(q, (delivery_number,))
+    def get_creation_date_from(self, delivery_number):
+        return self.get_info_from(delivery_number)[3]
+
+    def get_upload_confirmation_from(self, delivery_number):
+        return self.get_info_from(delivery_number)[4:6]
+
+    def get_md5_confirmation_from(self, delivery_number):
+        return self.get_info_from(delivery_number)[6:8]
+
+    def get_most_recent_delivery_id(self, sample_id):
+        q = 'SELECT id from delivery WHERE sample_id=? ORDER BY creation_date DESC LIMIT 1;'
+        self.cursor.execute(q, (sample_id,))
+        val = self.cursor.fetchone()
+        if val:
+            return val[0]
+        return None
+
+    def set_upload_state(self, delivery_number, state):
+        q = 'UPDATE delivery SET upload_state = ?, upload_confirm_date = datetime("now") WHERE id = ?;'
+        self.cursor.execute(q, (state, delivery_number))
         self.delivery_db.commit()
 
-    def set_md5_date(self, delivery_number):
-        q = 'UPDATE delivery SET md5_confirm_date = datetime("now") WHERE id = ?;'
-        self.cursor.execute(q, (delivery_number,))
+    def set_md5_state(self, delivery_number, state):
+        q = 'UPDATE delivery SET md5_state = ?, md5_confirm_date = datetime("now") WHERE id = ?;'
+        self.cursor.execute(q, (state, delivery_number))
         self.delivery_db.commit()
-
 
 class GelDataDelivery(AppLogger):
-    def __init__(self, work_dir, sample_id, user_sample_id=None, dry_run=False, no_cleanup=False):
+    def __init__(self, work_dir, sample_id, user_sample_id=None, dry_run=False, no_cleanup=False, force_new_delivery=False):
         self.sample_id = sample_id
         if not self.sample_id:
             self.sample_id = self.resolve_sample_id(user_sample_id)
         self.dry_run = dry_run
         self.work_dir = work_dir
         self.no_cleanup = no_cleanup
+        self.force_new_delivery = force_new_delivery
 
     @staticmethod
     def resolve_sample_id(user_sample_id):
@@ -91,7 +114,9 @@ class GelDataDelivery(AppLogger):
     def delivery_id(self):
         if self.dry_run:
             return 'ED00TEST'
-        delivery_number = self.deliver_db.create_delivery(self.sample_id, self.external_id)
+        delivery_number = self.deliver_db.get_most_recent_delivery_id(self.sample_id)
+        if not delivery_number or self.force_new_delivery:
+            delivery_number = self.deliver_db.create_delivery(self.sample_id, self.external_id)
         return 'ED%08d' % delivery_number
 
     @cached_property
@@ -175,8 +200,10 @@ class GelDataDelivery(AppLogger):
             send_action_to_rest_api(action='create', delivery_id=self.delivery_id, sample_id=self.sample_barcode)
             exit_code = self.try_rsync(delivery_id_path)
             if exit_code == 0:
+                self.deliver_db.set_upload_state(self.delivery_id, SUCCESS_KW)
                 send_action_to_rest_api(action='delivered', delivery_id=self.delivery_id, sample_id=self.sample_barcode)
             else:
+                self.deliver_db.set_upload_state(self.delivery_id, FAILURE_KW)
                 send_action_to_rest_api(
                     action='upload_failed',
                     delivery_id=self.delivery_id,
@@ -184,23 +211,39 @@ class GelDataDelivery(AppLogger):
                     failurereason='rsync returned %s exit code' % (exit_code)
                 )
         else:
-            self.info('Create delivery id from sample_id=%s' % (self.sample_id,))
+            self.info('Create delivery id %s from sample_id=%s' % (self.delivery_id, self.sample_id,))
             self.info('Create delivery plateform sample_barcode=%s' % (self.sample_barcode,))
             self.info('Run rsync')
+        self.cleanup()
 
-        if self.dry_run:
-            return
-
-        if not self.sample_data.get('md5sum check'):
+    def check_md5sum(self):
+        info = self.deliver_db.get_info_from(self.delivery_id)
+        id, sample_id, external_sample_id, creation_date, upload_state, upload_confirm_date, md5_state, md5_confirm_date = info
+        if upload_state == SUCCESS_KW and not md5_confirm_date:
             req = send_action_to_rest_api(action='get', delivery_id= self.delivery_id)
             sample_json = req.json()
             if sample_json['state'] == "md5_passed":
-                self.sample_data['md5sum check'] == 'passed'
+                self.deliver_db.set_md5_state(self.delivery_id, SUCCESS_KW)
+                self.info('Delivery %s sample %s: md5 check has been successful', self.delivery_id, self.sample_id)
             elif sample_json['state'] == "md5_failed":
-                self.sample_data['md5sum check'] == 'failed'
+                self.deliver_db.set_md5_state(self.delivery_id, FAILURE_KW)
+                self.info('Delivery %s sample %s: md5 check has failed', self.delivery_id, self.sample_id)
+        elif not upload_state:
+            self.error('Delivery %s sample %s: Has not been uploaded', self.delivery_id, self.sample_id)
+        elif upload_state == FAILURE_KW:
+            self.error('Delivery %s sample %s: Uploaded has failed', self.delivery_id, self.sample_id)
+        elif md5_state:
+            self.error('Delivery %s sample %s md5 check failed was checked before on ', self.delivery_id, self.sample_id, md5_confirm_date)
 
-        self.cleanup()
 
+def check_all_md5sums(work_dir):
+    delivery_db = DeliveryDB()
+    delivery_db.crusor.execute('SELECT sample_id from delivery WHERE upload_state=? AND md5_state IS NULL', (SUCCESS_KW))
+    samples = delivery_db.crusor.fetchall()
+    if samples:
+        for sample_id, in samples:
+            dd = GelDataDelivery(work_dir, sample_id)
+            dd.check_md5sum()
 
 def send_action_to_rest_api(action, **kwargs):
     api_param = cfg.query('gel_upload', 'rest_api')
