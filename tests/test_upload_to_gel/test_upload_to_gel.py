@@ -64,7 +64,7 @@ class TestDeliveryDB(TestProjectManagement):
 
     def test_create_delivery(self):
         id = self.deliverydb.create_delivery('sample1', 'external_sample1')
-        assert id == 1
+        assert id == 'ED00000001'
         assert self.deliverydb.get_sample_from(id) == 'sample1'
 
     def test_get_most_recent_delivery_id(self):
@@ -78,22 +78,22 @@ class TestDeliveryDB(TestProjectManagement):
         assert self.deliverydb.get_most_recent_delivery_id('sample3') == id4
 
     def test_set_upload_state(self):
-        id = self.deliverydb.create_delivery('sample1', 'external_sample1')
-        state, date = self.deliverydb.get_upload_confirmation_from(id)
+        did = self.deliverydb.create_delivery('sample1', 'external_sample1')
+        state, date = self.deliverydb.get_upload_confirmation_from(did)
         assert state is None
         assert date is None
-        self.deliverydb.set_upload_state(id, 'pass')
-        state, date = self.deliverydb.get_upload_confirmation_from(id)
+        self.deliverydb.set_upload_state(did, 'pass')
+        state, date = self.deliverydb.get_upload_confirmation_from(did)
         assert state == 'pass'
         assert date is not None
 
     def test_set_md5_state(self):
-        id = self.deliverydb.create_delivery('sample1', 'external_sample1')
-        state, date = self.deliverydb.get_md5_confirmation_from(id)
+        did = self.deliverydb.create_delivery('sample1', 'external_sample1')
+        state, date = self.deliverydb.get_md5_confirmation_from(did)
         assert state is None
         assert date is None
-        self.deliverydb.set_md5_state(id, 'pass')
-        state, date = self.deliverydb.get_md5_confirmation_from(id)
+        self.deliverydb.set_md5_state(did, 'pass')
+        state, date = self.deliverydb.get_md5_confirmation_from(did)
         assert state == 'pass'
         assert date is not None
 
@@ -114,7 +114,7 @@ class TestGelDataDelivery(TestProjectManagement):
         'fluidx_barcode',
         new_callable=PropertyMock(return_value='FD2')
     )
-    patch_create_delivery = patch.object(DeliveryDB, 'create_delivery', return_value=5)
+    patch_create_delivery = patch.object(DeliveryDB, 'create_delivery', return_value='ED00000005')
 
     patch_send_action = patch('upload_to_gel.deliver_data_to_gel.send_action_to_rest_api')
 

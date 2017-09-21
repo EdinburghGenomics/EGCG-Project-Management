@@ -33,45 +33,54 @@ class DeliveryDB:
            md5_confirm_date DATETIME DEFAULT NULL
         );''')
 
+    def _delivery_number_to_id(self, delivery_number):
+        return 'ED%08d' % delivery_number
+
+    def _delivery_id_to_number(self, delivery_id):
+        return int(delivery_id[2:])
+
     def create_delivery(self, sample_id, external_sample_id):
         q = 'INSERT INTO delivery (sample_id, external_sample_id) VALUES (?, ?);'
         self.cursor.execute(q, (sample_id, external_sample_id))
         self.delivery_db.commit()
-        return self.cursor.lastrowid
+        return self._delivery_number_to_id(self.cursor.lastrowid)
 
-    def get_info_from(self, delivery_number):
-        self.cursor.execute('SELECT * from delivery WHERE id=?', (delivery_number,))
+    def get_info_from(self, delivery_id):
+        self.cursor.execute('SELECT * from delivery WHERE id=?', (self._delivery_id_to_number(delivery_id),))
         return self.cursor.fetchone()
 
-    def get_sample_from(self, delivery_number):
-        return self.get_info_from(delivery_number)[1]
+    def get_sample_from(self, delivery_id):
+        return self.get_info_from(delivery_id)[1]
 
-    def get_creation_date_from(self, delivery_number):
-        return self.get_info_from(delivery_number)[3]
+    def get_creation_date_from(self, delivery_id):
+        return self.get_info_from(delivery_id)[3]
 
-    def get_upload_confirmation_from(self, delivery_number):
-        return self.get_info_from(delivery_number)[4:6]
+    def get_upload_confirmation_from(self, delivery_id):
+        return self.get_info_from(delivery_id)[4:6]
 
-    def get_md5_confirmation_from(self, delivery_number):
-        return self.get_info_from(delivery_number)[6:8]
+    def get_md5_confirmation_from(self, delivery_id):
+        return self.get_info_from(delivery_id)[6:8]
 
     def get_most_recent_delivery_id(self, sample_id):
         q = 'SELECT id from delivery WHERE sample_id=? ORDER BY creation_date DESC LIMIT 1;'
         self.cursor.execute(q, (sample_id,))
         val = self.cursor.fetchone()
         if val:
-            return val[0]
+            return self._delivery_number_to_id(val[0])
         return None
 
-    def set_upload_state(self, delivery_number, state):
+    def set_upload_state(self, delivery_id, state):
         q = 'UPDATE delivery SET upload_state = ?, upload_confirm_date = datetime("now") WHERE id = ?;'
-        self.cursor.execute(q, (state, delivery_number))
+        self.cursor.execute(q, (state, self._delivery_id_to_number(delivery_id)))
         self.delivery_db.commit()
 
-    def set_md5_state(self, delivery_number, state):
+    def set_md5_state(self, delivery_id, state):
         q = 'UPDATE delivery SET md5_state = ?, md5_confirm_date = datetime("now") WHERE id = ?;'
-        self.cursor.execute(q, (state, delivery_number))
+        self.cursor.execute(q, (state, self._delivery_id_to_number(delivery_id)))
         self.delivery_db.commit()
+
+    def __del__(self):
+        self.delivery_db.close()
 
 class GelDataDelivery(AppLogger):
     def __init__(self, work_dir, sample_id, user_sample_id=None, dry_run=False, no_cleanup=False, force_new_delivery=False):
@@ -114,10 +123,10 @@ class GelDataDelivery(AppLogger):
     def delivery_id(self):
         if self.dry_run:
             return 'ED00TEST'
-        delivery_number = self.deliver_db.get_most_recent_delivery_id(self.sample_id)
-        if not delivery_number or self.force_new_delivery:
-            delivery_number = self.deliver_db.create_delivery(self.sample_id, self.external_id)
-        return 'ED%08d' % delivery_number
+        did = self.deliver_db.get_most_recent_delivery_id(self.sample_id)
+        if not did or self.force_new_delivery:
+            did = self.deliver_db.create_delivery(self.sample_id, self.external_id)
+        return did
 
     @cached_property
     def fluidx_barcode(self):
@@ -188,7 +197,6 @@ class GelDataDelivery(AppLogger):
             if exit_code == 0:
                 return exit_code
             tries += 1
-        self.info('Rsync exit code is %s' % exit_code)
         return exit_code
 
     def deliver_data(self):
@@ -204,6 +212,7 @@ class GelDataDelivery(AppLogger):
         if not self.dry_run:
             send_action_to_rest_api(action='create', delivery_id=self.delivery_id, sample_id=self.sample_barcode)
             exit_code = self.try_rsync(delivery_id_path)
+            self.info('Rsync exit code is %s' % exit_code)
             if exit_code == 0:
                 self.deliver_db.set_upload_state(self.delivery_id, SUCCESS_KW)
                 send_action_to_rest_api(action='delivered', delivery_id=self.delivery_id, sample_id=self.sample_barcode)
