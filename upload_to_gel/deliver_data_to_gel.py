@@ -168,8 +168,8 @@ class GelDataDelivery(AppLogger):
         with open(os.path.join(self.sample_delivery_folder, self.external_id + '_R2.fastq.gz.md5')) as fh:
             md5_2, fp = fh.readline().strip().split()
         with open(os.path.join(sample_path,'md5sum.txt'), 'w') as fh:
-            fh.write('%s %s' % (md5_1, 'fastq/' + self.sample_barcode + '_R1.fastq.gz'))
-            fh.write('%s %s' % (md5_2, 'fastq/' + self.sample_barcode + '_R2.fastq.gz'))
+            fh.write('%s %s\n' % (md5_1, 'fastq/' + self.sample_barcode + '_R1.fastq.gz'))
+            fh.write('%s %s\n' % (md5_2, 'fastq/' + self.sample_barcode + '_R2.fastq.gz'))
 
     def rsync_to_destination(self, delivery_id_path):
         options = ['-rv', '-L', '--timeout=300', '--append', '--partial', '--chmod ug+rwx,o-rwx', '--perms']
