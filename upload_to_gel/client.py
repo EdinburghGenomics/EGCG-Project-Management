@@ -51,8 +51,7 @@ class DeliveryAPIClient:
         """
         self.auth = HTTPBasicAuth(self.user, self.pswd)
         self.base_url = 'http://' + self.host + '/api/deliveries'
-        self.headers = {'content-type': 'application/json'}
-        self.params = {'auth': self.auth, 'headers': self.headers}
+        self.params = {'auth': self.auth}
 
     def make_call(self):
         """
@@ -101,8 +100,7 @@ class DeliveryAPIClient:
         :param delivery_id:
         :param sample_id:
         """
-        self.params['data'] = json.dumps({'delivery_id': delivery_id},
-                                         {'sample_id': sample_id})
+        self.params['json'] = {'delivery_id': delivery_id}
         return self.do_http_call('put', self.get_url(delivery_id))
 
     def get(self, delivery_id):
@@ -133,11 +131,11 @@ class DeliveryAPIClient:
         :param delivery_id:
         :param sample_id:
         """
-        self.params['data'] = json.dumps({'delivery_id': delivery_id,
-                                          'sample_barcode': sample_id})  # this needs to be
-                                                                         # sample_barcode for com-
-                                                                         # patibility with code
-                                                                         # on the Illumina side
+        self.params['json'] = {
+            'delivery_id': delivery_id,
+            'sample_barcode': sample_id  # this needs to be sample_barcode for compatibility
+                                         # with code on the Illumina side
+        }
         return self.do_http_call('post', self.get_url(delivery_id, 'actions', action))
 
     def do_failure(self, action, delivery_id, sample_id, failure_reason):
@@ -148,12 +146,12 @@ class DeliveryAPIClient:
         :param sample_id:
         :param failure_reason:
         """
-        self.params['data'] = json.dumps({'delivery_id': delivery_id,
-                                          'sample_barcode': sample_id,  # this needs to be
-                                                                        # sample_barcode for com-
-                                                                        # patibility with code
-                                                                        # on the Illumina side
-                                          'failure_reason': failure_reason})
+        self.params['json'] = {
+            'delivery_id': delivery_id,
+            'sample_barcode': sample_id,  # this needs to be sample_barcode for compatibility
+                                          # with code on the Illumina side
+            'failure_reason': failure_reason
+        }
         return self.do_http_call('post', self.get_url(delivery_id, 'actions', action))
 
     def get_url(self, *parts):

@@ -1,5 +1,5 @@
 import hashlib
-from unittest.mock import patch, Mock
+from unittest.mock import patch, Mock, call
 
 import pytest
 
@@ -32,4 +32,30 @@ class TestDeliveryAPIClient(TestProjectManagement):
         # FIXME: Why do we need a sample id ??
         with patch('requests.put', return_value=fake_post_response) as mocked_put:
             request = c.make_call()
+            assert request.status_code == 201
+            mocked_put.assert_called_once_with(
+                'http://test.server/api/deliveries/id1/',
+                auth=c.auth,
+                json={"delivery_id": "id1"},
+            )
             assert mocked_put.call_args[0][0] == 'http://test.server/api/deliveries/id1/'
+
+        c = self.create_client(action='upload_failed', delivery_id='id1', sample_id='s1', failure_reason='having a bad day')
+        with patch('requests.post', return_value=fake_post_response) as mocked_post:
+            request = c.make_call()
+            assert request.status_code == 201
+            mocked_post.assert_called_once_with(
+                'http://test.server/api/deliveries/id1/actions/upload_failed/',
+                auth= c.auth,
+                json = {"sample_barcode": "s1", "delivery_id": "id1", "failure_reason": "having a bad day"},
+            )
+
+        c = self.create_client(action='delivered', delivery_id='id1', sample_id='s1',)
+        with patch('requests.post', return_value=fake_post_response) as mocked_post:
+            request = c.make_call()
+            assert request.status_code == 201
+            mocked_post.assert_called_once_with(
+                'http://test.server/api/deliveries/id1/actions/delivered/',
+                auth=c.auth,
+                json={"sample_barcode": "s1", "delivery_id": "id1"},
+            )
