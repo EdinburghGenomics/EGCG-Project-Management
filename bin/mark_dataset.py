@@ -50,6 +50,12 @@ def main():
     elif args.review_reset:
         patch['reviewed'] = 'not reviewed'
 
+    if args.review_comments:
+        patch['review_comments'] = args.review_comments
+
+    if args.useable_comments:
+        patch['useable_comments'] = args.useable_comments
+
     for f in filters:
         rest_communication.patch_entries(end_point, payload=patch, where=f)
 
@@ -67,12 +73,17 @@ def _parse_args():
     group.add_argument('--sample', nargs='+', default=[], help='Mark provided sample with specific annotation')
     group = p.add_mutually_exclusive_group(required=False)
     group.add_argument('--useable', action='store_true', default=False)
+
+
     group.add_argument('--notuseable', action='store_true', default=False)
     group.add_argument('--resetuseable', action='store_true', default=False)
     group = p.add_mutually_exclusive_group(required=False)
     group.add_argument('--review_pass', action='store_true', default=False)
     group.add_argument('--review_fail', action='store_true', default=False)
     group.add_argument('--review_reset', action='store_true', default=False)
+
+    p.add_argument('--review_comments', type=str, default=None)
+    p.add_argument('--useable_comments', type=str, default=None)
     return p.parse_args()
 
 
