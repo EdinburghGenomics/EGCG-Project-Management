@@ -2,6 +2,8 @@ language: python
 python:
   - "3.3"
   - "3.4"
+  - "3.5"
+  - "3.6"
 install:
   - "pip install -r requirements_no_pdf.txt"
   - "pip install python-coveralls pytest-cov"

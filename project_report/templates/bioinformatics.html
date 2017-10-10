@@ -1,0 +1,9 @@
+{% from 'all_templates.html' import bos_taurus_bioinf, non_human_bioinf, human_bioinf %}
+{% set macro_dict = {'bos_taurus_bioinf': bos_taurus_bioinf, 'non_human_bioinf': non_human_bioinf, 'human_bioinf': human_bioinf} %}
+{% for t in project_templates['bioinformatics_template'] %}
+    {% for key in macro_dict %}
+        {% if t == key %}
+            {{ macro_dict[key](params) }}
+        {% endif %}
+    {% endfor %}
+{% endfor %}
