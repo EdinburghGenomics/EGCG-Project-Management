@@ -23,6 +23,7 @@ default:
 
     tools:
         fastqc: fastqc
+        md5sum: md5sum
     executor:
         job_execution: local
 
