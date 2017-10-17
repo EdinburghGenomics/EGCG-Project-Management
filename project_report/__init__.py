@@ -62,7 +62,7 @@ class ProjectReport(AppLogger):
         if self._delivered_samples_for_project is None:
             self._delivered_samples_for_project = rest_communication.get_documents('samples', where={
                 'project_id': self.project_name,
-                'delivery': 'yes'
+                'delivered': 'yes'
             })
         return self._delivered_samples_for_project
 
