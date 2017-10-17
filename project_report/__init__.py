@@ -66,6 +66,10 @@ class ProjectReport(AppLogger):
             })
         return self._delivered_samples_for_project
 
+    def get_total_number_of_samples(self):
+        project = clarity.get_project(project_id=self.project_name)
+        return project.udf.get('Number of Quoted Samples')
+
     def get_delivered_sample_names(self):
         return [s.get('sample_id') for s in self.samples_from_lims]
 
@@ -106,8 +110,8 @@ class ProjectReport(AppLogger):
         return samples_to_info
 
     def get_sample_info(self):
-        modified_samples = self.delivered_samples_for_project
-        for sample in modified_samples:
+        delivered_samples = self.delivered_samples_for_project
+        for sample in delivered_samples:
             sample_source = path.join(self.project_source, sample.get('sample_id'))
             program_csv = find_file(sample_source, 'programs.txt')
             if not program_csv:
@@ -119,17 +123,17 @@ class ProjectReport(AppLogger):
             if summary_yaml:
                 self.update_from_project_summary_yaml(summary_yaml)
 
-        samples_delivered = self.read_metrics_csv(path.join(self.project_delivery, 'summary_metrics.csv'))
-        yields = [float(samples_delivered[s]['Yield']) for s in samples_delivered]
+        samples_metrics = self.read_metrics_csv(path.join(self.project_delivery, 'summary_metrics.csv'))
+        yields = [float(samples_metrics[s]['Yield']) for s in samples_metrics]
         results = [
-            ('Number of samples:', len(modified_samples)),
-            ('Number of samples delivered:', len(samples_delivered)),
+            ('Number of samples:', self.get_total_number_of_samples()),
+            ('Number of samples delivered:', len(samples_metrics)),
             ('Total yield (Gb):', '%.2f' % sum(yields)),
             ('Average yield (Gb):', '%.1f' % (sum(yields)/max(len(yields), 1)))
         ]
 
         try:
-            coverage = [float(samples_delivered[s]['Mean coverage']) for s in samples_delivered]
+            coverage = [float(samples_metrics[s]['Mean coverage']) for s in samples_metrics]
             results.append(('Average coverage per sample:', '%.2f' % (sum(coverage)/max(len(coverage), 1))))
         except KeyError:
             self.warning('Not adding mean coverage')

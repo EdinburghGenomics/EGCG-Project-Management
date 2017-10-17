@@ -28,9 +28,11 @@ fake_lims_sample_list = [fake_lims_sample1, fake_lims_sample2, fake_lims_sample3
 fake_lims_sample_dict = dict([(s.name, s) for s in fake_lims_sample_list])
 
 fake_lims_project = Mock(
-    udf={'Project Title': 'a_research_title', 'Enquiry Number': '1337', 'Quote No.': '1338'},
+    udf={'Project Title': 'a_research_title', 'Enquiry Number': '1337', 'Quote No.': '1338', 'Number of Quoted Samples': 2},
     researcher=Mock(first_name='First', last_name='Last', email='first.last@email.com')
 )
+
+patch_get_project = patch('egcg_core.clarity.get_project', return_value=fake_lims_project)
 
 fake_db_sample1 = {'sample_id': 'sample_01'}
 fake_db_sample2 = {'sample_id': 'sample_02'}
@@ -70,7 +72,7 @@ class TestProjectReport(TestProjectManagement):
             ('Quote no:', '1338'),
             ('Researcher:', 'First Last (first.last@email.com)')
         )
-        with patch('egcg_core.clarity.get_project', return_value=fake_lims_project):
+        with patch_get_project:
             assert self.pr.get_project_info() == exp
 
     def test_get_library_workflow(self):
@@ -153,7 +155,7 @@ class TestProjectReport(TestProjectManagement):
     @patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
     def test_get_sample_info(self, mocked_project_size):
 
-        with get_patch_delivered_samples(fake_db_samples):
+        with get_patch_delivered_samples(fake_db_samples), patch_get_project:
             print(self.pr.params)
             assert self.pr.get_sample_info() == [
                 ('Number of samples:', 2),
@@ -194,7 +196,6 @@ def test_project_types():
     projects = ('human_truseq_nano', 'human_pcr_free', 'non_human_truseq_nano', 'non_human_pcr_free')
     samples = (fake_db_sample_hum_nano, fake_db_sample_hum_pcrfree, fake_db_sample_nonhum_nano, fake_db_sample_nonhum_pcrfree)
     for i, sample in enumerate(samples):
-        with get_patch_delivered_samples([sample]), patch_get_sample, \
-             patch('egcg_core.clarity.get_project', return_value=fake_lims_project):
+        with get_patch_delivered_samples([sample]), patch_get_sample, patch_get_project:
             pr = ProjectReport(projects[i])
             pr.generate_report('html')
