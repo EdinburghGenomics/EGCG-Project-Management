@@ -7,7 +7,7 @@ import shutil
 import sys
 import traceback
 from collections import defaultdict
-from os.path import basename, join
+from os.path import basename, join, dirname
 
 from egcg_core import executor, rest_communication, clarity
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
@@ -54,6 +54,7 @@ def _now():
 class DataDelivery(AppLogger):
     def __init__(self, dry_run, work_dir, no_cleanup=False, email=True):
         self.all_commands_for_cluster = []
+        self.postponed_register = []
         self.dry_run = dry_run
         self.all_samples_values = []
         self.sample2species = {}
@@ -126,8 +127,8 @@ class DataDelivery(AppLogger):
             else:
                 r1_files = [r1 for r1, r2 in original_fastq_files.values()]
                 r2_files = [r2 for r1, r2 in original_fastq_files.values()]
-                self._on_cluster_concat_file_to_sample(r1_files, sample_dir, rename=external_sample_id + '_R1.fastq.gz')
-                self._on_cluster_concat_file_to_sample(r2_files, sample_dir, rename=external_sample_id + '_R2.fastq.gz')
+                self._on_cluster_concat_file_to_sample(sample_id, r1_files, sample_dir, rename=external_sample_id + '_R1.fastq.gz')
+                self._on_cluster_concat_file_to_sample(sample_id, r2_files, sample_dir, rename=external_sample_id + '_R2.fastq.gz')
         else:
             fastq_folder = os.path.join(sample_dir, 'raw_data')
             os.makedirs(fastq_folder)
@@ -177,11 +178,16 @@ class DataDelivery(AppLogger):
         with open(md5_file) as open_file:
             md5, file_path = open_file.readline().strip().split()
         rel_path = os.path.relpath(data_file, start=self.staging_dir)
-        self.samples2list_files[sample_id].append({'file_path': rel_path, 'md5': md5})
+        file_size = os.stat(data_file).st_size
+        self.samples2list_files[sample_id].append({'file_path': rel_path, 'md5': md5, 'size': file_size})
 
     def update_registered_files(self, sample_id, delivery_folder):
         for file_dict in self.samples2list_files.get(sample_id):
-            file_dict['file_path'] = join(basename(delivery_folder), file_dict['file_path'])
+            file_dict['file_path'] = join(basename(dirname(delivery_folder)), basename(delivery_folder), file_dict['file_path'])
+
+    def register_postponed_files(self):
+        for tuple_val in self.postponed_register:
+            self.register_file(*tuple_val)
 
     def summarise_metrics_per_sample(self, project_id, delivery_folder):
         headers = ['Project', 'Sample Id', 'User sample id', 'Read pair sequenced', 'Yield', 'Yield Q30',
@@ -208,7 +214,7 @@ class DataDelivery(AppLogger):
                 res.append(str((clean_bases_r1 + clean_bases_r2) / 1000000000))
                 res.append(str((clean_q30_bases_r1 + clean_q30_bases_r2) / 1000000000))
                 if self.get_sample_species(sample.get('sample_id')) == 'Homo sapiens' or \
-                                self.get_analysis_type(sample.get('sample_id')) == 'Variant Calling':
+                   self.get_analysis_type(sample.get('sample_id')) in ['Variant Calling', 'Variant Calling gatk'] :
                     tr = sample.get('bam_file_reads', 0)
                     mr = sample.get('mapped_reads', 0)
                     dr = sample.get('duplicate_reads', 0)
@@ -240,12 +246,15 @@ class DataDelivery(AppLogger):
         _execute(command, env='local')
         return link_file
 
-    def _on_cluster_concat_file_to_sample(self, list_files, sample_folder, rename):
+    def _on_cluster_concat_file_to_sample(self, sample_id, list_files, sample_folder, rename):
         command = 'cat {list_files} > {fq}; {md5sum} {fq} > {fq}.md5; {fastqc} --nogroup -q {fq}'.format(
             list_files=' '.join(list_files),
             fq=os.path.join(sample_folder, rename),
             md5sum=cfg.query('tools', 'md5sum', ret_default='md5sum'),
             fastqc=cfg['tools']['fastqc']
+        )
+        self.postponed_register.append(
+            (sample_id, os.path.join(sample_folder, rename), os.path.join(sample_folder, rename) + '.md5')
         )
         self.all_commands_for_cluster.append(command)
 
@@ -267,7 +276,7 @@ class DataDelivery(AppLogger):
             raise EGCGError('No species information found in the LIMS for ' + sample_name)
         elif species == 'Homo sapiens':
             list_of_file = hs_list_files
-        elif analysis_type == 'Variant Calling':
+        elif analysis_type in ['Variant Calling', 'Variant Calling gatk']:
             list_of_file = variant_call_list_files
         else:
             list_of_file = other_list_files
@@ -390,7 +399,9 @@ class DataDelivery(AppLogger):
                 print('\t'.join(header))
                 print('\n'.join(lines))
         else:
+            # run the command on the cluster and register the output
             self.run_aggregate_commands()
+            self.register_postponed_files()
             for project in project_to_samples:
                 # Create the batch directory
                 today = datetime.date.today().isoformat()
