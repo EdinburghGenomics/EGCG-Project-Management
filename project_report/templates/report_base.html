@@ -32,7 +32,7 @@
         }
 
         p.font3 {
-            font-size: 1.3em;
+            font-size: 0.8em;
             line-height: 140%;
             font-family: Avantgarde, sans-serif;
         }
@@ -59,7 +59,7 @@
         }
 
         div.pad_top {
-        padding-top: 150px;
+        padding-top:20px;
         }
 
         div.page_break {
@@ -82,9 +82,33 @@
             font-size: 1.2em;
         }
 
+        div.method_table {
+            table {
+                font-family: arial, sans-serif;
+                border-collapse: collapse;
+                width: 100%;
+                background-color: red;
+            }
+            td, th {
+                border: 1px solid #dddddd;
+                text-align: right;
+                padding: 8px;
+                bg: red;
+            }
+
+        }
+
         @page {
         margin-top: 2cm;
         margin-bottom: 2cm;
+        @bottom-right {
+            content: counter(page) " of " counter(pages);
+            }
+        @bottom-left {
+            content: "Quote Number: {{ quote_number }}";
+            }
+
+
         }
 
         div.page-footer { margin-bottom: 5cm; }
@@ -111,6 +135,8 @@
 <body>
     <div id="general_info" class="pad_top page_break">
             {% block general_info %}
+            <hr>
+            <h2>Summary</h2>
             <table>
                 {% for title, data in project_info %}
                 <tr>
@@ -120,8 +146,10 @@
                 {% endfor %}
             </table>
         {% endblock %}
+        <hr>
     </div>
-    <div class="justify_text">
+
+    <div class="justify_text page_break">
         <div id="method">
             {% block method %}
             <h4>Methods</h4>
@@ -154,6 +182,42 @@
         {% block formats %}
         {% include 'formats.html' %}
         {% endblock %}
+    </div>
+
+    <div class="page_break">
+        <h4>Appendix</h4>
+        <hr>
+        <div id="additional_information">
+            <h2>Additional Information</h2>
+            <p class="font3">N/A</p>
+            <hr>
+            <h2>Deviations, Additions and Exclusions</h2>
+            <p class="font3">N/A</p>
+            <hr>
+            <h2>Per Sample Results</h2>
+            <p class="font3">Full user and facility derived metrics for each sample can be found within the delivery folder in {{ params['csv_path'] }}</p>
+        </div>
+    </div>
+
+    <div class="page_break">
+        <p class="font4">Appendix of QC data to be displayed here.</p>
+    </div>
+
+    <div class="page_break">
+        <h2>Confidentiality Statement</h2>
+        <p class="font3">The University of Edinburgh (the “University”, “us” or “we”) is committed to preserving your privacy.
+        Please read the following privacy policy to understand how we use and protect the information obtained
+        from those visiting and using the University’s website www.ed.ac.uk and its subdomains (the “website”).
+        By using the University’s website you consent to the collection, retention and use of your personal
+        information in accordance with the terms of this policy.</p>
+        <hr>
+        <h2>Declaration of Compliance</h2>
+        <p class="font3">The Fastq data has been generated in accordance with the documented processes contained within the Edinburgh
+        Genomics Clinical Quality Management system as to meet agreed customer requirements.
+        The samples and outputted data have been inspected and tested by trained and competency evaluated personnel.
+        The instrumentation and materials used in the inspection and testing processes are traceable.
+        All the associated test instrumentation is maintained, calibrated and qualified as appropriate.</p>
+        <hr>
     </div>
 </body>
 </html>

@@ -1,4 +1,5 @@
 import re
+import os
 import csv
 import yaml
 import matplotlib
@@ -33,6 +34,7 @@ species_alias = {
 class ProjectReport:
     _lims_samples_for_project = None
     _database_samples_for_project = None
+    _project = None
 
     def __init__(self, project_name):
         self.project_name = project_name
@@ -45,33 +47,19 @@ class ProjectReport:
             'adapter2': 'AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT'
         }
 
-    def get_project_info(self):
-        project = self.lims.get_projects(name=self.project_name)[0]
-        number_of_samples = len(self.get_all_sample_names(modify_names=True))
-        project_size = self.get_folder_size(self.project_delivery)
-        samples_in_project = self.get_samples_delivered()
-        genome_versions = set()
-        species_submitted = set()
-        for sample in self.get_all_sample_names():
-            species = get_species_from_sample(sample)
-            species_submitted.add(species)
-            genome_version = get_genome_version(sample, species=species)
-            genome_versions.add(genome_version)
-        if len(genome_versions) != 1:
-            raise EGCGError('More than one genome found for project %s ' % (self.project_name))
+    def facility_and_customer_details(self):
+        facility_customer_info = {}
+        facility_customer_info['egcg address'] = '\n'.join(['Edinburgh Genomics',
+                                                            'The Roslin Institute',
+                                                            'The University of Edinburgh',
+                                                            'Easter Bush Campus',
+                                                            'EH25 9RG'])
 
-        return (
-            ('Project name:', self.project_name),
-            ('Project title:', project.udf.get('Project Title', '')),
-            ('Enquiry no:', project.udf.get('Enquiry Number', '')),
-            ('Quote no:', project.udf.get('Quote No.', '')),
-            ('Number of Samples', number_of_samples),
-            ('Number of Samples Delivered', samples_in_project),
-            ('Project Size', '%.2f Terabytes' % (project_size/1000000000000.0)),
-            ('Laboratory Protocol', self.get_library_workflow(self.get_all_sample_names())),
-            ('Submitted Species', ', '.join(list(species_submitted))),
-            ('Genome Used for Mapping', list(genome_versions)[0])
-        )
+    @property
+    def project(self):
+        if self._project is None:
+            self._project = self.lims.get_projects(name=self.project_name)[0]
+        return self._project
 
     @property
     def samples_for_project_lims(self):
@@ -125,6 +113,26 @@ class ProjectReport:
         library_workflow = library_workflow.pop()
         return library_workflow
 
+    def project_size_in_terabytes(self):
+        project_size = self.get_folder_size(self.project_delivery)
+        return (project_size/1000000000000.0)
+
+    def calculate_mean(self, values):
+        return (sum(values)/max(len(values), 1))
+
+    @property
+    def project_title(self):
+        return self.project.udf.get('Project Title', '')
+
+    @property
+    def quote_number(self):
+        return self.project.udf.get('Quote No.', '')
+
+    @property
+    def enquiry_number(self):
+        return self.project.udf.get('Enquiry Number', '')
+
+
     def update_from_program_csv(self, program_csv):
         all_programs = {}
         if program_csv and path.exists(program_csv):
@@ -154,39 +162,91 @@ class ProjectReport:
                 samples_to_info[row['Sample Id']] = row
         return samples_to_info
 
-    def get_project_stats(self):
-        sample_yields = [s.get('clean_yield_in_gb') for s in self._database_samples_for_project if s.get('clean_yield_in_gb')]
-        coverage_per_sample = [s.get('coverage', {}).get('mean') for s in self._database_samples_for_project if s.get('coverage')]
-        pc_duplicate_reads = [s.get('pc_duplicate_reads') for s in self._database_samples_for_project if s.get('pc_duplicate_reads')]
-        evenness = [s.get('evenness') for s in self._database_samples_for_project if s.get('evenness')]
-        freemix = [s.get('freemix') for s in self._database_samples_for_project if s.get('freemix')]
-        pc_properly_mapped_reads = [s.get('pc_properly_mapped_reads') for s in self._database_samples_for_project if s.get('pc_properly_mapped_reads')]
-        clean_pc_q30 = [s.get('clean_pc_q30') for s in self._database_samples_for_project if s.get('clean_pc_q30')]
-        mean_bases_covered_at_15X = [s.get('coverage_statistics', {})
-                                         .get('bases_at_coverage', {})
-                                         .get('bases_at_15X')
-                                     for s in self._database_samples_for_project if s.get('coverage_statistics')]
+    def get_project_info(self):
+        sample_names = self.get_all_sample_names()
+        genome_versions = set()
+        species_submitted = set()
+        library_workflow = self.get_library_workflow(self.get_all_sample_names())
+        self.params['library_workflow'] = library_workflow
 
+        for sample in sample_names:
+            lims_sample = self.get_sample(sample)
+            species = lims_sample.udf.get('Species')
+            genome_version = lims_sample.udf.get('Genome Version')
+            species_submitted.add(species)
+            genome_versions.add(genome_version)
+
+
+        project_info = (
+            ('Project name:', self.project_name),
+            ('Project title:', self.project_title),
+            ('Enquiry no:', self.enquiry_number),
+            ('Quote no:', self.quote_number),
+            ('Number of Samples', len(sample_names)),
+            ('Number of Samples Delivered', self.get_samples_delivered()),
+            ('Project Size', '%.2f Terabytes' % self.project_size_in_terabytes()),
+            ('Laboratory Protocol', library_workflow),
+            ('Submitted Species', ', '.join(list(species_submitted))),
+            ('Genome Used for Mapping', ', '.join(list(genome_versions)))
+                        )
+
+        return project_info
+
+
+    def get_list_of_sample_fields(self, samples, field, subfields=None):
+        if subfields:
+            sample_fields = [s.get(field, {}) for s in samples if s.get(field)]
+            for f in subfields:
+                sample_fields = [s.get(f, {}) for s in sample_fields]
+            return [s for s in sample_fields if s]
+        sample_fields = [s.get(field) for s in samples if s.get(field)]
+        return sample_fields
+
+    def gather_project_data(self):
+        samples = self.samples_for_project_restapi
+        project_sample_data = {'clean_yield':
+                             {'key': 'clean_yield_in_gb',
+                              'subfields': None},
+                         'coverage_per_sample':
+                             {'key': 'coverage',
+                              'subfields': ['mean']},
+                         'pc_duplicate_reads':
+                             {'key': 'pc_duplicate_reads',
+                              'subfields': None},
+                         'evenness':
+                             {'key': 'evenness',
+                              'subfields': None},
+                         'freemix':
+                             {'key': 'sample_contamination',
+                              'subfields': 'freemix'},
+                         'pc_properly_mapped_reads':
+                             {'key': 'pc_properly_mapped_reads',
+                              'subfields': None},
+                         'clean_pc_q30':
+                             {'key': 'clean_pc_q30',
+                              'subfields': None},
+                         'mean_bases_covered_at_15X':
+                             {'key': 'coverage',
+                              'subfields': ['bases_at_coverage', 'bases_at_15X']}}
+
+        for field in project_sample_data:
+            project_sample_data[field]['values'] = self.get_list_of_sample_fields(samples,
+                                                                                  project_sample_data[field]['key'],
+                                                                                  subfields=project_sample_data[field]['subfields'])
+        return project_sample_data
+
+    def calculate_project_statistsics(self):
+        p = self.gather_project_data()
         project_stats = OrderedDict()
-
-        if sample_yields:
-            project_stats['Total yield (Gb):'] = '%.2f' % sum(sample_yields)
-            project_stats['Mean yield per sample (Gb):'] = '%.1f' % (sum(sample_yields)/max(len(sample_yields), 1))
-        if coverage_per_sample:
-            project_stats['Mean coverage per sample:'] = '%.2f' % (sum(coverage_per_sample)/max(len(coverage_per_sample), 1))
-        if pc_duplicate_reads:
-            project_stats['Mean % duplicate reads:'] = round(sum(pc_duplicate_reads)/len(pc_duplicate_reads), 2)
-        if evenness:
-            project_stats['Mean evenness:'] = round(sum(evenness)/len(evenness), 2)
-        if freemix:
-            project_stats['Maximum freemix value:'] = round(max(freemix), 2)
-        if pc_properly_mapped_reads:
-            project_stats['Mean % Reads Mapped to Reference Genome:'] = round(sum(pc_properly_mapped_reads)/len(pc_properly_mapped_reads), 2)
-        if clean_pc_q30:
-            project_stats['Mean % Q30:'] = round(sum(clean_pc_q30)/len(clean_pc_q30), 2)
-        if mean_bases_covered_at_15X:
-            project_stats['Mean bases covered at 15X:'] = round(sum(mean_bases_covered_at_15X)/len(mean_bases_covered_at_15X), 2)
-
+        project_stats['Total yield (Gb)'] = '%.2f' % sum(p['clean_yield']['values'])
+        project_stats['Mean yield per sample (Gb)'] = '%.1f' % (self.calculate_mean(p['clean_yield']['values']))
+        project_stats['Mean coverage per sample'] = '%.2f' % (self.calculate_mean(p['coverage_per_sample']['values']))
+        project_stats['Mean % duplicate reads'] = (round(self.calculate_mean(p['pc_duplicate_reads']['values']), 2))
+        project_stats['Mean evenness'] = (round(self.calculate_mean(p['evenness']['values']), 2))
+        project_stats['Maximum freemix value'] = round(max(p['freemix']['values'], default=0), 2)
+        project_stats['Mean % Reads Mapped to Reference Genome'] = round(self.calculate_mean(p['pc_properly_mapped_reads']['values']), 2)
+        project_stats['Mean % Q30'] = (round(self.calculate_mean(p['clean_pc_q30']['values']), 2))
+        project_stats['Mean bases covered at 15X'] = (round(self.calculate_mean(p['mean_bases_covered_at_15X']['values']), 2))
         return project_stats
 
     def get_sample_info(self):
@@ -202,7 +262,7 @@ class ProjectReport:
                 summary_yaml = find_file(sample_source, '.qc', 'project-summary.yaml')
             if summary_yaml:
                 self.update_from_project_summary_yaml(summary_yaml)
-        get_project_stats = self.get_project_stats()
+        get_project_stats = self.calculate_project_statistsics()
         project_stats = []
         for stat in get_project_stats:
             if get_project_stats[stat]:
@@ -236,7 +296,7 @@ class ProjectReport:
                 pc_statistics['samples'].append(all_pc_statistics[3])
         return pc_statistics
 
-    def chart_data(self, sample_labels=False):
+    def yield_plot(self, sample_labels=False):
         yield_plot_outfile = path.join(self.project_source, 'yield_plot.png')
         sample_yields = self.get_sample_yield_metrics()
         df = pd.DataFrame(sample_yields)
@@ -254,8 +314,10 @@ class ProjectReport:
         green_patch = mpatches.Patch(color='lightskyblue', label='Yield Q30 (Gb)')
         lgd = plt.legend(handles=[blue_patch, green_patch], loc='upper center', bbox_to_anchor=(0.5, 1.25))
         plt.savefig(yield_plot_outfile, bbox_extra_artists=(lgd,), bbox_inches='tight', pad_inches=1)
-        yield_plot_outfile = 'file://' + yield_plot_outfile
+        yield_plot_outfile = 'file://' + os.path.abspath(yield_plot_outfile)
+        self.params['yield_chart'] = yield_plot_outfile
 
+    def qc_plot(self, sample_labels=False):
         qc_plot_outfile = path.join(self.project_source, 'qc_plot.png')
         pc_statistics = self.get_pc_statistics()
         df = pd.DataFrame(pc_statistics)
@@ -273,28 +335,43 @@ class ProjectReport:
         lgd = plt.legend(handles=[blue_patch, green_patch], loc='upper center', bbox_to_anchor=(0.5, 1.25))
         plt.ylabel('% of Reads')
         plt.savefig(qc_plot_outfile, bbox_extra_artists=(lgd,), bbox_inches='tight', pad_inches=1)
-        qc_plot_outfile = 'file://' + qc_plot_outfile
-        self.params['yield_chart'] = yield_plot_outfile
+        qc_plot_outfile = 'file://' + os.path.abspath(qc_plot_outfile)
         self.params['mapping_duplicates_chart'] = qc_plot_outfile
 
 
-
+    def method_fields(self):
+        fields = {'sample_qc': {'title': 'Sample QC',
+                                'headings': ['Method', 'QC', 'Critical Equipment', 'Pass Criteria'],
+                                'rows': [('Sample Picogreen', 'gDNA quantified against Lambda DNA standards', 'Hamilton Robot', '> 1000ng'),
+                                         ('Fragment Analyzer QC', 'Quality of gDNA determined', 'Fragment Analyzer', 'Quality score > 5'),
+                                         ('gDNA QC Review Process', 'N/A', 'N/A', 'N/A')]},
+                  'library_prep': {'title': 'Library Preparation',
+                                   'headings': ['Method', 'Purpose', 'Critical Equipment'],
+                                   'rows': [('Sequencing Plate Preparation', 'Samples normalised to fall within 5-40ng/ul', 'Hamilton Robot'),
+                                            ('Nano DNA', 'Libraries prepared using Illumina SeqLab %s' % (self.params['library_workflow']), 'Hamilton Robot')]},
+                  'library_qc': {'title': 'Library QC',
+                                 'headings': ['Method', 'QC', 'Critical Equipment', 'Pass Criteria'],
+                                 'rows': [('Library QC as part of Nano DNA', 'Insert Size evaluated', 'Caliper GX Touch', 'Fragment sizes fall between 530bp and 730bp'),
+                                          ('Library QC as part of Nano DNA', 'Library concentration calculated', 'Roche Lightcycler', 'Concentration between 5.5nM and 40nM')]},
+                  'sequencing': {'title': 'Sequencing',
+                                 'headings': ['Method', 'Steps', 'Critical Equipment'],
+                                 'rows': [('Clustering and Sequencing of libraries as part of %s' % (self.params['library_workflow']), 'Clustering', 'cBot2'),
+                                          ('Clustering and Sequencing of libraries as part of %s' % (self.params['library_workflow']), 'Sequencing', 'HiSeqX')]}
+                  }
+        return fields
 
     def get_html_template(self):
         template = {'template_base': 'report_base.html',
                     'bioinformatics_template': None,
                     'formats_template': None,
                     'charts_template': ['yield_chart', 'mapping_duplicates_chart'],
-                    'laboratory_template': ['sample_qc', 'library_prep', 'library_qc', 'sequencing']}
+                    'laboratory_template': ['sample_qc_table', 'library_prep_table', 'library_qc_table', 'sequencing_table']}
         species = self.get_species(self.get_all_sample_names())
         if not species:
             raise ValueError('No species found for this project')
         elif len(species) == 1 and list(species)[0] == 'Human':
             template['bioinformatics_template'] = ['human_bioinf']
             template['formats_template'] = ['fastq', 'bam', 'vcf']
-        elif 'Sheep' in (list(species)):
-            template['bioinformatics_template'] = ['non_human_bioinf', 'bos_taurus_bioinf']
-            template['formats_template'] = ['fastq']
         else:
             template['bioinformatics_template'] = ['non_human_bioinf']
             template['formats_template'] = ['fastq']
@@ -302,14 +379,13 @@ class ProjectReport:
 
     def generate_report(self, output_format):
         project_file = path.join(self.project_delivery, 'project_%s_report.%s' % (self.project_name, output_format))
-        self.generate_csv()
         h = self.get_html_content()
         if output_format == 'html':
             open(project_file, 'w').write(h)
         else:
             HTML(string=h).write_pdf(project_file)
 
-    def generate_csv(self):
+    def csv_file(self):
         csv_file = path.join(self.project_delivery, 'project_data.csv')
         with open(csv_file, 'w') as outfile:
             writer = csv.writer(outfile, delimiter='\t')
@@ -335,6 +411,7 @@ class ProjectReport:
                                  sample.get('pc_properly_mapped_reads', 'None'),
                                  sample.get('pc_pass_filter', 'None'),
                                  sample.get('median_coverage', 'None')])
+        return csv_file
 
     def get_html_content(self):
         sample_labels = False
@@ -342,18 +419,19 @@ class ProjectReport:
             raise EGCGError('No samples found for project %s ' % (self.project_name))
         if len(self.get_all_sample_names()) < 35:
             sample_labels = True
-
+        self.params['csv_path'] = self.csv_file()
         template_dir = path.join(path.dirname(path.abspath(__file__)), 'templates')
         env = Environment(loader=FileSystemLoader(template_dir))
         project_templates = self.get_html_template()
         template = env.get_template(project_templates.get('template_base'))
-        project_stats = self.get_sample_info()
-        self.chart_data(sample_labels=sample_labels)
-
-        return template.render(params=self.params,
-                               project_stats=project_stats,
-                               project_info=self.get_project_info(),
-                               project_templates=project_templates)
+        self.yield_plot(sample_labels=sample_labels)
+        self.qc_plot(sample_labels=sample_labels)
+        return template.render(project_info=self.get_project_info(),
+                               project_stats=self.get_sample_info(),
+                               project_templates=project_templates,
+                               params=self.params,
+                               quote_number=self.quote_number,
+                               method_fields=self.method_fields())
 
     @classmethod
     def get_folder_size(cls, folder):

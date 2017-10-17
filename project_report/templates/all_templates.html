@@ -45,11 +45,6 @@
     process.</p>
 {%- endmacro %}
 
-{% macro bos_taurus_bioinf(params) -%}
-    <p class="font5">bwa mem ({{ params['bwa_version'] }}) is used to align the raw reads to the {{ params['genome_version'] }} genome, and the Genome Analysis ToolKit ({{ params['gatk_version'] }}) for the indel realignment
-    and base recalibration. The genotype likelihoods are calculated using Genome Analysis Toolkit
-    ({{ params['gatk_version'] }}) HaplotypeCaller creating a final gvcf file.</p>
-{%- endmacro %}
 
 {% macro human_bioinf(params) -%}
     <h2>Bioinformatics analysis</h2>
@@ -107,4 +102,79 @@
     genome regardless of the presence of a variant. Files ending in 'vcf.gz.tbi' are Tabix indexes
     allowing fast random access to any part of their corresponding VCF.</p>
     <p class="font5"><a href="https://samtools.github.io/hts-specs/VCFv4.2.pdf">VCF specification</a></p>
+{%- endmacro %}
+
+
+{% macro sample_qc_table(method_fields) -%}
+    <h2>Sample QC</h2>
+    <table>
+        <tr>
+        {% for heading in method_fields['sample_qc']['headings'] %}
+            <th>{{ heading }}</th>
+        {% endfor %}
+        </tr>
+        {% for row in method_fields['sample_qc']['rows'] %}
+            <tr>
+            {% for field in row %}
+                <td>{{ field }}</td>
+            {% endfor %}
+            </tr>
+        {% endfor %}
+    </table>
+{%- endmacro %}
+
+
+{% macro library_prep_table(method_fields) -%}
+    <h2>Library Preparation</h2>
+    <table>
+        <tr>
+        {% for heading in method_fields['library_prep']['headings'] %}
+            <th>{{ heading }}</th>
+        {% endfor %}
+        </tr>
+        {% for row in method_fields['library_prep']['rows'] %}
+            <tr>
+            {% for field in row %}
+                <td>{{ field }}</td>
+            {% endfor %}
+            </tr>
+        {% endfor %}
+    </table>
+{%- endmacro %}
+
+
+{% macro library_qc_table(method_fields) -%}
+    <table>
+        <tr>
+        {% for heading in method_fields['library_qc']['headings'] %}
+            <th>{{ heading }}</th>
+        {% endfor %}
+        </tr>
+        {% for row in method_fields['library_qc']['rows'] %}
+            <tr>
+            {% for field in row %}
+                <td>{{ field }}</td>
+            {% endfor %}
+            </tr>
+        {% endfor %}
+    </table>
+{%- endmacro %}
+
+
+{% macro sequencing_table(method_fields) -%}
+    <h2>Sequencing</h2>
+    <table>
+        <tr>
+        {% for heading in method_fields['sequencing']['headings'] %}
+            <th>{{ heading }}</th>
+        {% endfor %}
+        </tr>
+        {% for row in method_fields['sequencing']['rows'] %}
+            <tr>
+            {% for field in row %}
+                <td>{{ field }}</td>
+            {% endfor %}
+            </tr>
+        {% endfor %}
+    </table>
 {%- endmacro %}
