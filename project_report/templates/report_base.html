@@ -70,32 +70,32 @@
         text-align: justify;
         }
 
-        table {
-            font-family: Avantgarde, sans-serif;
+        table.summary_tables {
+            font-family: arial, sans-serif;
             width: 100%;
-            text-align: left;
+            text-align: center;
+            page-break-inside: avoid;
         }
-        td, th {
+
+        table.summary_tables td, th {
             border: none;
             text-align: left;
-            padding: 4px;
-            font-size: 1.2em;
+            padding: 3px;
+            font-size: 1.4em;
         }
 
-        div.method_table {
-            table {
-                font-family: arial, sans-serif;
-                border-collapse: collapse;
-                width: 100%;
-                background-color: red;
-            }
-            td, th {
-                border: 1px solid #dddddd;
-                text-align: right;
-                padding: 8px;
-                bg: red;
-            }
+        table.methods_table {
+            font-family: arial, sans-serif;
+            width: 100%;
+            text-align: center;
+            page-break-inside: avoid;
+        }
 
+        table.methods_table td, th {
+            border: 1px solid #dddddd;
+            text-align: centre;
+            padding: 3px;
+            font-size: 1.2em;
         }
 
         @page {
@@ -107,8 +107,6 @@
         @bottom-left {
             content: "Quote Number: {{ quote_number }}";
             }
-
-
         }
 
         div.page-footer { margin-bottom: 5cm; }
@@ -137,7 +135,7 @@
             {% block general_info %}
             <hr>
             <h2>Summary</h2>
-            <table>
+            <table class="summary_tables">
                 {% for title, data in project_info %}
                 <tr>
                     <td>{{ title }}</td>
@@ -149,25 +147,27 @@
         <hr>
     </div>
 
-    <div class="justify_text page_break">
-        <div id="method">
+    <div class="justify_text">
+        <div id="method" class="page_break">
             {% block method %}
             <h4>Methods</h4>
             <p class="font5">Edinburgh Genomics: Clinical Genomics utilises Illumina SeqLab, which integrates Illumina TruSeq
             library preparation, Illumina cBot2 cluster generation, Illumina HiSeqX sequencing, Hamilton
             Microlab STAR integrative automation, and Genologics Clarity LIMS X Edition.</p>
             {% endblock %}
+
+            {% block laboratory %}
+            {% include 'laboratory_template.html' %}
+            {% endblock %}
+            {% block bioinformatics_analysis %}
         </div>
-        {% block laboratory %}
-        {% include 'laboratory_template.html' %}
-        {% endblock %}
-        {% block bioinformatics_analysis %}
         {% include 'bioinformatics.html' %}
         {% endblock %}
         {% block repeat_samples %}{% endblock %}
+
         <div id="results">
             <h4>Results</h4>
-            <table>
+            <table class="summary_tables">
                 {% for title, data in project_stats %}
                 <tr>
                     <td>{{ title }}</td>

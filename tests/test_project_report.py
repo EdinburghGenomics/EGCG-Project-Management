@@ -22,24 +22,36 @@ fake_samples = {
     'a_project_name': [
         FakeSample(
             name='sample:1',
-            udf={'Prep Workflow': None, 'Species': 'Thingius thingy', 'Genome Version': 'hg38, hg37'}
+            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38, hg37'}
         ),
         FakeSample(
             name='sample:2',
-            udf={'Prep Workflow': None, 'Species': 'Thingius thingy', 'Genome Version': 'hg38, hg37'}
+            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38, hg37'}
         ),
         FakeSample(
             name='sample:3',
-            udf={'Prep Workflow': None, 'Species': 'Thingius thingy', 'Genome Version': 'hg38, hg37'}
+            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38, hg37'}
         ),
         FakeSample(
             name='sample:4',
-            udf={'Prep Workflow': None, 'Species': 'Thingius thingy', 'Genome Version': 'hg38, hg37'}
+            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38, hg37'}
         )
     ],
     'human_truseq_nano': [
         FakeSample(
             name='human_truseq_nano_sample_1',
+            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
+        ),
+        FakeSample(
+            name='human_truseq_nano_sample_2',
+            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
+        ),
+        FakeSample(
+            name='human_truseq_nano_sample_3',
+            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
+        ),
+        FakeSample(
+            name='human_truseq_nano_sample_4',
             udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
         )
     ],
@@ -47,17 +59,53 @@ fake_samples = {
         FakeSample(
             name='non_human_truseq_nano_sample_1',
             udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
+        ),
+        FakeSample(
+            name='non_human_truseq_nano_sample_2',
+            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
+        ),
+        FakeSample(
+            name='non_human_truseq_nano_sample_3',
+            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
+        ),
+        FakeSample(
+            name='non_human_truseq_nano_sample_4',
+            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
         )
     ],
     'human_pcr_free': [
         FakeSample(
             name='human_pcr_free_sample_1',
             udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
+        ),
+        FakeSample(
+            name='human_pcr_free_sample_2',
+            udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
+        ),
+        FakeSample(
+            name='human_pcr_free_sample_3',
+            udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
+        ),
+        FakeSample(
+            name='human_pcr_free_sample_4',
+            udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
         )
     ],
     'non_human_pcr_free': [
         FakeSample(
             name='non_human_pcr_free_sample_1',
+            udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
+        ),
+        FakeSample(
+            name='non_human_pcr_free_sample_2',
+            udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
+        ),
+        FakeSample(
+            name='non_human_pcr_free_sample_3',
+            udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
+        ),
+        FakeSample(
+            name='non_human_pcr_free_sample_4',
             udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
         )
     ]
@@ -87,19 +135,14 @@ class FakeLims:
         return fake_samples[projectname]
 
 
-rest_api_sample1 = {'tiles_filtered': [],
-                    'clean_pc_q30': 80.66940576163829,
+rest_api_sample1 = {'clean_pc_q30': 80.66940576163829,
                     'mapped_reads': 837830805,
                     'clean_yield_q30': 0.893051514,
                     'clean_yield_in_gb': 1.107051063,
-                    'called_gender': 'unknown',
-                    'bam_file_reads': 849852870,
                     'properly_mapped_reads': 813246360,
                     'user_sample_id': 'test_10015AT_1',
-                    'clean_pc_q30_r1': 89.52611100665973,
                     'pc_mapped_reads': 98.58539455188284,
                     'sample_id': '10015AT0001',
-                    'clean_pc_q30_r2': 71.8072031228874,
                     'duplicate_reads': 98921148,
                     'species_name': 'Homo sapiens',
                     'expected_yield_q30': 1.0,
@@ -107,23 +150,17 @@ rest_api_sample1 = {'tiles_filtered': [],
                     'pc_duplicate_reads': 11.639796898020712,
                     'pc_pass_filter': 100.0,
                     'project_id': '10015AT',
-                    'gender_match': 'unknown',
                     'sample_contamination': {'freemix': 0.0, 'ti_tv_ratio': 1.95, 'het_hom_ratio': 0.07},
                     'coverage': {'bases_at_coverage': {'bases_at_15X': 300}}, 'mean': 21, 'evenness': 15}
 
-rest_api_sample2 = {'tiles_filtered': [],
-                    'clean_pc_q30': 80.52789488784828,
+rest_api_sample2 = {'clean_pc_q30': 80.52789488784828,
                     'mapped_reads': 914871303,
                     'clean_yield_q30': 0.953095261,
                     'clean_yield_in_gb': 1.183559141,
-                    'called_gender': 'unknown',
-                    'bam_file_reads': 930580648,
                     'properly_mapped_reads': 894575183,
                     'user_sample_id': 'test_10015AT_4',
-                    'clean_pc_q30_r1': 89.09414824127175,
                     'pc_mapped_reads': 98.31187710234869,
                     'sample_id': '10015AT0004',
-                    'clean_pc_q30_r2': 71.95898669434135,
                     'duplicate_reads': 124298931,
                     'species_name': 'Homo sapiens',
                     'expected_yield_q30': 1.0,
@@ -131,7 +168,42 @@ rest_api_sample2 = {'tiles_filtered': [],
                     'pc_duplicate_reads': 13.357136887291041,
                     'pc_pass_filter': 100.0,
                     'project_id': '10015AT',
-                    'gender_match': 'unknown',
+                    'sample_contamination': {'freemix': 0.0, 'ti_tv_ratio': 1.95, 'het_hom_ratio': 0.07},
+                    'coverage': {'bases_at_coverage': {'bases_at_15X': 310}}, 'mean': 20, 'evenness': 10}
+
+rest_api_sample3 = {'clean_pc_q30': 80.66940576163829,
+                    'mapped_reads': 837830805,
+                    'clean_yield_q30': 0.893051514,
+                    'clean_yield_in_gb': 1.107051063,
+                    'properly_mapped_reads': 813246360,
+                    'user_sample_id': 'test_10015AT_1',
+                    'pc_mapped_reads': 98.58539455188284,
+                    'sample_id': '10015AT0001',
+                    'duplicate_reads': 98921148,
+                    'species_name': 'Homo sapiens',
+                    'expected_yield_q30': 1.0,
+                    'pc_properly_mapped_reads': 95.69260618017327,
+                    'pc_duplicate_reads': 11.639796898020712,
+                    'pc_pass_filter': 100.0,
+                    'project_id': '10015AT',
+                    'sample_contamination': {'freemix': 0.0, 'ti_tv_ratio': 1.95, 'het_hom_ratio': 0.07},
+                    'coverage': {'bases_at_coverage': {'bases_at_15X': 300}}, 'mean': 21, 'evenness': 15}
+
+rest_api_sample4 = {'clean_pc_q30': 80.52789488784828,
+                    'mapped_reads': 914871303,
+                    'clean_yield_q30': 0.953095261,
+                    'clean_yield_in_gb': 1.183559141,
+                    'properly_mapped_reads': 894575183,
+                    'user_sample_id': 'test_10015AT_4',
+                    'pc_mapped_reads': 98.31187710234869,
+                    'sample_id': '10015AT0004',
+                    'duplicate_reads': 124298931,
+                    'species_name': 'Homo sapiens',
+                    'expected_yield_q30': 1.0,
+                    'pc_properly_mapped_reads': 96.13086033140891,
+                    'pc_duplicate_reads': 13.357136887291041,
+                    'pc_pass_filter': 100.0,
+                    'project_id': '10015AT',
                     'sample_contamination': {'freemix': 0.0, 'ti_tv_ratio': 1.95, 'het_hom_ratio': 0.07},
                     'coverage': {'bases_at_coverage': {'bases_at_15X': 310}}, 'mean': 20, 'evenness': 10}
 
@@ -151,7 +223,6 @@ for i in range(1,5):
     test_pc_statistics['pc_pass_filter'].append(randint(90,100))
 
 
-mocked_get_folder_size = patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
 mocked_get_all_sample_names = patch(ppath('ProjectReport.get_all_sample_names'), return_value=['sample:1', 'sample:2'])
 mocked_get_samples_delivered = patch(ppath('ProjectReport.get_samples_delivered'), return_value=2)
 mocked_get_folder_size = patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
@@ -159,13 +230,14 @@ mocked_get_library_workflow = patch(ppath('ProjectReport.get_library_workflow'),
 mocked_get_species_from_sample = patch(ppath('get_species_from_sample'), return_value='Human')
 mocked_get_genome_version = patch(ppath('get_genome_version'), side_effect='hg38')
 mocked_csv = patch(ppath('ProjectReport.csv_file'), return_value='/path/to/csv/project_report.csv')
-mocked_samples_for_project_restapi = patch(ppath('ProjectReport.samples_for_project_restapi'), new_callable=PropertyMock(return_value=[rest_api_sample1, rest_api_sample2]))
+mocked_samples_for_project_restapi = patch(ppath('ProjectReport.samples_for_project_restapi'), new_callable=PropertyMock(return_value=[rest_api_sample1, rest_api_sample2, rest_api_sample3, rest_api_sample4]))
 mocked_calculate_project_statistics = patch(ppath('ProjectReport.calculate_project_statistsics'), return_value=OrderedDict([('Total yield (Gb):', '524.13'),
                                                                                ('Average yield (Gb):', '131.0'),
                                                                                ('Average percent duplicate reads:', 17.380661102525934),
                                                                                ('Average percent mapped reads:', 85.45270355584897),
                                                                                ('Average percent Q30:', 80.32382821869467)]))
-
+mocked_sample_yield_metrics = patch(ppath('ProjectReport.get_sample_yield_metrics'), return_value=test_sample_yield_metrics)
+mocked_pc_statistics = patch(ppath('ProjectReport.get_pc_statistics'), return_value=test_pc_statistics)
 
 
 class TestProjectReport(TestProjectManagement):
@@ -177,16 +249,14 @@ class TestProjectReport(TestProjectManagement):
         os.chdir(TestProjectManagement.root_path)
 
     @mocked_get_folder_size
-    @mocked_get_all_sample_names
-    @mocked_get_samples_delivered
-    @mocked_get_library_workflow
-    def test_get_project_info(self, mocked_library_workflow, mocked_delivered_samples, mocked_sample_names, mocked_project_size):
+    @mocked_samples_for_project_restapi
+    def test_get_project_info(self, mocked_samples_for_project, mocked_folder_size):
         exp = (('Project name:', 'a_project_name'),
                ('Project title:', 'a_research_title_for_a_project_name'),
                ('Enquiry no:', '1337'),
                ('Quote no:', '1338'),
-               ('Number of Samples', 2),
-               ('Number of Samples Delivered', 2),
+               ('Number of Samples', 4),
+               ('Number of Samples Delivered', 4),
                ('Project Size', '1.34 Terabytes'),
                ('Laboratory Protocol', 'TruSeq Nano DNA Sample Prep'),
                ('Submitted Species', 'Thingius thingy'),
@@ -209,7 +279,7 @@ class TestProjectReport(TestProjectManagement):
         assert self.pr.get_all_sample_names(modify_names=True) == ['sample_1', 'sample_2', 'sample_3', 'sample_4']
 
     def test_get_library_workflow(self):
-        assert self.pr.get_library_workflow_from_sample('sample:1') is None
+        assert self.pr.get_library_workflow_from_sample('sample:1') == 'TruSeq Nano DNA Sample Prep'
 
     def test_get_report_type(self):
         assert self.pr.get_report_type_from_sample('sample:1') == 'Thingius thingy'
@@ -316,8 +386,8 @@ class TestProjectReport(TestProjectManagement):
 
 @mocked_csv
 @mocked_samples_for_project_restapi
-@patch(ppath('ProjectReport.get_sample_yield_metrics'), return_value=test_sample_yield_metrics)
-@patch(ppath('ProjectReport.get_pc_statistics'), return_value=test_pc_statistics)
+@mocked_sample_yield_metrics
+@mocked_pc_statistics
 def test_project_types(mock_qc_plot,
                        mock_yield_plot,
                        mock_samples_for_project,
@@ -331,8 +401,8 @@ def test_project_types(mock_qc_plot,
 
 @mocked_csv
 @mocked_samples_for_project_restapi
-@patch(ppath('ProjectReport.get_sample_yield_metrics'), return_value=test_sample_yield_metrics)
-@patch(ppath('ProjectReport.get_pc_statistics'), return_value=test_pc_statistics)
+@mocked_sample_yield_metrics
+@mocked_pc_statistics
 def test_run_report(mock1, mock2, mock3, mock4):
     pr = ProjectReport('a_project_name')
     pr.lims = FakeLims()

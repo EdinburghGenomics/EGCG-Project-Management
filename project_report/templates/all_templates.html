@@ -107,7 +107,7 @@
 
 {% macro sample_qc_table(method_fields) -%}
     <h2>Sample QC</h2>
-    <table>
+    <table class="methods_table">
         <tr>
         {% for heading in method_fields['sample_qc']['headings'] %}
             <th>{{ heading }}</th>
@@ -121,12 +121,13 @@
             </tr>
         {% endfor %}
     </table>
+    <hr>
 {%- endmacro %}
 
 
 {% macro library_prep_table(method_fields) -%}
     <h2>Library Preparation</h2>
-    <table>
+    <table class="methods_table">
         <tr>
         {% for heading in method_fields['library_prep']['headings'] %}
             <th>{{ heading }}</th>
@@ -140,11 +141,13 @@
             </tr>
         {% endfor %}
     </table>
+    <hr>
 {%- endmacro %}
 
 
 {% macro library_qc_table(method_fields) -%}
-    <table>
+    <h2>Library QC</h2>
+    <table class="methods_table">
         <tr>
         {% for heading in method_fields['library_qc']['headings'] %}
             <th>{{ heading }}</th>
@@ -158,12 +161,13 @@
             </tr>
         {% endfor %}
     </table>
+    <hr>
 {%- endmacro %}
 
 
 {% macro sequencing_table(method_fields) -%}
     <h2>Sequencing</h2>
-    <table>
+    <table class="methods_table">
         <tr>
         {% for heading in method_fields['sequencing']['headings'] %}
             <th>{{ heading }}</th>
@@ -177,4 +181,5 @@
             </tr>
         {% endfor %}
     </table>
+    <hr>
 {%- endmacro %}
