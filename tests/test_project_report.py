@@ -75,6 +75,12 @@ class TestProjectReport(TestProjectManagement):
         with patch_get_project:
             assert self.pr.get_project_info() == exp
 
+    def test_delivered_samples_for_project(self):
+        with patch('egcg_core.rest_communication.get_documents') as mock_get:
+            self.pr.delivered_samples_for_project
+            mock_get.assert_called_once_with('samples', where={'project_id': 'a_project_name', 'delivered': 'yes'})
+
+
     def test_get_library_workflow(self):
         with patch_get_sample:
             assert self.pr.get_library_workflow_from_sample('sample:01') is None
