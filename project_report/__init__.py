@@ -12,7 +12,7 @@ from os import path, listdir
 from collections import OrderedDict
 from jinja2 import Environment, FileSystemLoader
 from egcg_core.util import find_file
-from egcg_core.clarity import connection, get_genome_version, get_species_from_sample
+from egcg_core.clarity import connection, get_genome_version
 from egcg_core.app_logging import logging_default as log_cfg
 from config import cfg
 from egcg_core.rest_communication import get_documents
@@ -172,10 +172,9 @@ class ProjectReport:
         for sample in sample_names:
             lims_sample = self.get_sample(sample)
             species = lims_sample.udf.get('Species')
-            genome_version = lims_sample.udf.get('Genome Version')
+            genome_version = get_genome_version(sample, species=species)
             species_submitted.add(species)
             genome_versions.add(genome_version)
-
 
         project_info = (
             ('Project name:', self.project_name),

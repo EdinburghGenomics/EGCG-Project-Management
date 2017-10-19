@@ -228,7 +228,7 @@ mocked_get_samples_delivered = patch(ppath('ProjectReport.get_samples_delivered'
 mocked_get_folder_size = patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
 mocked_get_library_workflow = patch(ppath('ProjectReport.get_library_workflow'), return_value='TruSeq Nano DNA Sample Prep')
 mocked_get_species_from_sample = patch(ppath('get_species_from_sample'), return_value='Human')
-mocked_get_genome_version = patch(ppath('get_genome_version'), side_effect='hg38')
+mocked_get_genome_version = patch(ppath('get_genome_version'), side_effect=['hg38, hg37', 'hg38, hg37', 'hg38, hg37', 'hg38, hg37'])
 mocked_csv = patch(ppath('ProjectReport.csv_file'), return_value='/path/to/csv/project_report.csv')
 mocked_samples_for_project_restapi = patch(ppath('ProjectReport.samples_for_project_restapi'), new_callable=PropertyMock(return_value=[rest_api_sample1, rest_api_sample2, rest_api_sample3, rest_api_sample4]))
 mocked_calculate_project_statistics = patch(ppath('ProjectReport.calculate_project_statistsics'), return_value=OrderedDict([('Total yield (Gb):', '524.13'),
@@ -248,9 +248,10 @@ class TestProjectReport(TestProjectManagement):
         self.fake_samples = fake_samples['a_project_name']
         os.chdir(TestProjectManagement.root_path)
 
+    @mocked_get_genome_version
     @mocked_get_folder_size
     @mocked_samples_for_project_restapi
-    def test_get_project_info(self, mocked_samples_for_project, mocked_folder_size):
+    def test_get_project_info(self, mocked_samples_for_project, mocked_folder_size, mocked_genome_version):
         exp = (('Project name:', 'a_project_name'),
                ('Project title:', 'a_research_title_for_a_project_name'),
                ('Enquiry no:', '1337'),
@@ -384,26 +385,33 @@ class TestProjectReport(TestProjectManagement):
         obs = self.pr.get_folder_size(d)
         assert obs == 7
 
-@mocked_csv
-@mocked_samples_for_project_restapi
-@mocked_sample_yield_metrics
-@mocked_pc_statistics
-def test_project_types(mock_qc_plot,
-                       mock_yield_plot,
-                       mock_samples_for_project,
-                       mocked_csv):
-    os.chdir(TestProjectManagement.root_path)
-    projects = ('human_truseq_nano', 'human_pcr_free', 'non_human_truseq_nano', 'non_human_pcr_free')
-    for p in projects:
-        pr = ProjectReport(p)
-        pr.lims = FakeLims()
-        pr.generate_report('pdf')
 
 @mocked_csv
 @mocked_samples_for_project_restapi
 @mocked_sample_yield_metrics
 @mocked_pc_statistics
-def test_run_report(mock1, mock2, mock3, mock4):
+def test_project_types(mocked_pc_statistics,
+                       mocked_sample_yield_metrics,
+                       mocked_samples_for_project,
+                       mocked_csv):
+    os.chdir(TestProjectManagement.root_path)
+    projects = ('human_truseq_nano', 'human_pcr_free', 'non_human_truseq_nano', 'non_human_pcr_free')
+    for p in projects:
+        with mocked_get_genome_version:
+            pr = ProjectReport(p)
+            pr.lims = FakeLims()
+            pr.generate_report('pdf')
+
+@mocked_get_genome_version
+@mocked_csv
+@mocked_samples_for_project_restapi
+@mocked_sample_yield_metrics
+@mocked_pc_statistics
+def test_run_report(mocked_pc_statistics,
+                    mocked_sample_yield_metrics,
+                    mocked_samples_for_project,
+                    mocked_csv,
+                    mocked_genome_version):
     pr = ProjectReport('a_project_name')
     pr.lims = FakeLims()
     pr.generate_report('pdf')
