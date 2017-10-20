@@ -170,7 +170,6 @@ class TestProjectReport(TestProjectManagement):
     @patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
     def test_get_sample_info(self, mocked_project_size):
         with get_patch_delivered_samples(fake_db_samples), patch_get_project:
-            print(self.pr.params)
             assert self.pr.get_sample_info() == [
                 ('Number of samples:', 2),
                 ('Number of samples delivered:', 2),
