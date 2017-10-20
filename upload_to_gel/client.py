@@ -1,5 +1,5 @@
 """TODO: module doc..."""
-
+from egcg_core.app_logging import AppLogger
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import ConnectionError, HTTPError
 import requests
@@ -15,7 +15,7 @@ class ArgumentException(Exception):
     pass
 
 
-class DeliveryAPIClient:
+class DeliveryAPIClient(AppLogger):
     """TODO: class doc..."""
 
     valid_actions = [
@@ -80,10 +80,12 @@ class DeliveryAPIClient:
                 if not (self.delivery_id and self.sample_id and self.failure_reason):
                     raise ArgumentException(
                         'You need to pass a delivery id, sample id, and a failure_reason')
-                return self.do_failure(self.action,
-                                self.delivery_id,
-                                self.sample_id,
-                                self.failure_reason)
+                return self.do_failure(
+                    self.action,
+                    self.delivery_id,
+                    self.sample_id,
+                    self.failure_reason
+                )
             else:
                 if not self.delivery_id:
                     raise ArgumentException('You need to pass a delivery id')
@@ -91,7 +93,7 @@ class DeliveryAPIClient:
                     raise ArgumentException('You need to pass a sample id')
                 return self.do_action(self.action, self.delivery_id, self.sample_id)
         except ArgumentException as ex:
-            print('Wrong parameters passed:' + str(ex))
+            self.error('Wrong parameters passed:%s', str(ex))
             raise ex
 
     def create(self, delivery_id, sample_id):
@@ -109,9 +111,8 @@ class DeliveryAPIClient:
         :param delivery_id:
         """
         r = self.do_http_call('get', self.get_url(delivery_id))
-        print(json.dumps(r.json(), indent=4))
+        self.debug(str(json.dumps(r.json(), indent=4)))
         return r
-
 
     def get_all(self, by=None):
         """
@@ -121,7 +122,7 @@ class DeliveryAPIClient:
         if by:
             self.params['params'] = {'state': by}
         r = self.do_http_call('get', self.base_url)
-        print(json.dumps(r.json(), indent=4))
+        self.debug(str(json.dumps(r.json(), indent=4)))
         return r
 
     def do_action(self, action, delivery_id, sample_id):
@@ -171,17 +172,16 @@ class DeliveryAPIClient:
         """
         method = getattr(requests, http_method)
         try:
-            print('Sending %s request to %s' % (http_method, url))
-            print('Parameters: ' + str(self.params))
+            self.debug('Sending %s request to %s', http_method, url)
             r = method(url, **self.params)
         except ConnectionError as e:
-            print('Connection error. Is the server running?')
+            self.error('Connection error. Is the server running?')
             raise e
-        print(r.status_code)
+        self.debug('Status code: %s', r.status_code)
         try:
             r.raise_for_status()
         except HTTPError as e:
-            print('Response text: {}'.format(r.text))
+            self.error('Response text: {}'.format(r.text))
             raise e
         return r
 
