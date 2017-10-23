@@ -1,7 +1,7 @@
 Changelog for EGCG-Project-Management
 =====================================
 
-0.4 (unreleased)
+0.4 (2017-10-23)
 ----------------
 
 - Confirm delivery scripts added
