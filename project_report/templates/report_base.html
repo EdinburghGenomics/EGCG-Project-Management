@@ -80,7 +80,7 @@
         table.summary_tables td, th {
             border: none;
             text-align: left;
-            padding: 3px;
+            padding: 2px;
             font-size: 1.4em;
         }
 
@@ -94,7 +94,7 @@
         table.methods_table td, th {
             border: 1px solid #dddddd;
             text-align: centre;
-            padding: 3px;
+            padding: 2px;
             font-size: 1.2em;
         }
 
@@ -107,7 +107,11 @@
         @bottom-left {
             content: "Quote Number: {{ quote_number }}";
             }
+        {size:
+            landscape
+            }
         }
+
 
         div.page-footer { margin-bottom: 5cm; }
         @media screen {
@@ -147,42 +151,54 @@
         <hr>
     </div>
 
-    <div class="justify_text">
-        <div id="method" class="page_break">
-            {% block method %}
-            <h4>Methods</h4>
-            <p class="font5">Edinburgh Genomics: Clinical Genomics utilises Illumina SeqLab, which integrates Illumina TruSeq
-            library preparation, Illumina cBot2 cluster generation, Illumina HiSeqX sequencing, Hamilton
-            Microlab STAR integrative automation, and Genologics Clarity LIMS X Edition.</p>
-            {% endblock %}
-
-            {% block laboratory %}
-            {% include 'laboratory_template.html' %}
-            {% endblock %}
-            {% block bioinformatics_analysis %}
-        </div>
+    <div id="method" class="justify_text page_break">
+        {% block method %}
+        <h4>Methods</h4>
+        <p class="font5">Edinburgh Genomics: Clinical Genomics utilises Illumina SeqLab, which integrates Illumina TruSeq
+        library preparation, Illumina cBot2 cluster generation, Illumina HiSeqX sequencing, Hamilton
+        Microlab STAR integrative automation, and Genologics Clarity LIMS X Edition.</p>
+        {% endblock %}
+        {% block laboratory %}
+        {% include 'laboratory_template.html' %}
+        {% endblock %}
+        {% block bioinformatics_analysis %}
         {% include 'bioinformatics.html' %}
         {% endblock %}
-        {% block repeat_samples %}{% endblock %}
-
-        <div id="results">
-            <h4>Results</h4>
-            <table class="summary_tables">
-                {% for title, data in project_stats %}
-                <tr>
-                    <td>{{ title }}</td>
-                    <td>{{ data }}</td>
-                </tr>
-                {% endfor %}
-            </table>
-        </div>
-        {% block charts %}
-        {% include 'charts.html' %}
-        {% endblock %}
-        {% block formats %}
-        {% include 'formats.html' %}
-        {% endblock %}
     </div>
+    <div id="results" class="page_break">
+        <table class="summary_tables">
+            <h4>Results</h4>
+            {% for title, data in project_stats %}
+            <tr>
+                <td>{{ title }}</td>
+                <td>{{ data }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    {% block charts %}
+    {% include 'charts.html' %}
+    {% endblock %}
+    {% block formats %}
+    {% include 'formats.html' %}
+    {% endblock %}
+
+    <h2>Confidentiality Statement</h2>
+    <p class="font3">The University of Edinburgh (the “University”, “us” or “we”) is committed to preserving your privacy.
+    Please read the following privacy policy to understand how we use and protect the information obtained
+    from those visiting and using the University’s website www.ed.ac.uk and its subdomains (the “website”).
+    By using the University’s website you consent to the collection, retention and use of your personal
+    information in accordance with the terms of this policy.</p>
+    <hr>
+    <h2>Declaration of Compliance</h2>
+    <p class="font3">The Fastq data has been generated in accordance with the documented processes contained within the Edinburgh
+    Genomics Clinical Quality Management system as to meet agreed customer requirements.
+    The samples and outputted data have been inspected and tested by trained and competency evaluated personnel.
+    The instrumentation and materials used in the inspection and testing processes are traceable.
+    All the associated test instrumentation is maintained, calibrated and qualified as appropriate.</p>
+    <hr>
+
+
 
     <div class="page_break">
         <h4>Appendix</h4>
@@ -196,28 +212,9 @@
             <hr>
             <h2>Per Sample Results</h2>
             <p class="font3">Full user and facility derived metrics for each sample can be found within the delivery folder in {{ params['csv_path'] }}</p>
+            <hr>
         </div>
     </div>
 
-    <div class="page_break">
-        <p class="font4">Appendix of QC data to be displayed here.</p>
-    </div>
-
-    <div class="page_break">
-        <h2>Confidentiality Statement</h2>
-        <p class="font3">The University of Edinburgh (the “University”, “us” or “we”) is committed to preserving your privacy.
-        Please read the following privacy policy to understand how we use and protect the information obtained
-        from those visiting and using the University’s website www.ed.ac.uk and its subdomains (the “website”).
-        By using the University’s website you consent to the collection, retention and use of your personal
-        information in accordance with the terms of this policy.</p>
-        <hr>
-        <h2>Declaration of Compliance</h2>
-        <p class="font3">The Fastq data has been generated in accordance with the documented processes contained within the Edinburgh
-        Genomics Clinical Quality Management system as to meet agreed customer requirements.
-        The samples and outputted data have been inspected and tested by trained and competency evaluated personnel.
-        The instrumentation and materials used in the inspection and testing processes are traceable.
-        All the associated test instrumentation is maintained, calibrated and qualified as appropriate.</p>
-        <hr>
-    </div>
 </body>
 </html>

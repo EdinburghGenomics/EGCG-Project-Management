@@ -104,6 +104,13 @@ class ProjectReport:
             species.add(self.get_report_type_from_sample(sample))
         return species
 
+    def get_species_found(self, sample):
+        sample_contamination = sample.get('species_contamination', {}).get('contaminant_unique_mapped')
+        if sample_contamination:
+            species_found = [s for s in sample_contamination if sample_contamination[s] > 500]
+            return species_found
+        return None
+
     def get_library_workflow(self, samples):
         library_workflow = set()
         for sample in samples:
@@ -181,14 +188,13 @@ class ProjectReport:
             ('Project title:', self.project_title),
             ('Enquiry no:', self.enquiry_number),
             ('Quote no:', self.quote_number),
-            ('Number of Samples', len(sample_names)),
-            ('Number of Samples Delivered', self.get_samples_delivered()),
-            ('Project Size', '%.2f Terabytes' % self.project_size_in_terabytes()),
-            ('Laboratory Protocol', library_workflow),
-            ('Submitted Species', ', '.join(list(species_submitted))),
-            ('Genome Used for Mapping', ', '.join(list(genome_versions)))
+            ('Number of samples', len(sample_names)),
+            ('Number of samples delivered', self.get_samples_delivered()),
+            ('Project size', '%.2f terabytes' % self.project_size_in_terabytes()),
+            ('Laboratory protocol', library_workflow),
+            ('Submitted species', ', '.join(list(species_submitted))),
+            ('Genome version', ', '.join(list(genome_versions)))
                         )
-
         return project_info
 
 
@@ -295,6 +301,13 @@ class ProjectReport:
                 pc_statistics['samples'].append(all_pc_statistics[3])
         return pc_statistics
 
+
+
+
+
+
+
+
     def yield_plot(self, sample_labels=False):
         yield_plot_outfile = path.join(self.project_source, 'yield_plot.png')
         sample_yields = self.get_sample_yield_metrics()
@@ -312,9 +325,18 @@ class ProjectReport:
         blue_patch = mpatches.Patch(color='gainsboro', label='Yield (Gb)')
         green_patch = mpatches.Patch(color='lightskyblue', label='Yield Q30 (Gb)')
         lgd = plt.legend(handles=[blue_patch, green_patch], loc='upper center', bbox_to_anchor=(0.5, 1.25))
-        plt.savefig(yield_plot_outfile, bbox_extra_artists=(lgd,), bbox_inches='tight', pad_inches=1)
+        plt.savefig(yield_plot_outfile, bbox_extra_artists=(lgd,), bbox_inches='tight', pad_inches=0.2)
         yield_plot_outfile = 'file://' + os.path.abspath(yield_plot_outfile)
         self.params['yield_chart'] = yield_plot_outfile
+
+
+
+
+
+
+
+
+
 
     def qc_plot(self, sample_labels=False):
         qc_plot_outfile = path.join(self.project_source, 'qc_plot.png')
@@ -333,83 +355,90 @@ class ProjectReport:
         green_patch = mpatches.Patch(color='mediumaquamarine', label='% Duplicate Reads')
         lgd = plt.legend(handles=[blue_patch, green_patch], loc='upper center', bbox_to_anchor=(0.5, 1.25))
         plt.ylabel('% of Reads')
-        plt.savefig(qc_plot_outfile, bbox_extra_artists=(lgd,), bbox_inches='tight', pad_inches=1)
+        plt.savefig(qc_plot_outfile, bbox_extra_artists=(lgd,), bbox_inches='tight', pad_inches=0.2)
         qc_plot_outfile = 'file://' + os.path.abspath(qc_plot_outfile)
         self.params['mapping_duplicates_chart'] = qc_plot_outfile
 
 
     def method_fields(self):
         fields = {'sample_qc': {'title': 'Sample QC',
-                                'headings': ['Method', 'QC', 'Critical Equipment', 'Pass Criteria'],
-                                'rows': [('Sample Picogreen', 'gDNA quantified against Lambda DNA standards', 'Hamilton Robot', '> 1000ng'),
-                                         ('Fragment Analyzer QC', 'Quality of gDNA determined', 'Fragment Analyzer', 'Quality score > 5'),
+                                'headings': ['Method', 'QC', 'Critical equipment', 'Pass criteria'],
+                                'rows': [('Sample picogreen', 'gDNA quantified against Lambda DNA standards', 'Hamilton robot', '> 1000ng'),
+                                         ('Fragment analyzer QC', 'Quality of gDNA determined', 'Fragment analyzer', 'Quality score > 5'),
                                          ('gDNA QC Review Process', 'N/A', 'N/A', 'N/A')]},
-                  'library_prep': {'title': 'Library Preparation',
-                                   'headings': ['Method', 'Purpose', 'Critical Equipment'],
-                                   'rows': [('Sequencing Plate Preparation', 'Samples normalised to fall within 5-40ng/ul', 'Hamilton Robot'),
-                                            ('Nano DNA', 'Libraries prepared using Illumina SeqLab %s' % (self.params['library_workflow']), 'Hamilton Robot')]},
+                  'library_prep': {'title': 'Library preparation',
+                                   'headings': ['Method', 'Purpose', 'Critical equipment'],
+                                   'rows': [('Sequencing plate preparation', 'Samples normalised to fall within 5-40ng/ul', 'Hamilton robot'),
+                                            ('Nano DNA', 'Libraries prepared using Illumina SeqLab %s' % (self.params['library_workflow']), 'Hamilton, Covaris LE220, Gemini Spectramax XP, Hybex incubators, BioRad C1000/S1000 thermal cycler')]},
                   'library_qc': {'title': 'Library QC',
-                                 'headings': ['Method', 'QC', 'Critical Equipment', 'Pass Criteria'],
-                                 'rows': [('Library QC as part of Nano DNA', 'Insert Size evaluated', 'Caliper GX Touch', 'Fragment sizes fall between 530bp and 730bp'),
+                                 'headings': ['Method', 'QC', 'Critical equipment', 'Pass criteria'],
+                                 'rows': [('Library QC as part of Nano DNA', 'Insert size evaluated', 'Caliper GX Touch', 'Fragment sizes fall between 530bp and 730bp'),
                                           ('Library QC as part of Nano DNA', 'Library concentration calculated', 'Roche Lightcycler', 'Concentration between 5.5nM and 40nM')]},
                   'sequencing': {'title': 'Sequencing',
-                                 'headings': ['Method', 'Steps', 'Critical Equipment'],
-                                 'rows': [('Clustering and Sequencing of libraries as part of %s' % (self.params['library_workflow']), 'Clustering', 'cBot2'),
-                                          ('Clustering and Sequencing of libraries as part of %s' % (self.params['library_workflow']), 'Sequencing', 'HiSeqX')]}
+                                 'headings': ['Method', 'Steps', 'Critical equipment'],
+                                 'rows': [('Clustering and sequencing of libraries as part of %s' % (self.params['library_workflow']), 'Clustering', 'cBot2'),
+                                          ('Clustering and Sequencing of libraries as part of %s' % (self.params['library_workflow']), 'Sequencing', 'HiSeqX')]},
+                  'bioinformatics': {'title': 'Bioinformatics analysis',
+                                     'headings': ['Method', 'Software', 'Version'],
+                                     'rows': [('Demultiplexing', 'bcl2fastq', self.params['bcl2fastq_version']),
+                                      ('Alignment', 'bwa mem', self.params['bwa_version']),
+                                      ('Mark duplicates', 'samblaster', self.params['samblaster_version']),
+                                      ('Indel realignment', 'GATK IndelRealigner', self.params['gatk_version']),
+                                      ('Base recalibration', 'GATK BaseRecalibrator', self.params['gatk_version']),
+                                      ('Genotype likelihood calculation', 'GATK HaplotypeCaller', self.params['gatk_version'])]}
                   }
         return fields
 
     def get_html_template(self):
         template = {'template_base': 'report_base.html',
-                    'bioinformatics_template': None,
-                    'formats_template': None,
+                    'bioinformatics_template': ['bioinformatics_table'],
+                    'formats_template': ['fastq', 'bam', 'vcf'],
                     'charts_template': ['yield_chart', 'mapping_duplicates_chart'],
                     'laboratory_template': ['sample_qc_table', 'library_prep_table', 'library_qc_table', 'sequencing_table']}
-        species = self.get_species(self.get_all_sample_names())
-        if not species:
-            raise ValueError('No species found for this project')
-        elif len(species) == 1 and list(species)[0] == 'Human':
-            template['bioinformatics_template'] = ['human_bioinf']
-            template['formats_template'] = ['fastq', 'bam', 'vcf']
-        else:
-            template['bioinformatics_template'] = ['non_human_bioinf']
-            template['formats_template'] = ['fastq']
         return template
 
     def generate_report(self, output_format):
         project_file = path.join(self.project_delivery, 'project_%s_report.%s' % (self.project_name, output_format))
-        h = self.get_html_content()
+        report_render, pages, full_html = self.get_html_content()
         if output_format == 'html':
-            open(project_file, 'w').write(h)
+            open(project_file, 'w').write(full_html)
         else:
-            HTML(string=h).write_pdf(project_file)
+            report_render.copy(pages).write_pdf(project_file)
 
-    def csv_file(self):
+    def get_csv_data(self):
+        header = ['Internal ID',
+                    'External ID',
+                    'Species found',
+                    'Workflow',
+                    'Clean yield (Gb)',
+                    'Clean %Q30',
+                    '% Duplicate reads',
+                    '% Properly mapped reads',
+                    '% Pass filter',
+                    'Median coverage']
+        rows = []
+        for sample in self.samples_for_project_restapi:
+            row = [sample.get('user_sample_id', 'None'),
+                 self.get_species_found(sample),
+                 self.get_library_workflow_from_sample(sample.get('sample_id', 'None')),
+                 round(sample.get('clean_yield_in_gb', 'None'), 2),
+                 round(sample.get('clean_pc_q30', 'None'), 2),
+                 round(sample.get('pc_duplicate_reads', 'None'), 2),
+                 round(sample.get('pc_properly_mapped_reads', 'None'), 2),
+                 sample.get('pc_pass_filter', 'None'),
+                 sample.get('median_coverage', 'None')]
+
+            rows.append(row)
+        return (header, rows)
+
+    def write_csv_file(self):
         csv_file = path.join(self.project_delivery, 'project_data.csv')
+        header, rows = self.get_csv_data()
         with open(csv_file, 'w') as outfile:
             writer = csv.writer(outfile, delimiter='\t')
-            writer.writerow(['Internal ID',
-                            'External ID',
-                            'Species',
-                            'Workflow',
-                            'Clean Yield (Gb)',
-                            'Clean %Q30',
-                            '% Duplicate Reads',
-                            '% Properly Mapped Reads',
-                            '% Pass Filter',
-                            'Median Coverage'])
-            for sample in self.samples_for_project_restapi:
-                sample_from_lims = self.get_sample(sample.get('sample_id'))
-                writer.writerow([sample.get('sample_id', 'None'),
-                                 sample.get('user_sample_id', 'None'),
-                                 sample_from_lims.udf.get('Species'),
-                                 self.get_library_workflow_from_sample(sample.get('sample_id', 'None')),
-                                 sample.get('clean_yield_in_gb', 'None'),
-                                 sample.get('clean_pc_q30', 'None'),
-                                 sample.get('pc_duplicate_reads', 'None'),
-                                 sample.get('pc_properly_mapped_reads', 'None'),
-                                 sample.get('pc_pass_filter', 'None'),
-                                 sample.get('median_coverage', 'None')])
+            writer.writerow(header)
+            for row in rows:
+                writer.writerow(row)
         return csv_file
 
     def get_html_content(self):
@@ -418,19 +447,36 @@ class ProjectReport:
             raise EGCGError('No samples found for project %s ' % (self.project_name))
         if len(self.get_all_sample_names()) < 35:
             sample_labels = True
-        self.params['csv_path'] = self.csv_file()
+        self.params['csv_path'] = self.write_csv_file()
         template_dir = path.join(path.dirname(path.abspath(__file__)), 'templates')
         env = Environment(loader=FileSystemLoader(template_dir))
         project_templates = self.get_html_template()
-        template = env.get_template(project_templates.get('template_base'))
+        template1 = env.get_template(project_templates.get('template_base'))
+        template2 = env.get_template('csv_base.html')
         self.yield_plot(sample_labels=sample_labels)
         self.qc_plot(sample_labels=sample_labels)
-        return template.render(project_info=self.get_project_info(),
-                               project_stats=self.get_sample_info(),
-                               project_templates=project_templates,
-                               params=self.params,
-                               quote_number=self.quote_number,
-                               method_fields=self.method_fields())
+        report = template1.render(
+                                   project_info=self.get_project_info(),
+                                   project_stats=self.get_sample_info(),
+                                   project_templates=project_templates,
+                                   params=self.params,
+                                   quote_number=self.quote_number,
+                                   method_fields=self.method_fields()
+                                    )
+
+        csv_table_headers, csv_table_rows = self.get_csv_data()
+        csv = template2.render(report_csv_headers=csv_table_headers,
+                               report_csv_rows=csv_table_rows)
+        combined_report_html = (report + csv)
+        report_html = HTML(string=report)
+        csv_html = HTML(string=csv)
+        report_render = report_html.render()
+        csv_render = csv_html.render()
+        pages = []
+        for doc in report_render, csv_render:
+            for p in doc.pages:
+                pages.append(p)
+        return report_render, pages, combined_report_html
 
     @classmethod
     def get_folder_size(cls, folder):

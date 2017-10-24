@@ -158,9 +158,9 @@ rest_api_sample2 = {'clean_pc_q30': 80.52789488784828,
                     'clean_yield_q30': 0.953095261,
                     'clean_yield_in_gb': 1.183559141,
                     'properly_mapped_reads': 894575183,
-                    'user_sample_id': 'test_10015AT_4',
+                    'user_sample_id': 'test_10015AT_2',
                     'pc_mapped_reads': 98.31187710234869,
-                    'sample_id': '10015AT0004',
+                    'sample_id': '10015AT0002',
                     'duplicate_reads': 124298931,
                     'species_name': 'Homo sapiens',
                     'expected_yield_q30': 1.0,
@@ -176,9 +176,9 @@ rest_api_sample3 = {'clean_pc_q30': 80.66940576163829,
                     'clean_yield_q30': 0.893051514,
                     'clean_yield_in_gb': 1.107051063,
                     'properly_mapped_reads': 813246360,
-                    'user_sample_id': 'test_10015AT_1',
+                    'user_sample_id': 'test_10015AT_3',
                     'pc_mapped_reads': 98.58539455188284,
-                    'sample_id': '10015AT0001',
+                    'sample_id': '10015AT0003',
                     'duplicate_reads': 98921148,
                     'species_name': 'Homo sapiens',
                     'expected_yield_q30': 1.0,
@@ -229,7 +229,7 @@ mocked_get_folder_size = patch(ppath('ProjectReport.get_folder_size'), return_va
 mocked_get_library_workflow = patch(ppath('ProjectReport.get_library_workflow'), return_value='TruSeq Nano DNA Sample Prep')
 mocked_get_species_from_sample = patch(ppath('get_species_from_sample'), return_value='Human')
 mocked_get_genome_version = patch(ppath('get_genome_version'), side_effect=['hg38, hg37', 'hg38, hg37', 'hg38, hg37', 'hg38, hg37'])
-mocked_csv = patch(ppath('ProjectReport.csv_file'), return_value='/path/to/csv/project_report.csv')
+mocked_csv = patch(ppath('ProjectReport.write_csv_file'), return_value='/path/to/csv/project_report.csv')
 mocked_samples_for_project_restapi = patch(ppath('ProjectReport.samples_for_project_restapi'), new_callable=PropertyMock(return_value=[rest_api_sample1, rest_api_sample2, rest_api_sample3, rest_api_sample4]))
 mocked_calculate_project_statistics = patch(ppath('ProjectReport.calculate_project_statistsics'), return_value=OrderedDict([('Total yield (Gb):', '524.13'),
                                                                                ('Average yield (Gb):', '131.0'),
@@ -238,6 +238,8 @@ mocked_calculate_project_statistics = patch(ppath('ProjectReport.calculate_proje
                                                                                ('Average percent Q30:', 80.32382821869467)]))
 mocked_sample_yield_metrics = patch(ppath('ProjectReport.get_sample_yield_metrics'), return_value=test_sample_yield_metrics)
 mocked_pc_statistics = patch(ppath('ProjectReport.get_pc_statistics'), return_value=test_pc_statistics)
+mocked_get_species_found = patch(ppath('ProjectReport.get_species_found'), side_effect=['Homo sapiens', 'Homo sapiens', 'Homo sapiens', 'Gallus gallus'])
+mocked_get_library_workflow_from_sample = patch(ppath('ProjectReport.get_library_workflow_from_sample'), return_value='Nano')
 
 
 class TestProjectReport(TestProjectManagement):
@@ -256,12 +258,12 @@ class TestProjectReport(TestProjectManagement):
                ('Project title:', 'a_research_title_for_a_project_name'),
                ('Enquiry no:', '1337'),
                ('Quote no:', '1338'),
-               ('Number of Samples', 4),
-               ('Number of Samples Delivered', 4),
-               ('Project Size', '1.34 Terabytes'),
-               ('Laboratory Protocol', 'TruSeq Nano DNA Sample Prep'),
-               ('Submitted Species', 'Thingius thingy'),
-               ('Genome Used for Mapping', 'hg38, hg37'))
+               ('Number of samples', 4),
+               ('Number of samples delivered', 4),
+               ('Project size', '1.34 terabytes'),
+               ('Laboratory protocol', 'TruSeq Nano DNA Sample Prep'),
+               ('Submitted species', 'Thingius thingy'),
+               ('Genome version', 'hg38, hg37'))
         assert self.pr.get_project_info() == exp
 
     def test_get_list_of_sample_fields(self):
@@ -383,9 +385,9 @@ class TestProjectReport(TestProjectManagement):
     def test_get_folder_size(self, mocked_getsize):
         d = os.path.join(TestProjectManagement.root_path, 'project_report', 'templates')
         obs = self.pr.get_folder_size(d)
-        assert obs == 7
+        assert obs == 8
 
-
+@mocked_get_library_workflow_from_sample
 @mocked_csv
 @mocked_samples_for_project_restapi
 @mocked_sample_yield_metrics
@@ -393,15 +395,18 @@ class TestProjectReport(TestProjectManagement):
 def test_project_types(mocked_pc_statistics,
                        mocked_sample_yield_metrics,
                        mocked_samples_for_project,
-                       mocked_csv):
+                       mocked_csv,
+                       mocked_library_workflow):
     os.chdir(TestProjectManagement.root_path)
     projects = ('human_truseq_nano', 'human_pcr_free', 'non_human_truseq_nano', 'non_human_pcr_free')
     for p in projects:
-        with mocked_get_genome_version:
+        with mocked_get_genome_version, mocked_get_species_found:
             pr = ProjectReport(p)
             pr.lims = FakeLims()
             pr.generate_report('pdf')
 
+@mocked_get_library_workflow_from_sample
+@mocked_get_species_found
 @mocked_get_genome_version
 @mocked_csv
 @mocked_samples_for_project_restapi
@@ -411,7 +416,9 @@ def test_run_report(mocked_pc_statistics,
                     mocked_sample_yield_metrics,
                     mocked_samples_for_project,
                     mocked_csv,
-                    mocked_genome_version):
+                    mocked_genome_version,
+                    mocked_get_species_found,
+                    mocked_library_workflow):
     pr = ProjectReport('a_project_name')
     pr.lims = FakeLims()
     pr.generate_report('pdf')

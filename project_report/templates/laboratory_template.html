@@ -1,4 +1,3 @@
-
 {% from 'all_templates.html' import sample_qc_table, library_prep_table, library_qc_table, sequencing_table %}
 {% set macro_dict = {'sample_qc_table': sample_qc_table, 'library_prep_table': library_prep_table, 'library_qc_table': library_qc_table, 'sequencing_table': sequencing_table} %}
 {% for t in project_templates['laboratory_template'] %}
