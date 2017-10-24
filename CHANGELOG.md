@@ -1,10 +1,17 @@
 Changelog for EGCG-Project-Management
 =====================================
 
-0.4 (unreleased)
+0.5 (unreleased)
 ----------------
 
 - Nothing changed yet.
+
+
+0.4 (2017-10-23)
+----------------
+
+- Confirm delivery scripts added
+- Bug fix project report to use only samples that have been delivered
 
 
 0.3 (2017-06-22)
