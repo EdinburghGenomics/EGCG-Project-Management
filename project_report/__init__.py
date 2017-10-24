@@ -47,6 +47,14 @@ class ProjectReport:
             'adapter2': 'AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT'
         }
 
+    def facility_and_customer_details(self):
+        facility_customer_info = {}
+        facility_customer_info['egcg address'] = '\n'.join(['Edinburgh Genomics',
+                                                            'The Roslin Institute',
+                                                            'The University of Edinburgh',
+                                                            'Easter Bush Campus',
+                                                            'EH25 9RG'])
+
     @property
     def project(self):
         if self._project is None:
@@ -84,7 +92,7 @@ class ProjectReport:
         return samples_in_project
 
     def get_library_workflow_from_sample(self, sample_name):
-        return clarity.get_sample(sample_name).udf.get('Prep Workflow')
+        return self.get_sample(sample_name).udf.get('Prep Workflow')
 
     def get_report_type_from_sample(self, sample_name):
         s = self.get_sample(sample_name).udf.get('Species')
@@ -293,6 +301,13 @@ class ProjectReport:
                 pc_statistics['samples'].append(all_pc_statistics[3])
         return pc_statistics
 
+
+
+
+
+
+
+
     def yield_plot(self, sample_labels=False):
         yield_plot_outfile = path.join(self.project_source, 'yield_plot.png')
         sample_yields = self.get_sample_yield_metrics()
@@ -313,6 +328,15 @@ class ProjectReport:
         plt.savefig(yield_plot_outfile, bbox_extra_artists=(lgd,), bbox_inches='tight', pad_inches=0.2)
         yield_plot_outfile = 'file://' + os.path.abspath(yield_plot_outfile)
         self.params['yield_chart'] = yield_plot_outfile
+
+
+
+
+
+
+
+
+
 
     def qc_plot(self, sample_labels=False):
         qc_plot_outfile = path.join(self.project_source, 'qc_plot.png')

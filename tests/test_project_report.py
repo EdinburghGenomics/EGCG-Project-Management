@@ -17,7 +17,6 @@ class FakeSample:
         self.name = name
         self.udf = udf
 
-
 fake_samples = {
     'a_project_name': [
         FakeSample(
