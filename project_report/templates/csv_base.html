@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style type="text/css">
+
+        @page {
+        margin-top: 2cm;
+        margin-bottom: 2cm;
+        size: landscape;
+        }
+    </style>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <table class="methods_table">
+        <tr>
+        {% for heading in report_csv_headers %}
+            <th>{{ heading }}</th>
+        {% endfor %}
+        </tr>
+        {% for row in report_csv_rows %}
+            <tr>
+            {% for field in row %}
+                <td>{{ field }}</td>
+            {% endfor %}
+            </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
