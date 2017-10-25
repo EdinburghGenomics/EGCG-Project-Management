@@ -399,11 +399,15 @@ class ProjectReport:
 
     def generate_report(self, output_format):
         project_file = path.join(self.project_delivery, 'project_%s_report.%s' % (self.project_name, output_format))
-        report_render, pages, full_html = self.get_html_content()
+        if not HTML:
+            raise ImportError('Could not import WeasyPrint - PDF output not available')
+        else:
+            report_render, pages, full_html = self.get_html_content()
         if output_format == 'html':
             open(project_file, 'w').write(full_html)
-        else:
+        elif HTML:
             report_render.copy(pages).write_pdf(project_file)
+
 
     def get_csv_data(self):
         header = ['Internal ID',
@@ -467,6 +471,8 @@ class ProjectReport:
         csv_table_headers, csv_table_rows = self.get_csv_data()
         csv = template2.render(report_csv_headers=csv_table_headers,
                                report_csv_rows=csv_table_rows)
+
+
         combined_report_html = (report + csv)
         report_html = HTML(string=report)
         csv_html = HTML(string=csv)
