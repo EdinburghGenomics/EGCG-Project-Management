@@ -1,30 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <style type="text/css">
-
-        @page {
-        margin-top: 2cm;
-        margin-bottom: 2cm;
-        size: landscape;
-        }
-    </style>
-    <meta charset="UTF-8">
-</head>
-<body>
-    <table class="methods_table">
-        <tr>
-        {% for heading in report_csv_headers %}
-            <th>{{ heading }}</th>
-        {% endfor %}
-        </tr>
-        {% for row in report_csv_rows %}
+    <head>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" crossorigin="anonymous">
+        <style type="text/css">
+            @page {
+                margin-top: 2cm;
+                margin-bottom: 2cm;
+                size: landscape;
+            }
+        </style>
+        <meta charset="UTF-8">
+    </head>
+    <body>
+        <table class="table table-sm">
             <tr>
-            {% for field in row %}
-                <td>{{ field }}</td>
-            {% endfor %}
+                {% for heading in report_csv_headers %}
+                    <th>{{ heading }}</th>
+                {% endfor %}
             </tr>
-        {% endfor %}
-    </table>
-</body>
+            {% for row in report_csv_rows %}
+                <tr>
+                {% for field in row %}
+                    <td>{{ field }}</td>
+                {% endfor %}
+                </tr>
+            {% endfor %}
+        </table>
+    </body>
 </html>

@@ -184,10 +184,10 @@ class ProjectReport:
             genome_versions.add(genome_version)
 
         project_info = (
-            ('Project name:', self.project_name),
-            ('Project title:', self.project_title),
-            ('Enquiry no:', self.enquiry_number),
-            ('Quote no:', self.quote_number),
+            ('Project name', self.project_name),
+            ('Project title', self.project_title),
+            ('Enquiry no', self.enquiry_number),
+            ('Quote no', self.quote_number),
             ('Number of samples', len(sample_names)),
             ('Number of samples delivered', self.get_samples_delivered()),
             ('Project size', '%.2f terabytes' % self.project_size_in_terabytes()),
@@ -418,15 +418,17 @@ class ProjectReport:
                     'Median coverage']
         rows = []
         for sample in self.samples_for_project_restapi:
-            row = [sample.get('user_sample_id', 'None'),
-                 self.get_species_found(sample),
-                 self.get_library_workflow_from_sample(sample.get('sample_id', 'None')),
-                 round(sample.get('clean_yield_in_gb', 'None'), 2),
-                 round(sample.get('clean_pc_q30', 'None'), 2),
-                 round(sample.get('pc_duplicate_reads', 'None'), 2),
-                 round(sample.get('pc_properly_mapped_reads', 'None'), 2),
-                 sample.get('pc_pass_filter', 'None'),
-                 sample.get('median_coverage', 'None')]
+            row = [
+                sample.get('sample_id'),
+                sample.get('user_sample_id', 'None'),
+                self.get_species_found(sample),
+                self.get_library_workflow_from_sample(sample.get('sample_id', 'None')),
+                round(sample.get('clean_yield_in_gb', 'None'), 2),
+                round(sample.get('clean_pc_q30', 'None'), 2),
+                round(sample.get('pc_duplicate_reads', 'None'), 2),
+                round(sample.get('pc_properly_mapped_reads', 'None'), 2),
+                sample.get('pc_pass_filter', 'None'),
+                sample.get('median_coverage', 'None')]
 
             rows.append(row)
         return (header, rows)

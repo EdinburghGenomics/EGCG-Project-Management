@@ -1,3 +1,4 @@
+import glob
 import os
 from collections import Counter
 from random import randint
@@ -227,7 +228,7 @@ mocked_get_samples_delivered = patch(ppath('ProjectReport.get_samples_delivered'
 mocked_get_folder_size = patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
 mocked_get_library_workflow = patch(ppath('ProjectReport.get_library_workflow'), return_value='TruSeq Nano DNA Sample Prep')
 mocked_get_species_from_sample = patch(ppath('get_species_from_sample'), return_value='Human')
-mocked_get_genome_version = patch(ppath('get_genome_version'), side_effect=['hg38, hg37', 'hg38, hg37', 'hg38, hg37', 'hg38, hg37'])
+mocked_get_genome_version = patch(ppath('get_genome_version'), side_effect=['hg38, hg19', 'hg38, hg19', 'hg38, hg19', 'hg38, hg19'])
 mocked_csv = patch(ppath('ProjectReport.write_csv_file'), return_value='/path/to/csv/project_report.csv')
 mocked_samples_for_project_restapi = patch(ppath('ProjectReport.samples_for_project_restapi'), new_callable=PropertyMock(return_value=[rest_api_sample1, rest_api_sample2, rest_api_sample3, rest_api_sample4]))
 mocked_calculate_project_statistics = patch(ppath('ProjectReport.calculate_project_statistsics'), return_value=OrderedDict([('Total yield (Gb):', '524.13'),
@@ -243,11 +244,15 @@ mocked_get_library_workflow_from_sample = patch(ppath('ProjectReport.get_library
 
 class TestProjectReport(TestProjectManagement):
     def setUp(self):
-        cfg.load_config_file(TestProjectManagement.etc_config)
+        cfg.load_config_file(self.etc_config)
         self.pr = ProjectReport('a_project_name')
         self.pr.lims = FakeLims()
         self.fake_samples = fake_samples['a_project_name']
-        os.chdir(TestProjectManagement.root_path)
+        os.chdir(self.root_path)
+
+        project_report_pdfs = glob.glob(os.path.join(self.root_path, 'project_report', 'dest', '*', '*.pdf'))
+        for pdf in project_report_pdfs:
+            os.remove(pdf)
 
     @mocked_get_genome_version
     @mocked_get_folder_size
@@ -262,7 +267,7 @@ class TestProjectReport(TestProjectManagement):
                ('Project size', '1.34 terabytes'),
                ('Laboratory protocol', 'TruSeq Nano DNA Sample Prep'),
                ('Submitted species', 'Thingius thingy'),
-               ('Genome version', 'hg38, hg37'))
+               ('Genome version', 'hg38, hg19'))
         assert self.pr.get_project_info() == exp
 
     def test_get_list_of_sample_fields(self):
@@ -386,23 +391,24 @@ class TestProjectReport(TestProjectManagement):
         obs = self.pr.get_folder_size(d)
         assert obs == 8
 
-@mocked_get_library_workflow_from_sample
-@mocked_csv
-@mocked_samples_for_project_restapi
-@mocked_sample_yield_metrics
-@mocked_pc_statistics
-def test_project_types(mocked_pc_statistics,
-                       mocked_sample_yield_metrics,
-                       mocked_samples_for_project,
-                       mocked_csv,
-                       mocked_library_workflow):
-    os.chdir(TestProjectManagement.root_path)
-    projects = ('human_truseq_nano', 'human_pcr_free', 'non_human_truseq_nano', 'non_human_pcr_free')
-    for p in projects:
-        with mocked_get_genome_version, mocked_get_species_found:
-            pr = ProjectReport(p)
-            pr.lims = FakeLims()
-            pr.generate_report('pdf')
+    @mocked_get_library_workflow_from_sample
+    @mocked_csv
+    @mocked_samples_for_project_restapi
+    @mocked_sample_yield_metrics
+    @mocked_pc_statistics
+    def test_project_types(self, mocked_pc_statistics,
+                           mocked_sample_yield_metrics,
+                           mocked_samples_for_project,
+                           mocked_csv,
+                           mocked_library_workflow):
+        os.chdir(TestProjectManagement.root_path)
+        projects = ('human_truseq_nano', 'human_pcr_free', 'non_human_truseq_nano', 'non_human_pcr_free')
+
+        for p in projects:
+            with mocked_get_genome_version, mocked_get_species_found:
+                pr = ProjectReport(p)
+                pr.lims = FakeLims()
+                pr.generate_report('pdf')
 
 @mocked_get_library_workflow_from_sample
 @mocked_get_species_found
