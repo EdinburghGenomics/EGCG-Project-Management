@@ -1,6 +1,7 @@
 import glob
 import os
 from collections import Counter
+from itertools import cycle
 from random import randint
 from unittest.mock import Mock, PropertyMock, patch
 from project_report import ProjectReport
@@ -22,19 +23,19 @@ fake_samples = {
     'a_project_name': [
         FakeSample(
             name='sample:1',
-            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38, hg37'}
+            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
         ),
         FakeSample(
             name='sample:2',
-            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38, hg37'}
+            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg19'}
         ),
         FakeSample(
             name='sample:3',
-            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38, hg37'}
+            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
         ),
         FakeSample(
             name='sample:4',
-            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38, hg37'}
+            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg19'}
         )
     ],
     'human_truseq_nano': [
@@ -208,19 +209,18 @@ rest_api_sample4 = {'clean_pc_q30': 80.52789488784828,
                     'coverage': {'bases_at_coverage': {'bases_at_15X': 310}}, 'mean': 20, 'evenness': 10}
 
 test_sample_yield_metrics = {'samples': [], 'clean_yield': [], 'clean_yield_Q30': []}
-for i in range(1,5):
+for i in range(1,100):
     test_sample_yield_metrics['samples'].append('TestSample%s' % i)
     clean_yield_val = randint(100, 150)
     clean_yield_q30_val = clean_yield_val - randint(10,30)
     test_sample_yield_metrics['clean_yield'].append(clean_yield_val)
     test_sample_yield_metrics['clean_yield_Q30'].append(clean_yield_q30_val)
 
-test_pc_statistics = {'pc_duplicate_reads': [], 'pc_properly_mapped_reads': [], 'pc_pass_filter': [], 'samples': []}
-for i in range(1,5):
+test_pc_statistics = {'pc_duplicate_reads': [], 'pc_mapped_reads': [], 'samples': []}
+for i in range(1,100):
     test_pc_statistics['samples'].append('TestSample%s' % i)
     test_pc_statistics['pc_duplicate_reads'].append(randint(10,30))
-    test_pc_statistics['pc_properly_mapped_reads'].append(randint(80,100))
-    test_pc_statistics['pc_pass_filter'].append(randint(90,100))
+    test_pc_statistics['pc_mapped_reads'].append(randint(80,100))
 
 
 mocked_get_all_sample_names = patch(ppath('ProjectReport.get_all_sample_names'), return_value=['sample:1', 'sample:2'])
@@ -228,7 +228,7 @@ mocked_get_samples_delivered = patch(ppath('ProjectReport.get_samples_delivered'
 mocked_get_folder_size = patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
 mocked_get_library_workflow = patch(ppath('ProjectReport.get_library_workflow'), return_value='TruSeq Nano DNA Sample Prep')
 mocked_get_species_from_sample = patch(ppath('get_species_from_sample'), return_value='Human')
-mocked_get_genome_version = patch(ppath('get_genome_version'), side_effect=['hg38, hg19', 'hg38, hg19', 'hg38, hg19', 'hg38, hg19'])
+mocked_get_genome_version = patch(ppath('get_genome_version'), side_effect=cycle(['hg38, hg19']))
 mocked_csv = patch(ppath('ProjectReport.write_csv_file'), return_value='/path/to/csv/project_report.csv')
 mocked_samples_for_project_restapi = patch(ppath('ProjectReport.samples_for_project_restapi'), new_callable=PropertyMock(return_value=[rest_api_sample1, rest_api_sample2, rest_api_sample3, rest_api_sample4]))
 mocked_calculate_project_statistics = patch(ppath('ProjectReport.calculate_project_statistsics'), return_value=OrderedDict([('Total yield (Gb):', '524.13'),
@@ -258,10 +258,10 @@ class TestProjectReport(TestProjectManagement):
     @mocked_get_folder_size
     @mocked_samples_for_project_restapi
     def test_get_project_info(self, mocked_samples_for_project, mocked_folder_size, mocked_genome_version):
-        exp = (('Project name:', 'a_project_name'),
-               ('Project title:', 'a_research_title_for_a_project_name'),
-               ('Enquiry no:', '1337'),
-               ('Quote no:', '1338'),
+        exp = (('Project name', 'a_project_name'),
+               ('Project title', 'a_research_title_for_a_project_name'),
+               ('Enquiry no', '1337'),
+               ('Quote no', '1338'),
                ('Number of samples', 4),
                ('Number of samples delivered', 4),
                ('Project size', '1.34 terabytes'),
@@ -409,6 +409,9 @@ class TestProjectReport(TestProjectManagement):
                 pr = ProjectReport(p)
                 pr.lims = FakeLims()
                 pr.generate_report('pdf')
+            report = os.path.join(self.assets_path, 'project_report', 'dest', p, 'project_%s_report.pdf' % p)
+            assert os.path.isfile(report)
+
 
 @mocked_get_library_workflow_from_sample
 @mocked_get_species_found

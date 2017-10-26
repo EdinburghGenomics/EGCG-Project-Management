@@ -23,6 +23,7 @@ log_cfg.get_logger('weasyprint', 40)
 
 try:
     from weasyprint import HTML
+    from weasyprint.fonts import FontConfiguration
 except ImportError:
     HTML = None
 
@@ -46,6 +47,8 @@ class ProjectReport:
             'adapter1': 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCA',
             'adapter2': 'AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT'
         }
+        self.font_config = FontConfiguration()
+
 
     def facility_and_customer_details(self):
         facility_customer_info = {}
@@ -124,7 +127,8 @@ class ProjectReport:
         project_size = self.get_folder_size(self.project_delivery)
         return (project_size/1000000000000.0)
 
-    def calculate_mean(self, values):
+    @staticmethod
+    def calculate_mean(values):
         return (sum(values)/max(len(values), 1))
 
     @property
@@ -209,30 +213,17 @@ class ProjectReport:
 
     def gather_project_data(self):
         samples = self.samples_for_project_restapi
-        project_sample_data = {'clean_yield':
-                             {'key': 'clean_yield_in_gb',
-                              'subfields': None},
-                         'coverage_per_sample':
-                             {'key': 'coverage',
-                              'subfields': ['mean']},
-                         'pc_duplicate_reads':
-                             {'key': 'pc_duplicate_reads',
-                              'subfields': None},
-                         'evenness':
-                             {'key': 'evenness',
-                              'subfields': None},
-                         'freemix':
-                             {'key': 'sample_contamination',
-                              'subfields': 'freemix'},
-                         'pc_properly_mapped_reads':
-                             {'key': 'pc_properly_mapped_reads',
-                              'subfields': None},
-                         'clean_pc_q30':
-                             {'key': 'clean_pc_q30',
-                              'subfields': None},
-                         'mean_bases_covered_at_15X':
-                             {'key': 'coverage',
-                              'subfields': ['bases_at_coverage', 'bases_at_15X']}}
+        # FIXME: Add support for dor (.) notation
+        project_sample_data = {
+            'clean_yield':               {'key': 'clean_yield_in_gb', 'subfields': None},
+            'coverage_per_sample':       {'key': 'coverage', 'subfields': ['mean']},
+            'pc_duplicate_reads':        {'key': 'pc_duplicate_reads', 'subfields': None},
+            'evenness':                  {'key': 'evenness', 'subfields': None},
+            'freemix':                   {'key': 'sample_contamination', 'subfields': 'freemix'},
+            'pc_mapped_reads':           {'key': 'pc_mapped_reads','subfields': None},
+            'clean_pc_q30':              {'key': 'clean_pc_q30','subfields': None},
+            'mean_bases_covered_at_15X': {'key': 'coverage', 'subfields': ['bases_at_coverage', 'bases_at_15X']}
+        }
 
         for field in project_sample_data:
             project_sample_data[field]['values'] = self.get_list_of_sample_fields(samples,
@@ -240,18 +231,25 @@ class ProjectReport:
                                                                                   subfields=project_sample_data[field]['subfields'])
         return project_sample_data
 
+    @staticmethod
+    def min_mean_max(list_values):
+        if list_values:
+            return 'min: %.1f, avg: %.1f, max: %.1f' % (
+                min(list_values),
+                ProjectReport.calculate_mean(list_values),
+                max(list_values)
+            )
+        else:
+            return 'min: 0, mean: 0, max: 0'
+
     def calculate_project_statistsics(self):
         p = self.gather_project_data()
         project_stats = OrderedDict()
-        project_stats['Total yield (Gb)'] = '%.2f' % sum(p['clean_yield']['values'])
-        project_stats['Mean yield per sample (Gb)'] = '%.1f' % (self.calculate_mean(p['clean_yield']['values']))
-        project_stats['Mean coverage per sample'] = '%.2f' % (self.calculate_mean(p['coverage_per_sample']['values']))
-        project_stats['Mean % duplicate reads'] = (round(self.calculate_mean(p['pc_duplicate_reads']['values']), 2))
-        project_stats['Mean evenness'] = (round(self.calculate_mean(p['evenness']['values']), 2))
-        project_stats['Maximum freemix value'] = round(max(p['freemix']['values'], default=0), 2)
-        project_stats['Mean % Reads Mapped to Reference Genome'] = round(self.calculate_mean(p['pc_properly_mapped_reads']['values']), 2)
-        project_stats['Mean % Q30'] = (round(self.calculate_mean(p['clean_pc_q30']['values']), 2))
-        project_stats['Mean bases covered at 15X'] = (round(self.calculate_mean(p['mean_bases_covered_at_15X']['values']), 2))
+        project_stats['Yield per sample (Gb)'] = self.min_mean_max(p['clean_yield']['values'])
+        project_stats['% Q30'] = self.min_mean_max(p['clean_pc_q30']['values'])
+        project_stats['Coverage per sample'] = self.min_mean_max(p['coverage_per_sample']['values'])
+        project_stats['% Reads mapped'] = self.min_mean_max(p['pc_mapped_reads']['values'])
+        project_stats['% Duplicate reads'] = self.min_mean_max(p['pc_duplicate_reads']['values'])
         return project_stats
 
     def get_sample_info(self):
@@ -302,12 +300,6 @@ class ProjectReport:
         return pc_statistics
 
 
-
-
-
-
-
-
     def yield_plot(self, sample_labels=False):
         yield_plot_outfile = path.join(self.project_source, 'yield_plot.png')
         sample_yields = self.get_sample_yield_metrics()
@@ -329,15 +321,6 @@ class ProjectReport:
         yield_plot_outfile = 'file://' + os.path.abspath(yield_plot_outfile)
         self.params['yield_chart'] = yield_plot_outfile
 
-
-
-
-
-
-
-
-
-
     def qc_plot(self, sample_labels=False):
         qc_plot_outfile = path.join(self.project_source, 'qc_plot.png')
         pc_statistics = self.get_pc_statistics()
@@ -349,7 +332,7 @@ class ProjectReport:
         else:
             plt.xticks([])
         plt.xlim([-1, max(indices) + 1])
-        plt.bar(indices, df['pc_properly_mapped_reads'], width=1, align='center', color='gainsboro')
+        plt.bar(indices, df['pc_mapped_reads'], width=1, align='center', color='gainsboro')
         plt.bar(indices, df['pc_duplicate_reads'], width=0.4, align='center', color='mediumaquamarine')
         blue_patch = mpatches.Patch(color='gainsboro', label='% Paired Reads Aligned to Reference Genome')
         green_patch = mpatches.Patch(color='mediumaquamarine', label='% Duplicate Reads')
@@ -413,7 +396,7 @@ class ProjectReport:
                     'Clean yield (Gb)',
                     'Clean %Q30',
                     '% Duplicate reads',
-                    '% Properly mapped reads',
+                    '% mapped reads',
                     '% Pass filter',
                     'Median coverage']
         rows = []
@@ -426,7 +409,7 @@ class ProjectReport:
                 round(sample.get('clean_yield_in_gb', 'None'), 2),
                 round(sample.get('clean_pc_q30', 'None'), 2),
                 round(sample.get('pc_duplicate_reads', 'None'), 2),
-                round(sample.get('pc_properly_mapped_reads', 'None'), 2),
+                round(sample.get('pc_mapped_reads', 'None'), 2),
                 sample.get('pc_pass_filter', 'None'),
                 sample.get('median_coverage', 'None')]
 
@@ -458,22 +441,26 @@ class ProjectReport:
         self.yield_plot(sample_labels=sample_labels)
         self.qc_plot(sample_labels=sample_labels)
         report = template1.render(
-                                   project_info=self.get_project_info(),
-                                   project_stats=self.get_sample_info(),
-                                   project_templates=project_templates,
-                                   params=self.params,
-                                   quote_number=self.quote_number,
-                                   method_fields=self.method_fields()
-                                    )
+            project_info=self.get_project_info(),
+            project_stats=self.get_sample_info(),
+            project_templates=project_templates,
+            params=self.params,
+            quote_number=self.quote_number,
+            method_fields=self.method_fields()
+        )
 
         csv_table_headers, csv_table_rows = self.get_csv_data()
-        csv = template2.render(report_csv_headers=csv_table_headers,
-                               report_csv_rows=csv_table_rows)
+        csv = template2.render(
+            report_csv_headers=csv_table_headers,
+            report_csv_rows=csv_table_rows,
+            csv_path=self.params['csv_path'],
+            quote_number=self.quote_number
+        )
         combined_report_html = (report + csv)
         report_html = HTML(string=report)
         csv_html = HTML(string=csv)
-        report_render = report_html.render()
-        csv_render = csv_html.render()
+        report_render = report_html.render(font_config=self.font_config)
+        csv_render = csv_html.render(font_config=self.font_config)
         pages = []
         for doc in report_render, csv_render:
             for p in doc.pages:

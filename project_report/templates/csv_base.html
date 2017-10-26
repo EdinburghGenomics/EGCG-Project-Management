@@ -3,17 +3,35 @@
     <head>
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" crossorigin="anonymous">
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto">
         <style type="text/css">
             @page {
+                html, body {
+                    font-family: 'Roboto', sans-serif;
+                }
+                h1, h2, h3, h4, p, div { font-family: inherit !important }
+
                 margin-top: 2cm;
                 margin-bottom: 2cm;
-                size: landscape;
+                size: A4 landscape;
+                @bottom-center {
+                    content: "Appendix page "counter(page) " of " counter(pages);
+                }
+                @bottom-left {
+                content: "EGC-BTP-1 rev. 1";
+                }
+                @bottom-right {
+                    content: "Quote Number: {{ quote_number }}";
+                }
             }
         </style>
         <meta charset="UTF-8">
     </head>
     <body>
-        <table class="table table-sm">
+        <h2>Appendix</h2>
+        <h4>Per Sample Results</h4>
+        <p>Full user and facility derived metrics for each sample can be found within the delivery folder in {{ csv_path }}</p>
+        <table class="table table-condensed">
             <tr>
                 {% for heading in report_csv_headers %}
                     <th>{{ heading }}</th>
