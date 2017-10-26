@@ -4,6 +4,8 @@ from collections import Counter
 from itertools import cycle
 from random import randint
 from unittest.mock import Mock, PropertyMock, patch
+import shutil
+
 from project_report import ProjectReport
 from egcg_core.config import cfg
 from tests import TestProjectManagement
@@ -19,98 +21,41 @@ class FakeSample:
         self.name = name
         self.udf = udf
 
-fake_samples = {
-    'a_project_name': [
-        FakeSample(
-            name='sample:1',
-            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
-        ),
-        FakeSample(
-            name='sample:2',
-            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg19'}
-        ),
-        FakeSample(
-            name='sample:3',
-            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
-        ),
-        FakeSample(
-            name='sample:4',
-            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg19'}
-        )
-    ],
-    'human_truseq_nano': [
-        FakeSample(
-            name='human_truseq_nano_sample_1',
-            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
-        ),
-        FakeSample(
-            name='human_truseq_nano_sample_2',
-            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
-        ),
-        FakeSample(
-            name='human_truseq_nano_sample_3',
-            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
-        ),
-        FakeSample(
-            name='human_truseq_nano_sample_4',
-            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
-        )
-    ],
-    'non_human_truseq_nano': [
-        FakeSample(
-            name='non_human_truseq_nano_sample_1',
-            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
-        ),
-        FakeSample(
-            name='non_human_truseq_nano_sample_2',
-            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
-        ),
-        FakeSample(
-            name='non_human_truseq_nano_sample_3',
-            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
-        ),
-        FakeSample(
-            name='non_human_truseq_nano_sample_4',
-            udf={'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
-        )
-    ],
-    'human_pcr_free': [
-        FakeSample(
-            name='human_pcr_free_sample_1',
-            udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
-        ),
-        FakeSample(
-            name='human_pcr_free_sample_2',
-            udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
-        ),
-        FakeSample(
-            name='human_pcr_free_sample_3',
-            udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
-        ),
-        FakeSample(
-            name='human_pcr_free_sample_4',
-            udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
-        )
-    ],
-    'non_human_pcr_free': [
-        FakeSample(
-            name='non_human_pcr_free_sample_1',
-            udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
-        ),
-        FakeSample(
-            name='non_human_pcr_free_sample_2',
-            udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
-        ),
-        FakeSample(
-            name='non_human_pcr_free_sample_3',
-            udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
-        ),
-        FakeSample(
-            name='non_human_pcr_free_sample_4',
-            udf={'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
-        )
-    ]
+fake_sample_templates = {
+    'a_project_name': {
+        'name':'sample:',
+        'udf': {'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
+    },
+    'human_truseq_nano': {
+        'name':'human_truseq_nano_sample_',
+        'udf': {'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
+    },
+    'non_human_truseq_nano': {
+        'name':'non_human_truseq_nano_sample_',
+        'udf':{'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy'}
+    },
+    'human_pcr_free': {
+        'name': 'human_truseq_pcrfree_sample_',
+        'udf': {'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': cycle(['hg38', 'hg19'])}
+    },
+    'non_human_pcr_free': {
+        'name': 'non_human_truseq_pcrfree_sample_',
+        'udf':{'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Thingius thingy'}
+    },
 }
+
+fake_samples = {}
+def _resolve_next(o):
+    pass
+
+for project in fake_sample_templates:
+    fake_samples[project] = []
+    for i in range(1, 100):
+        template = fake_sample_templates[project]
+        fake_samples[project].append(FakeSample(
+            name=template['name'] + str(i),
+            udf=dict( [(k, template['udf'][k]) for k in template['udf']] )
+        ))
 
 
 class FakeLims:
@@ -249,10 +194,29 @@ class TestProjectReport(TestProjectManagement):
         self.pr.lims = FakeLims()
         self.fake_samples = fake_samples['a_project_name']
         os.chdir(self.root_path)
+        self.source_dir = os.path.join(self.assets_path, 'project_report', 'source')
 
-        project_report_pdfs = glob.glob(os.path.join(self.root_path, 'project_report', 'dest', '*', '*.pdf'))
+        #clean up previous reports
+        project_report_pdfs = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.pdf'))
         for pdf in project_report_pdfs:
             os.remove(pdf)
+
+        # create the source folders
+        for project in fake_samples:
+            prj_dir = os.path.join(self.source_dir, project)
+            os.makedirs(prj_dir, exist_ok=True)
+            for sample in fake_samples[project]:
+                smp_dir = os.path.join(prj_dir, sample.name.replace(':', '_'))
+                os.makedirs(smp_dir, exist_ok=True)
+                with open(os.path.join(smp_dir, 'programs.txt'), 'w') as open_file:
+                    open_file.write('bcbio,1.1\nbwa,1.2\ngatk,1.3\nsamblaster,1.4\n')
+                with open(os.path.join(smp_dir, 'project-summary.yaml'), 'w') as open_file:
+                    open_file.write('samples:\n- dirs:\n    galaxy: path/to/bcbio/bcbio-0.9.4/galaxy\n  genome_build: hg38\n')
+
+    def tearDown(self):
+        # delete the source folders
+        for project in fake_samples:
+            shutil.rmtree(os.path.join(self.source_dir, project))
 
     @mocked_get_genome_version
     @mocked_get_folder_size
@@ -262,7 +226,7 @@ class TestProjectReport(TestProjectManagement):
                ('Project title', 'a_research_title_for_a_project_name'),
                ('Enquiry no', '1337'),
                ('Quote no', '1338'),
-               ('Number of samples', 4),
+               ('Number of samples', len(fake_samples['a_project_name'])),
                ('Number of samples delivered', 4),
                ('Project size', '1.34 terabytes'),
                ('Laboratory protocol', 'TruSeq Nano DNA Sample Prep'),
@@ -282,8 +246,9 @@ class TestProjectReport(TestProjectManagement):
         assert self.pr.get_sample('sample:1') == self.fake_samples[0]
 
     def test_get_all_sample_names(self):
-        assert self.pr.get_all_sample_names() == ['sample:1', 'sample:2','sample:3', 'sample:4']
-        assert self.pr.get_all_sample_names(modify_names=True) == ['sample_1', 'sample_2', 'sample_3', 'sample_4']
+        names = [s.name for  s in fake_samples['a_project_name']]
+        assert self.pr.get_all_sample_names() == names
+        assert self.pr.get_all_sample_names(modify_names=True) == [n.replace(':', '_') for n in names]
 
     def test_get_library_workflow(self):
         assert self.pr.get_library_workflow_from_sample('sample:1') == 'TruSeq Nano DNA Sample Prep'
@@ -369,7 +334,6 @@ class TestProjectReport(TestProjectManagement):
                                ('Average percent duplicate reads:', 17.380661102525934),
                                ('Average percent mapped reads:', 85.45270355584897),
                                ('Average percent Q30:', 80.32382821869467)]
-
         assert self.pr.params == {
             'project_name': 'a_project_name',
             'adapter1': 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCA',
@@ -403,7 +367,6 @@ class TestProjectReport(TestProjectManagement):
                            mocked_library_workflow):
         os.chdir(TestProjectManagement.root_path)
         projects = ('human_truseq_nano', 'human_pcr_free', 'non_human_truseq_nano', 'non_human_pcr_free')
-
         for p in projects:
             with mocked_get_genome_version, mocked_get_species_found:
                 pr = ProjectReport(p)
@@ -412,21 +375,3 @@ class TestProjectReport(TestProjectManagement):
             report = os.path.join(self.assets_path, 'project_report', 'dest', p, 'project_%s_report.pdf' % p)
             assert os.path.isfile(report)
 
-
-@mocked_get_library_workflow_from_sample
-@mocked_get_species_found
-@mocked_get_genome_version
-@mocked_csv
-@mocked_samples_for_project_restapi
-@mocked_sample_yield_metrics
-@mocked_pc_statistics
-def test_run_report(mocked_pc_statistics,
-                    mocked_sample_yield_metrics,
-                    mocked_samples_for_project,
-                    mocked_csv,
-                    mocked_genome_version,
-                    mocked_get_species_found,
-                    mocked_library_workflow):
-    pr = ProjectReport('a_project_name')
-    pr.lims = FakeLims()
-    pr.generate_report('pdf')

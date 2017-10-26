@@ -257,8 +257,6 @@ class ProjectReport:
         for sample in set(modified_samples):
             sample_source = path.join(self.project_source, sample)
             program_csv = find_file(sample_source, 'programs.txt')
-            if not program_csv:
-                program_csv = find_file(sample_source, '.qc', 'programs.txt')
             self.update_from_program_csv(program_csv)
             summary_yaml = find_file(sample_source, 'project-summary.yaml')
             if not summary_yaml:
