@@ -201,7 +201,6 @@ class ProjectReport:
                         )
         return project_info
 
-
     def get_list_of_sample_fields(self, samples, field, subfields=None):
         if subfields:
             sample_fields = [s.get(field, {}) for s in samples if s.get(field)]
