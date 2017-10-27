@@ -260,7 +260,8 @@ class TestProjectReport(TestProjectManagement):
 
     def test_get_list_of_sample_fields(self):
         samples = [rest_api_sample1, rest_api_sample2]
-        assert Counter(self.pr.get_list_of_sample_fields(samples, 'evenness')) == Counter([10, 15])
+        print(self.pr.get_list_of_sample_fields(samples, 'evenness'))
+        assert Counter(self.pr.get_list_of_sample_fields(samples, 'coverage', subfields=['evenness'])) == Counter([10, 15])
         assert Counter(self.pr.get_list_of_sample_fields(samples, 'coverage', subfields=['bases_at_coverage', 'bases_at_15X'])) == Counter([300, 310])
 
     def test_samples_for_project(self):
