@@ -15,7 +15,7 @@ from tests import TestProjectManagement
 from collections import OrderedDict
 cfg.load_config_file(TestProjectManagement.etc_config)
 
-nb_samples = 5
+nb_samples = 100
 
 def ppath(ext):
     return 'project_report.' + ext
@@ -171,13 +171,13 @@ for project in fake_samples:
         fake_rest_api_samples[project].append(t)
 
 
-test_sample_yield_metrics = {'samples': [], 'clean_yield': [], 'clean_yield_Q30': []}
+test_sample_yield_metrics = {'samples': [], 'clean_yield': [], 'coverage': []}
 for i in range(1, nb_samples+1):
     test_sample_yield_metrics['samples'].append('TestSample%s' % i)
-    clean_yield_val = randint(100, 150)
+    clean_yield_val = randint(150, 200)
     clean_yield_q30_val = clean_yield_val - randint(10,30)
     test_sample_yield_metrics['clean_yield'].append(clean_yield_val)
-    test_sample_yield_metrics['clean_yield_Q30'].append(clean_yield_q30_val)
+    test_sample_yield_metrics['coverage'].append(randint(35,60))
 
 test_pc_statistics = {'pc_duplicate_reads': [], 'pc_mapped_reads': [], 'samples': []}
 for i in range(1, nb_samples+1):
@@ -205,7 +205,7 @@ mocked_calculate_project_statistics = patch(ppath('ProjectReport.calculate_proje
     ('Average percent mapped reads:', 85.45270355584897),
     ('Average percent Q30:', 80.32382821869467)
 ]))
-mocked_sample_yield_metrics = patch(ppath('ProjectReport.get_sample_yield_metrics'), return_value=test_sample_yield_metrics)
+patch_sample_yield_metrics = patch(ppath('ProjectReport.get_sample_yield_metrics'), return_value=test_sample_yield_metrics)
 mocked_pc_statistics = patch(ppath('ProjectReport.get_pc_statistics'), return_value=test_pc_statistics)
 mocked_get_species_found = patch(ppath('ProjectReport.get_species_found'), side_effect=cycle(['Homo sapiens', 'Homo sapiens', 'Homo sapiens', 'Gallus gallus']))
 mocked_get_library_workflow_from_sample = patch(ppath('ProjectReport.get_library_workflow_from_sample'), return_value='Nano')
@@ -372,6 +372,13 @@ class TestProjectReport(TestProjectManagement):
     def test_get_html_template(self):
         assert self.pr.get_html_template().get('template_base') == 'report_base.html'
 
+    @patch_sample_yield_metrics
+    def test_yield_plot(self, mocked_sample_yield_metrics):
+        self.pr.project_source = os.path.join(self.assets_path, 'project_report')
+        self.pr.yield_plot(sample_labels=True)
+
+
+
     @patch(ppath('path.getsize'), return_value=1)
     def test_get_folder_size(self, mocked_getsize):
         d = os.path.join(TestProjectManagement.root_path, 'project_report', 'templates')
@@ -379,14 +386,14 @@ class TestProjectReport(TestProjectManagement):
         assert obs == 8
 
     @mocked_csv
-    @mocked_sample_yield_metrics
+    @patch_sample_yield_metrics
     @mocked_pc_statistics
     def test_project_types(self, mocked_pc_statistics,
                            mocked_sample_yield_metrics,
                            mocked_csv):
         os.chdir(TestProjectManagement.root_path)
-        projects = ('human_truseq_nano', 'human_pcr_free', 'non_human_truseq_nano', 'non_human_pcr_free')
-        # projects = ('human_truseq_nano',)
+        # projects = ('human_truseq_nano', 'human_pcr_free', 'non_human_truseq_nano', 'non_human_pcr_free')
+        projects = ('human_truseq_nano',)
 
         for p in projects:
             with mocked_get_genome_version, mocked_get_species_found, get_patch_sample_restapi(p):

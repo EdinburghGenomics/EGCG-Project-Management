@@ -7,6 +7,8 @@ matplotlib.use('Agg')
 import pandas as pd
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
+import matplotlib.collections as mpcollections
+
 import numpy as np
 from os import path, listdir
 from collections import OrderedDict
@@ -270,16 +272,16 @@ class ProjectReport:
         return project_stats
 
     def get_sample_yield_metrics(self):
-        yield_metrics = {'samples': [], 'clean_yield': [], 'clean_yield_Q30': []}
+        yield_metrics = {'samples': [], 'clean_yield': [], 'coverage': []}
         for sample in self.samples_for_project_restapi:
 
             all_yield_metrics = [sample.get('sample_id'),
                                  sample.get('clean_yield_in_gb'),
-                                 sample.get('clean_yield_q30')]
+                                 sample.get('coverage').get('mean')]
             if not None in all_yield_metrics:
                 yield_metrics['samples'].append(all_yield_metrics[0])
                 yield_metrics['clean_yield'].append(all_yield_metrics[1])
-                yield_metrics['clean_yield_Q30'].append(all_yield_metrics[2])
+                yield_metrics['coverage'].append(all_yield_metrics[2])
         return yield_metrics
 
     def get_pc_statistics(self):
@@ -298,24 +300,46 @@ class ProjectReport:
 
 
     def yield_plot(self, sample_labels=False):
-        yield_plot_outfile = path.join(self.project_source, 'yield_plot.png')
+
         sample_yields = self.get_sample_yield_metrics()
         df = pd.DataFrame(sample_yields)
-        indices = np.arange(len(df))
+        print(len(df))
+        print(df)
+        print(max(df['clean_yield']))
+        max_x = max(df['clean_yield'])+ .1 * max(df['clean_yield'])
+        max_y = max(df['coverage']) + .1 * max(df['coverage'])
+        min_x = min(df['clean_yield']) - .1 * max(df['clean_yield'])
+        min_y = min(df['coverage']) - .1 * max(df['coverage'])
+
+        min_x = min((min_x, 110))
+        min_y = min((min_y, 25))
+        print(min_x)
+        print(min_y)
+        yield_plot_outfile = path.join(self.project_source, 'yield_plot.png')
+
         plt.figure(figsize=(10, 5))
-        if sample_labels:
-            plt.xticks([i for i in range(len(df))], list((df['samples'])), rotation=-80)
-        else:
-            plt.xticks([])
-        plt.xlim([-1, max(indices) + 1])
-        plt.bar(indices, df['clean_yield'], width=0.8, align='center', color='gainsboro')
-        plt.bar(indices, df['clean_yield_Q30'], width=0.2, align='center', color='lightskyblue')
-        plt.ylabel('Gigabases')
-        blue_patch = mpatches.Patch(color='gainsboro', label='Yield (Gb)')
-        green_patch = mpatches.Patch(color='lightskyblue', label='Yield Q30 (Gb)')
-        lgd = plt.legend(handles=[blue_patch, green_patch], loc='upper center', bbox_to_anchor=(0.5, 1.25))
-        plt.savefig(yield_plot_outfile, bbox_extra_artists=(lgd,), bbox_inches='tight', pad_inches=0.2)
-        yield_plot_outfile = 'file://' + os.path.abspath(yield_plot_outfile)
+        df.plot(kind='scatter', x='clean_yield', y='coverage')
+        # plt.plot((120, 120), (0, 50), 'k-')
+        # plt.plot((0, 250), (30, 30), 'k-')
+        plt.xlim(min_x, max_x)
+        plt.ylim(min_y, max_y)
+        xrange1 = [(0, 120)]
+        xrange2 = [(120, max_x)]
+        yrange1 = (0, 30)
+        yrange2 = (30, max_y)
+
+        c1 = mpcollections.BrokenBarHCollection(xrange1, yrange1, facecolor='red', alpha=0.2)
+        c2 = mpcollections.BrokenBarHCollection(xrange1, yrange2, facecolor='yellow', alpha=0.2)
+        c3 = mpcollections.BrokenBarHCollection(xrange2, yrange1, facecolor='yellow', alpha=0.2)
+        c4 = mpcollections.BrokenBarHCollection(xrange2, yrange2, facecolor='green', alpha=0.2)
+
+        ax = plt.gca()
+        ax.add_collection(c1)
+        ax.add_collection(c2)
+        ax.add_collection(c3)
+        ax.add_collection(c4)
+
+        plt.savefig(yield_plot_outfile, bbox_inches='tight', pad_inches=0.2)
         self.params['yield_chart'] = yield_plot_outfile
 
     def qc_plot(self, sample_labels=False):
