@@ -3,217 +3,128 @@
 <head>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" crossorigin="anonymous">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto">
     <style type="text/css">
-        #edgen_logo { width: 70px; margin-left: auto; margin-right: auto; display: inline-block;; }
-
-        h2 {
-            font-size: 1.7em;
-            line-height: 160%;
-            font-family:Avantgarde, sans-serif;
+        img.logo {
+            width: 160px;
+            margin-left: auto;
+            margin-right: auto;
+            display: inline-block;
         }
-
-        h4 {
-            font-size: 2.7em;
-            line-height: 300%;
-            font-family:Avantgarde,
-            sans-serif;
+        html, body {
+            font-family: 'Roboto', sans-serif;
         }
-
-        p.font1 {
-            font-size: 1.4em;
-            line-height: 140%;
-            font-family: Avantgarde, sans-serif;
-        }
-
-        p.font2 {
-            font-size: 1.7em;
-            line-height: 140%;
-            font-family: Avantgarde, sans-serif;
-        }
-
-        p.font3 {
-            font-size: 0.8em;
-            line-height: 140%;
-            font-family: Avantgarde, sans-serif;
-        }
-
-        p.font4 {
-            font-size: 2.7em;
-            line-height: 140%;
-            font-family: Avantgarde, sans-serif;
-        }
-
-        p.font5 {
-            font-size: 1.1em;
-            line-height: 140%;
-            font-family: Avantgarde, sans-serif;
-        }
-
-        div.charts {
-           display: block;
-           margin-left: auto;
-           margin-top: auto; }
-
-        div.centre {
-        text-align: center;
-        }
-
-        div.pad_top {
-        padding-top:20px;
-        }
+        h1, h2, h3, h4, p, div { font-family: inherit !important }
 
         div.page_break {
-        page-break-after: always;
+            page-break-after: always;
         }
-
-        div.justify_text{
-        text-align: justify;
-        }
-
-        table.summary_tables {
-            font-family: arial, sans-serif;
-            width: 100%;
-            text-align: center;
-            page-break-inside: avoid;
-        }
-
-        table.summary_tables td, th {
-            border: none;
-            text-align: left;
-            padding: 2px;
-            font-size: 1.4em;
-        }
-
-        table.methods_table {
-            font-family: arial, sans-serif;
-            width: 100%;
-            text-align: center;
-            page-break-inside: avoid;
-        }
-
-        table.methods_table td, th {
-            border: 1px solid #dddddd;
-            text-align: centre;
-            padding: 2px;
-            font-size: 1.2em;
+        p.justify_text, div.justify_text{
+            text-align: justify;
         }
 
         @page {
-        margin-top: 2cm;
-        margin-bottom: 2cm;
-        @bottom-right {
-            content: counter(page) " of " counter(pages);
+            size: A4 portrait;
+            margin-top: 2cm;
+            margin-bottom: 2cm;
+            @bottom-center {
+                content: "Page "counter(page) " of " counter(pages);
             }
-        @bottom-left {
-            content: "Quote Number: {{ quote_number }}";
+            @bottom-left {
+                content: "EGC-BTP-1 rev. 1";
             }
-        {size:
-            landscape
+            @bottom-right {
+                content: "Quote Number: {{ quote_number }}";
             }
         }
 
-
-        div.page-footer { margin-bottom: 5cm; }
-        @media screen {
-          div.divFooter {
-           display: none;
-          }
+        table.borderless td, table.borderless th{
+            border: none !important;
         }
-        @media print {
-          div.divFooter {
-            position: fixed;
-            bottom: 0%;
-            left: 40%;
-          }
+
+        table {
+            border-top: hidden !important;
+            page-break-inside: avoid;
         }
     </style>
     <meta charset="UTF-8">
-
 </head>
-<div class="divFooter"><img id="edgen_logo" src="http://s29.postimg.org/8qp6u1agn/EG_logo_final_version_colourwhite_cropped.png"/></div>
-    <div id="page-header" class="centre">
-            <h4>Project Summary </h4>
-    </div>
+
 <body>
-    <div id="general_info" class="pad_top page_break">
-            {% block general_info %}
-            <hr>
-            <h2>Summary</h2>
-            <table class="summary_tables">
-                {% for title, data in project_info %}
+    <div id="page-header" class="centre" style="margin-bottom:100px;">
+        <table class="table borderless">
+            <tbody>
                 <tr>
-                    <td>{{ title }}</td>
-                    <td>{{ data }}</td>
+                    <td><img class="logo" src="http://s29.postimg.org/8qp6u1agn/EG_logo_final_version_colourwhite_cropped.png"/></td>
+                    <td><h1>Project {{ params['project_name'] }} report</h1></td>
                 </tr>
-                {% endfor %}
-            </table>
-        {% endblock %}
+            </tbody>
+        </table>
         <hr>
     </div>
 
-    <div id="method" class="justify_text page_break">
-        {% block method %}
-        <h4>Methods</h4>
-        <p class="font5">Edinburgh Genomics: Clinical Genomics utilises Illumina SeqLab, which integrates Illumina TruSeq
-        library preparation, Illumina cBot2 cluster generation, Illumina HiSeqX sequencing, Hamilton
-        Microlab STAR integrative automation, and Genologics Clarity LIMS X Edition.</p>
-        {% endblock %}
-        {% block laboratory %}
-        {% include 'laboratory_template.html' %}
-        {% endblock %}
-        {% block bioinformatics_analysis %}
-        {% include 'bioinformatics.html' %}
-        {% endblock %}
-    </div>
-    <div id="results" class="page_break">
-        <table class="summary_tables">
-            <h4>Results</h4>
-            {% for title, data in project_stats %}
+    <div id="general_info" class="page_break">
+        <h2>Summary</h2>
+        <table class="table table-condensed borderless">
+            {% for title, data in project_info %}
             <tr>
-                <td>{{ title }}</td>
+                <th>{{ title }}</th>
                 <td>{{ data }}</td>
             </tr>
             {% endfor %}
         </table>
     </div>
-    {% block charts %}
-    {% include 'charts.html' %}
-    {% endblock %}
-    {% block formats %}
-    {% include 'formats.html' %}
-    {% endblock %}
 
-    <h2>Confidentiality Statement</h2>
-    <p class="font3">The University of Edinburgh (the “University”, “us” or “we”) is committed to preserving your privacy.
-    Please read the following privacy policy to understand how we use and protect the information obtained
-    from those visiting and using the University’s website www.ed.ac.uk and its subdomains (the “website”).
-    By using the University’s website you consent to the collection, retention and use of your personal
-    information in accordance with the terms of this policy.</p>
-    <hr>
-    <h2>Declaration of Compliance</h2>
-    <p class="font3">The Fastq data has been generated in accordance with the documented processes contained within the Edinburgh
-    Genomics Clinical Quality Management system as to meet agreed customer requirements.
-    The samples and outputted data have been inspected and tested by trained and competency evaluated personnel.
-    The instrumentation and materials used in the inspection and testing processes are traceable.
-    All the associated test instrumentation is maintained, calibrated and qualified as appropriate.</p>
-    <hr>
+    <div id="method" class="page_break">
+        <h2>Methods</h2>
+        <p class="justify_text">
+            Edinburgh Genomics: Clinical Genomics utilises Illumina SeqLab, which integrates Illumina TruSeq
+            library preparation, Illumina cBot2 cluster generation, Illumina HiSeqX sequencing, Hamilton
+            Microlab STAR integrative automation, and Genologics Clarity LIMS X Edition.
+        </p>
+        {% include 'laboratory_template.html' %}
+        {% include 'bioinformatics.html' %}
+    </div>
+    <div id="results" class="page_break">
+        <table class="table table-condensed">
+            <h1>Results</h1>
+            {% for title, data in project_stats %}
+            <tr>
+                <th>{{ title }}</th>
+                <td>{{ data }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% include 'charts.html' %}
+    </div>
 
+    <div id="file_format" class="page_break">
+        <h2>File formats</h2>
+        {% include 'formats.html' %}
+    </div>
 
+    <div id="formal_statement" class="page_break">
+        <h4>Additional Information</h4>
+            <p>N/A</p>
 
-    <div class="page_break">
-        <h4>Appendix</h4>
-        <hr>
-        <div id="additional_information">
-            <h2>Additional Information</h2>
-            <p class="font3">N/A</p>
-            <hr>
-            <h2>Deviations, Additions and Exclusions</h2>
-            <p class="font3">N/A</p>
-            <hr>
-            <h2>Per Sample Results</h2>
-            <p class="font3">Full user and facility derived metrics for each sample can be found within the delivery folder in {{ params['csv_path'] }}</p>
-            <hr>
-        </div>
+        <h4>Deviations, Additions and Exclusions</h4>
+            <p>N/A</p>
+
+        <h4>Confidentiality Statement</h4>
+        <p class="justify_text">Edinburgh Genomics (“us” or “we”) is committed to preserving your privacy.
+        Please read the following privacy policy to understand how we use and protect the information obtained
+        from those visiting and using the University’s website www.ed.ac.uk and its subdomains (the “website”).
+        By using the University’s website you consent to the collection, retention and use of your personal
+        information in accordance with the terms of this policy.</p>
+
+        <h4>Declaration of Compliance</h4>
+        <p class="justify_text">
+            The Fastq data has been generated in accordance with the documented processes contained within the Edinburgh
+            Genomics Clinical Quality Management system as to meet agreed customer requirements.
+            The samples and outputted data have been inspected and tested by trained and competency evaluated personnel.
+            The instrumentation and materials used in the inspection and testing processes are traceable.
+            All the associated test instrumentation is maintained, calibrated and qualified as appropriate.
+        </p>
     </div>
 
 </body>
