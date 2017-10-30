@@ -2,6 +2,8 @@ import re
 import csv
 import yaml
 from os import path, listdir
+
+from egcg_core import rest_communication, clarity
 from jinja2 import Environment, FileSystemLoader
 from egcg_core.util import find_file
 from egcg_core.clarity import connection
@@ -22,7 +24,8 @@ species_alias = {
 
 
 class ProjectReport(AppLogger):
-    _samples_for_project = None
+    _delivered_samples_for_project = None
+
     template_alias = {
         'TruSeq Nano DNA Sample Prep': 'truseq_nano',
         None: 'truseq_nano',
@@ -43,7 +46,7 @@ class ProjectReport(AppLogger):
         }
 
     def get_project_info(self):
-        project = self.lims.get_projects(name=self.project_name)[0]
+        project = clarity.get_project(project_id=self.project_name)
         return (
             ('Project name:', self.project_name),
             ('Project title:', project.udf.get('Project Title', '')),
@@ -55,27 +58,26 @@ class ProjectReport(AppLogger):
         )
 
     @property
-    def samples_for_project(self):
-        if self._samples_for_project is None:
-            self._samples_for_project = self.lims.get_samples(projectname=self.project_name)
-        return self._samples_for_project
+    def delivered_samples_for_project(self):
+        if self._delivered_samples_for_project is None:
+            self._delivered_samples_for_project = rest_communication.get_documents('samples', where={
+                'project_id': self.project_name,
+                'delivered': 'yes'
+            })
+        return self._delivered_samples_for_project
 
-    def get_sample(self, sample_name):
-        samples = [s for s in self.samples_for_project if s.name == sample_name]
-        if len(samples) == 1:
-            return samples[0]
-        raise ValueError('%s samples found for %s' % (len(samples), sample_name))
+    def get_total_number_of_samples(self):
+        project = clarity.get_project(project_id=self.project_name)
+        return project.udf.get('Number of Quoted Samples')
 
-    def get_all_sample_names(self, modify_names=False):
-        if modify_names:
-            return [re.sub(r'[: ]', '_', s.name) for s in self.samples_for_project]
-        return [s.name for s in self.samples_for_project]
+    def get_delivered_sample_names(self):
+        return [s.get('sample_id') for s in self.samples_from_lims]
 
     def get_library_workflow_from_sample(self, sample_name):
-        return self.get_sample(sample_name).udf.get('Prep Workflow')
+        return clarity.get_sample(sample_name).udf.get('Prep Workflow')
 
     def get_report_type_from_sample(self, sample_name):
-        s = self.get_sample(sample_name).udf.get('Species')
+        s = clarity.get_sample(sample_name).udf.get('Species')
         return species_alias.get(s, 'non_human')
 
     def update_from_program_csv(self, program_csv):
@@ -108,10 +110,9 @@ class ProjectReport(AppLogger):
         return samples_to_info
 
     def get_sample_info(self):
-        modified_samples = self.get_all_sample_names(modify_names=True)
-        for sample in set(modified_samples):
-            sample_source = path.join(self.project_source, sample)
-
+        delivered_samples = self.delivered_samples_for_project
+        for sample in delivered_samples:
+            sample_source = path.join(self.project_source, sample.get('sample_id'))
             program_csv = find_file(sample_source, 'programs.txt')
             if not program_csv:
                 program_csv = find_file(sample_source, '.qc', 'programs.txt')
@@ -122,17 +123,17 @@ class ProjectReport(AppLogger):
             if summary_yaml:
                 self.update_from_project_summary_yaml(summary_yaml)
 
-        samples_delivered = self.read_metrics_csv(path.join(self.project_delivery, 'summary_metrics.csv'))
-        yields = [float(samples_delivered[s]['Yield']) for s in samples_delivered]
+        samples_metrics = self.read_metrics_csv(path.join(self.project_delivery, 'summary_metrics.csv'))
+        yields = [float(samples_metrics[s]['Yield']) for s in samples_metrics]
         results = [
-            ('Number of samples:', len(modified_samples)),
-            ('Number of samples delivered:', len(samples_delivered)),
+            ('Number of samples:', self.get_total_number_of_samples()),
+            ('Number of samples delivered:', len(samples_metrics)),
             ('Total yield (Gb):', '%.2f' % sum(yields)),
             ('Average yield (Gb):', '%.1f' % (sum(yields)/max(len(yields), 1)))
         ]
 
         try:
-            coverage = [float(samples_delivered[s]['Mean coverage']) for s in samples_delivered]
+            coverage = [float(samples_metrics[s]['Mean coverage']) for s in samples_metrics]
             results.append(('Average coverage per sample:', '%.2f' % (sum(coverage)/max(len(coverage), 1))))
         except KeyError:
             self.warning('Not adding mean coverage')
@@ -142,12 +143,11 @@ class ProjectReport(AppLogger):
         return results
 
     def get_html_template(self):
-        samples = self.get_all_sample_names(modify_names=False)
         library_workflow = set()
         report_types = set()
-        for sample in samples:
-            library_workflow.add(self.get_library_workflow_from_sample(sample))
-            report_types.add(self.get_report_type_from_sample(sample))
+        for sample_data in self.delivered_samples_for_project:
+            library_workflow.add(self.get_library_workflow_from_sample(sample_data.get('sample_id')))
+            report_types.add(self.get_report_type_from_sample(sample_data.get('sample_id')))
 
         if len(library_workflow) != 1:
             raise ValueError('%s workflows used for this project: %s' % (len(library_workflow), library_workflow))

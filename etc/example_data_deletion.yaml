@@ -7,4 +7,11 @@ default:
         processed_data: tests/assets/data_deletion/projects
         processed_archives: tests/assets/data_deletion/projects/archive
         delivered_data: tests/assets/data_deletion/delivered_data
+        email_notification:
+            mailhost: smtp.mail.com
+            port: 25
+            sender: sender@email.com
+            recipients: [recipient@email.com]
+        log_dir: tests/assets/data_deletion/logs
+
 
