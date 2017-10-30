@@ -15,7 +15,7 @@ from tests import TestProjectManagement
 from collections import OrderedDict
 cfg.load_config_file(TestProjectManagement.etc_config)
 
-nb_samples = 5
+nb_samples = 9
 
 def ppath(ext):
     return 'project_report.' + ext
@@ -47,6 +47,10 @@ fake_sample_templates = {
         'name': 'non_human_truseq_pcrfree_sample_',
         'udf':{'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Thingius thingy'}
     },
+    'undelivered_human_truseq_nano': {
+        'name':'un_delivered_human_truseq_nano_sample_',
+        'udf': {'Prep Workflow': cycle(['TruSeq Nano DNA Sample Prep', None, None]), 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
+    }
 }
 
 fake_samples = {}
@@ -65,7 +69,6 @@ for project in fake_sample_templates:
             name=template['name'] + str(i),
             udf=dict( [(k, _resolve_next(template['udf'][k])) for k in template['udf']] )
         ))
-
 
 class FakeLims:
     @staticmethod
@@ -165,10 +168,12 @@ fake_rest_api_samples={}
 for project in fake_samples:
     fake_rest_api_samples[project] = []
     for sample in fake_samples[project]:
-        t = copy.copy(next(fake_rest_api_samples_template))
-        t['sample_id'] = sample.name
-        t['project_id'] = project
-        fake_rest_api_samples[project].append(t)
+        # Mimic undelivered sample when their library UDF is not set
+        if sample.udf.get('Prep Workflow') is not None:
+            t = copy.copy(next(fake_rest_api_samples_template))
+            t['sample_id'] = sample.name
+            t['project_id'] = project
+            fake_rest_api_samples[project].append(t)
 
 
 test_sample_yield_metrics = {'samples': [], 'clean_yield': [], 'clean_yield_Q30': []}
@@ -219,15 +224,18 @@ class TestProjectReport(TestProjectManagement):
         self.fake_samples = fake_samples['a_project_name']
         os.chdir(self.root_path)
         self.source_dir = os.path.join(self.assets_path, 'project_report', 'source')
+        self.dest_dir = os.path.join(self.assets_path, 'project_report', 'dest')
 
         #clean up previous reports
         project_report_pdfs = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.pdf'))
         for pdf in project_report_pdfs:
             os.remove(pdf)
 
-        # create the source folders
+        # create the source and dest folders
         for project in fake_samples:
             prj_dir = os.path.join(self.source_dir, project)
+            dest_dir = os.path.join(self.dest_dir, project)
+            os.makedirs(dest_dir, exist_ok=True)
             os.makedirs(prj_dir, exist_ok=True)
             for sample in fake_samples[project]:
                 smp_dir = os.path.join(prj_dir, sample.name.replace(':', '_'))
@@ -385,9 +393,7 @@ class TestProjectReport(TestProjectManagement):
                            mocked_sample_yield_metrics,
                            mocked_csv):
         os.chdir(TestProjectManagement.root_path)
-        projects = ('human_truseq_nano', 'human_pcr_free', 'non_human_truseq_nano', 'non_human_pcr_free')
-        # projects = ('human_truseq_nano',)
-
+        projects = ('human_truseq_nano', 'human_pcr_free', 'non_human_truseq_nano', 'non_human_pcr_free', 'undelivered_human_truseq_nano')
         for p in projects:
             with mocked_get_genome_version, mocked_get_species_found, get_patch_sample_restapi(p):
                 pr = ProjectReport(p)

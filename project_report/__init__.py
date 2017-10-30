@@ -49,15 +49,6 @@ class ProjectReport:
         }
         self.font_config = FontConfiguration()
 
-
-    def facility_and_customer_details(self):
-        facility_customer_info = {}
-        facility_customer_info['egcg address'] = '\n'.join(['Edinburgh Genomics',
-                                                            'The Roslin Institute',
-                                                            'The University of Edinburgh',
-                                                            'Easter Bush Campus',
-                                                            'EH25 9RG'])
-
     @property
     def project(self):
         if self._project is None:
@@ -73,12 +64,12 @@ class ProjectReport:
     @property
     def samples_for_project_restapi(self):
         if self._database_samples_for_project is None:
-            self._database_samples_for_project = get_documents('aggregate/samples', match={"project_id": self.project_name}, paginate=False)
+            self._database_samples_for_project = get_documents('aggregate/samples', match={"project_id": self.project_name, 'delivered': 'yes'}, paginate=False)
             if not self._database_samples_for_project:
                 raise EGCGError('No samples found for project %s' % (self.project_name))
         return self._database_samples_for_project
 
-    def get_sample(self, sample_name):
+    def get_lims_sample(self, sample_name):
         samples = [s for s in self.samples_for_project_lims if s.name == sample_name]
         if len(samples) == 1:
             return samples[0]
@@ -89,16 +80,11 @@ class ProjectReport:
             return [re.sub(r'[: ]', '_', s.name) for s in self.samples_for_project_lims]
         return [s.name for s in self.samples_for_project_lims]
 
-    def get_samples_delivered(self):
-        sample_yields = [s.get('clean_yield_in_gb') for s in self.samples_for_project_restapi if s.get('clean_yield_in_gb')]
-        samples_in_project = len(sample_yields)
-        return samples_in_project
-
     def get_library_workflow_from_sample(self, sample_name):
-        return self.get_sample(sample_name).udf.get('Prep Workflow')
+        return self.get_lims_sample(sample_name).udf.get('Prep Workflow')
 
     def get_report_type_from_sample(self, sample_name):
-        s = self.get_sample(sample_name).udf.get('Species')
+        s = self.get_lims_sample(sample_name).udf.get('Species')
         return species_alias.get(s, s)
 
     def get_species(self, samples):
@@ -177,11 +163,11 @@ class ProjectReport:
         sample_names = self.get_all_sample_names()
         genome_versions = set()
         species_submitted = set()
-        library_workflow = self.get_library_workflow(self.get_all_sample_names())
+        library_workflow = self.get_library_workflow([sample.get('sample_id') for sample in self.samples_for_project_restapi])
         self.params['library_workflow'] = library_workflow
 
         for sample in sample_names:
-            lims_sample = self.get_sample(sample)
+            lims_sample = self.get_lims_sample(sample)
             species = lims_sample.udf.get('Species')
             genome_version = get_genome_version(sample, species=species)
             species_submitted.add(species)
@@ -193,7 +179,7 @@ class ProjectReport:
             ('Enquiry no', self.enquiry_number),
             ('Quote no', self.quote_number),
             ('Number of samples', len(sample_names)),
-            ('Number of samples delivered', self.get_samples_delivered()),
+            ('Number of samples delivered', len(self.samples_for_project_restapi)),
             ('Project size', '%.2f terabytes' % self.project_size_in_terabytes()),
             ('Laboratory protocol', library_workflow),
             ('Submitted species', ', '.join(list(species_submitted))),
