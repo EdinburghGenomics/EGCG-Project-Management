@@ -252,19 +252,19 @@ class TestProjectReport(TestProjectManagement):
 
     @mocked_get_genome_version
     @mocked_get_folder_size
-    @patch(ppath('ProjectReport.get_samples_delivered'), return_value=4)
-    def test_get_project_info(self, mocked_get_sample_delivered, mocked_folder_size, mocked_genome_version):
+    def test_get_project_info(self, mocked_folder_size, mocked_genome_version):
         exp = (('Project name', 'a_project_name'),
                ('Project title', 'a_research_title_for_a_project_name'),
                ('Enquiry no', '1337'),
                ('Quote no', '1338'),
                ('Number of samples', len(fake_samples['a_project_name'])),
-               ('Number of samples delivered', 4),
+               ('Number of samples delivered', nb_samples),
                ('Project size', '1.34 terabytes'),
                ('Laboratory protocol', 'TruSeq Nano DNA Sample Prep'),
                ('Submitted species', 'Thingius thingy'),
                ('Genome version', 'hg38, hg19'))
-        assert self.pr.get_project_info() == exp
+        with get_patch_sample_restapi('a_project_name'):
+            assert self.pr.get_project_info() == exp
 
     def test_get_list_of_sample_fields(self):
         samples = [rest_api_sample1, rest_api_sample2]
@@ -275,7 +275,7 @@ class TestProjectReport(TestProjectManagement):
         assert self.pr.samples_for_project_lims == self.fake_samples
 
     def test_get_sample(self):
-        assert self.pr.get_sample('sample:1') == self.fake_samples[0]
+        assert self.pr.get_lims_sample('sample:1') == self.fake_samples[0]
 
     def test_get_all_sample_names(self):
         names = [s.name for  s in fake_samples['a_project_name']]
