@@ -2,8 +2,8 @@
     <h3>Yield</h3>
     <img id="chart1" class="charts" src="{{ params['yield_chart'] }}" />
     <p class="justify_text">Yield is calculated as the yield in gigabases (Gb) after adapters have been
-    trimmed during processing. The yield Q30 is the quantity of reads
-     which have at least 75% of bases with a quality score of 30 or higher.</p>
+    trimmed during processing. The yield Q30 is the quantity of bases
+     which have a quality score of 30 or higher.</p>
 {%- endmacro %}
 
 {% macro mapping_duplicates_chart(params) -%}
