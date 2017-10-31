@@ -360,7 +360,7 @@ class ProjectReport:
                     'bioinformatics_template': ['bioinformatics_table'],
                     'formats_template': ['fastq', 'bam', 'vcf'],
                     'charts_template': ['yield_chart', 'mapping_duplicates_chart'],
-                    'laboratory_template': ['sample_qc_table', 'library_prep_table', 'library_qc_table', 'sequencing_table']}
+                    'laboratory_template': ['sample_qc_table', 'sample_qc', 'library_prep_table', 'library_prep', 'library_qc_table', 'library_qc', 'sequencing_table', 'sequencing']}
         return template
 
     def generate_report(self, output_format):

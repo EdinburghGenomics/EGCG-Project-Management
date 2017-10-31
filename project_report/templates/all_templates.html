@@ -42,6 +42,40 @@
     <p><a href="https://samtools.github.io/hts-specs/VCFv4.2.pdf">VCF specification</a></p>
 {%- endmacro %}
 
+{% macro sample_qc(params) -%}
+    <p  class="font5">Genomic DNA (gDNA) samples are evaluated for quantity using Quant-iT Picogren reagent, Lambda Standard DNA
+    and a Molecular Devices, Spectramax XPS Gemini plate reader.  The quality of the gDNA samples are evaluated
+    using an AATI Fragment Analyzer and the Standard Sensitivity Genomic DNA Analysis Kit. Genomic DNA samples
+    found to have a total amount of >1000ng and a quality score >5 pass sample QC. Based on the quantification results,
+    gDNA samples are pre-normalised to fall within the 5-40ng/uL concentration range required for Illumina SeqLab
+    TruSeq Nano library preparation method using the Hamilton MicroLab STAR.</p>
+{%- endmacro %}
+
+
+{% macro library_prep(params) -%}
+    <p class="font5">Next Generation sequencing libraries are prepared using an Illumina SeqLab specific TruSeq Nano High
+    Throughput library preparation kit in conjunction with the Hamilton MicroLab STAR and Clarity LIMS X (4.2?)
+    Edition. The 200ng gDNA sample input is normalised to the concentration and volume required for the Illumina
+    TruSeq Nano library preparation kit, then sheared to a 450bp mean insert size using a Covaris LE220
+    focused-ultrasonicator. The inserts are blunt ended, A-tailed, size selected, TruSeq adapters are ligated
+    onto the ends of each fragment before being PCR amplified.</p>
+{%- endmacro %}
+
+
+{% macro library_qc(params) -%}
+    <p class="font5">The insert size for each library is evaluated using the Caliper GX Touch with a HT DNA 1k/12K/HI SENS LabChip
+    and HT DNA HI SENS Reagent Kit to ensure that the mean fragment sizes fall between 530bp and 730bp.
+    The concentration of each library is calculated using a Roche LightCycler 480 and a Kapa Illumina Library
+    Quantification kit and Standards to ensure that each libraries concentration is between 5.5nM and 40nM.</p>
+{%- endmacro %}
+
+
+{% macro sequencing(params) -%}
+    <p class="font5">The libraries are normalised to 1.5nM and are denatured for clustering and sequencing at 300pM using a
+    Hamilton MicroLab STAR with Genologics Clarity LIMS X (4.2?) Edition. Libraries are clustered onto a
+    HiSeqX Flow cell v2.5 on cBot2s and the clustered flow cell is transferred to a HiSeqX for sequencing
+    using a HiSeqX Ten Reagent kit v2.5.</p>
+{%- endmacro %}
 
 {% macro sample_qc_table(method_fields) -%}
     <h3>Sample QC</h3>
