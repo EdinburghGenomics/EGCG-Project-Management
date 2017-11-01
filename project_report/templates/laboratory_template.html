@@ -1,5 +1,14 @@
-{% from 'all_templates.html' import sample_qc_table, library_prep_table, library_qc_table, sequencing_table, sample_qc, library_prep, library_qc, sequencing %}
-{% set macro_dict = {'sample_qc_table': sample_qc_table, 'library_prep_table': library_prep_table, 'library_qc_table': library_qc_table, 'sequencing_table': sequencing_table, 'sample_qc': sample_qc, 'library_prep': library_prep, 'library_qc': library_qc, 'sequencing': sequencing} %}
+{% from 'all_templates.html' import sample_qc_table, library_prep_table, library_qc_table, sequencing_table, sample_qc, library_prep, library_qc, sequencing, truseq_nano, truseq_pcrfree %}
+{% set macro_dict = {'sample_qc_table': sample_qc_table,
+                    'library_prep_table': library_prep_table,
+                    'library_qc_table': library_qc_table,
+                    'sequencing_table': sequencing_table,
+                    'sample_qc': sample_qc,
+                    'truseq_nano': truseq_nano,
+                    'truseq_pcrfree': truseq_pcrfree,
+                    'library_qc': library_qc,
+                    'sequencing': sequencing} %}
+
 {% for t in project_templates['laboratory_template'] %}
     {% for key in macro_dict %}
         {% if t == key %}
@@ -7,3 +16,4 @@
         {% endif %}
     {% endfor %}
 {% endfor %}
+

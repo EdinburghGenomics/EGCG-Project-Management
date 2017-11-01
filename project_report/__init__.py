@@ -37,6 +37,14 @@ class ProjectReport:
     _database_samples_for_project = None
     _project = None
 
+    workflow_alias = {
+        'TruSeq Nano DNA Sample Prep': 'truseq_nano',
+        None: 'truseq_nano',
+        'TruSeq PCR-Free DNA Sample Prep': 'truseq_pcrfree',
+        'TruSeq PCR-Free Sample Prep': 'truseq_pcrfree',
+        'TruSeq DNA PCR-Free Sample Prep': 'truseq_pcrfree'
+    }
+
     def __init__(self, project_name):
         self.project_name = project_name
         self.project_source = path.join(cfg.query('sample', 'delivery_source'), project_name)
@@ -164,8 +172,6 @@ class ProjectReport:
         genome_versions = set()
         species_submitted = set()
         library_workflow = self.get_library_workflow([sample.get('sample_id') for sample in self.samples_for_project_restapi])
-        self.params['library_workflow'] = library_workflow
-
         for sample in sample_names:
             lims_sample = self.get_lims_sample(sample)
             species = lims_sample.udf.get('Species')
@@ -359,8 +365,14 @@ class ProjectReport:
         template = {'template_base': 'report_base.html',
                     'bioinformatics_template': ['bioinformatics_table'],
                     'formats_template': ['fastq', 'bam', 'vcf'],
-                    'charts_template': ['yield_chart', 'mapping_duplicates_chart'],
-                    'laboratory_template': ['sample_qc_table', 'sample_qc', 'library_prep_table', 'library_prep', 'library_qc_table', 'library_qc', 'sequencing_table', 'sequencing']}
+                    'charts_template': ['yield_chart', 'mapping_duplicates_chart']}
+
+        library_workflow = self.get_library_workflow([sample.get('sample_id') for sample in self.samples_for_project_restapi])
+        self.params['library_workflow'] = library_workflow
+        workflow_alias = self.workflow_alias.get(library_workflow)
+        if not workflow_alias:
+            raise EGCGError('No workflow found for project %s' % self.project_name)
+        template['laboratory_template'] = ['sample_qc_table', 'sample_qc', 'library_prep_table', workflow_alias, 'library_qc_table', 'library_qc', 'sequencing_table', 'sequencing']
         return template
 
     def generate_report(self, output_format):
@@ -418,14 +430,14 @@ class ProjectReport:
             raise EGCGError('No samples found for project %s ' % (self.project_name))
         if len(self.get_all_sample_names()) < 35:
             sample_labels = True
+        self.yield_plot(sample_labels=sample_labels)
+        self.qc_plot(sample_labels=sample_labels)
         self.params['csv_path'] = self.write_csv_file()
         template_dir = path.join(path.dirname(path.abspath(__file__)), 'templates')
         env = Environment(loader=FileSystemLoader(template_dir))
         project_templates = self.get_html_template()
         template1 = env.get_template(project_templates.get('template_base'))
         template2 = env.get_template('csv_base.html')
-        self.yield_plot(sample_labels=sample_labels)
-        self.qc_plot(sample_labels=sample_labels)
         report = template1.render(
             project_info=self.get_project_info(),
             project_stats=self.get_sample_info(),

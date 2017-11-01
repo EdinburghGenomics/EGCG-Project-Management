@@ -51,14 +51,22 @@
     TruSeq Nano library preparation method using the Hamilton MicroLab STAR.</p>
 {%- endmacro %}
 
-
-{% macro library_prep(params) -%}
+{% macro truseq_nano(params) -%}
     <p class="font5">Next Generation sequencing libraries are prepared using an Illumina SeqLab specific TruSeq Nano High
     Throughput library preparation kit in conjunction with the Hamilton MicroLab STAR and Clarity LIMS X (4.2?)
     Edition. The 200ng gDNA sample input is normalised to the concentration and volume required for the Illumina
     TruSeq Nano library preparation kit, then sheared to a 450bp mean insert size using a Covaris LE220
     focused-ultrasonicator. The inserts are blunt ended, A-tailed, size selected, TruSeq adapters are ligated
     onto the ends of each fragment before being PCR amplified.</p>
+{%- endmacro %}
+
+
+{% macro truseq_pcrfree(params) -%}
+    <p class="font5">Next Generation sequencing libraries are prepared using Illumina SeqLab specific TruSeq PCR-Free High Throughput library
+    preparation kits in conjunction with the Hamilton MicroLab STAR and Clarity LIMS X Edition. The gDNA samples are
+    normalised to the concentration and volume required for the Illumina TruSeq PCR-Free library preparation kits then sheared
+    to a 450bp mean insert size using a Covaris LE220 focused-ultrasonicator. The inserts are blunt ended,
+    A-tailed, size selected and the TruSeq adapters are ligated onto the ends.</p>
 {%- endmacro %}
 
 

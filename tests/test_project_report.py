@@ -377,8 +377,10 @@ class TestProjectReport(TestProjectManagement):
             'samblaster_version': '1.4'
         }
 
+
     def test_get_html_template(self):
-        assert self.pr.get_html_template().get('template_base') == 'report_base.html'
+        with get_patch_sample_restapi('a_project_name'):
+            assert self.pr.get_html_template().get('template_base') == 'report_base.html'
 
     @patch(ppath('path.getsize'), return_value=1)
     def test_get_folder_size(self, mocked_getsize):
