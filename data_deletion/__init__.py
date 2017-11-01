@@ -111,7 +111,7 @@ class ProcessedSample(AppLogger):
     @cached_property
     def run_elements(self):
         return rest_communication.get_documents(
-                'run_elements', quiet=True, where={ELEMENT_SAMPLE_INTERNAL_ID: self.sample_id}, all_pages=True
+            'run_elements', quiet=True, where={ELEMENT_SAMPLE_INTERNAL_ID: self.sample_id}, all_pages=True
         )
 
     @cached_property
@@ -133,7 +133,7 @@ class ProcessedSample(AppLogger):
 
     @cached_property
     def processed_data_files(self):
-        files_to_delete = []
+        files = []
         # TODO: first check what type of analysis was perfomed on this data to know exactly which files need to be deleted
         files_to_search = [
             '{ext_s_id}_R1.fastq.gz', '{ext_s_id}_R2.fastq.gz',
@@ -141,15 +141,15 @@ class ProcessedSample(AppLogger):
             '{ext_s_id}.vcf.gz', '{ext_s_id}.vcf.gz.tbi',
             '{ext_s_id}.g.vcf.gz', '{ext_s_id}.g.vcf.gz.tbi'
         ]
-        for f in files_to_search:
-            file_to_delete = util.find_file(
+        for basename in files_to_search:
+            f = util.find_file(
                 self.processed_data_dir,
                 self.project_id, self.sample_id,
-                f.format(ext_s_id=self.external_sample_id)
+                basename.format(ext_s_id=self.external_sample_id)
             )
-            if file_to_delete:
-                files_to_delete.append(file_to_delete)
-        return files_to_delete
+            if f:
+                files.append(f)
+        return files
 
     @cached_property
     def released_data_folder(self):
