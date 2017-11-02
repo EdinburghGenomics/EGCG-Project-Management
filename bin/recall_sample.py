@@ -35,7 +35,8 @@ def check(sample_id):
     restorable_files = []
     unarchived_files = []
     dirty_files = []
-    for f, states in fstates.items():
+    for f in sorted(fstates):
+        states = fstates[f]
         if am.is_dirty(f, states):
             target_list = dirty_files
         elif am.is_released(f, states):
