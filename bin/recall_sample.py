@@ -1,8 +1,6 @@
 import argparse
-from os import listdir
 from shutil import disk_usage
 from egcg_core import rest_communication, archive_management as am
-from egcg_core.util import find_files
 from egcg_core.app_logging import logging_default
 from egcg_core.exceptions import EGCGError
 from config import cfg, load_config
@@ -27,7 +25,7 @@ def main(argv=None):
 
 def file_states(sample_id):
     s = ProcessedSample(rest_communication.get_document('aggregate/samples', match={'sample_id': sample_id}))
-    return {f: sorted(am.archive_states(f)) for f in find_files(s.released_data_folder, '*')}
+    return {f: sorted(am.archive_states(f)) for f in s.raw_data_files + s.processed_data_files}
 
 
 def check(sample_id):

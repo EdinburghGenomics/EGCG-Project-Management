@@ -1,9 +1,11 @@
 from os.path import join
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from bin import recall_sample
 from tests import TestProjectManagement
 from egcg_core.exceptions import EGCGError
 import logging
+
+ppath = 'bin.recall_sample.'
 
 
 def fake_find_file(*parts):
@@ -22,8 +24,19 @@ class TestRecall(TestProjectManagement):
     def setUpClass(cls):
         recall_sample.cfg.load_config_file(join(cls.root_path, 'etc', 'example_data_deletion.yaml'))
 
-    @patch('bin.recall_sample.file_states', return_value=fake_file_states)
-    @patch('bin.recall_sample.get_file_list_size', return_value=1000000000)
+    @patch(ppath + 'rest_communication.get_document')
+    @patch(ppath + 'am.archive_states', return_value=['exists', 'archived'])
+    @patch(ppath + 'ProcessedSample')
+    def test_file_states(self, mocked_sample, mocked_archive_states, mocked_get_doc):
+        fastqs = ['sample_1_r1.fastq.gz', 'sample_1_r2.fastq.gz']
+        processed_files = ['sample_1.bam', 'sample_1.bam.bai', 'sample_1.vcf.gz', 'sample_1.vcf.gz.tbi']
+        mocked_sample.return_value = Mock(raw_data_files=fastqs, processed_data_files=processed_files)
+
+        assert recall_sample.file_states('sample_1') == {f: ['archived', 'exists'] for f in fastqs + processed_files}
+        mocked_get_doc.assert_called_with('aggregate/samples', match={'sample_id': 'sample_1'})
+
+    @patch(ppath + 'file_states', return_value=fake_file_states)
+    @patch(ppath + 'get_file_list_size', return_value=1000000000)
     @patch('egcg_core.archive_management.archive_states', return_value=[])
     def test_check(self, mocked_archive_states, mocked_file_size, mocked_file_states):
         assert recall_sample.check('a_sample_id') == (
@@ -32,11 +45,11 @@ class TestRecall(TestProjectManagement):
             ['this_r1.fastq.gz']
         )
 
-    @patch('bin.recall_sample.logger._log')
-    @patch('bin.recall_sample.rest_communication.patch_entry')
-    @patch('bin.recall_sample.am.recall_from_tape')
-    @patch('bin.recall_sample.disk_usage')
-    @patch('bin.recall_sample.check')
+    @patch(ppath + 'logger._log')
+    @patch(ppath + 'rest_communication.patch_entry')
+    @patch(ppath + 'am.recall_from_tape')
+    @patch(ppath + 'disk_usage')
+    @patch(ppath + 'check')
     def test_restore(self, mocked_check, mocked_disk_usage, mocked_recall, mocked_patch, mocked_log):
         mocked_disk_usage.return_value.free = 1
         with self.assertRaises(EGCGError) as e:
