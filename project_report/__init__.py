@@ -8,6 +8,7 @@ import pandas as pd
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
+from dateutil import parser
 from os import path, listdir
 from collections import OrderedDict
 from jinja2 import Environment, FileSystemLoader
@@ -64,6 +65,18 @@ class ProjectReport:
         return self._project
 
     @property
+    def project_status(self):
+        endpoint = 'lims/status/project_status'
+        project_status = get_documents(endpoint, match={"project_id":self.project_name})
+        return project_status
+
+    @property
+    def sample_status(self, sample_id):
+        endpoint = 'lims/status/sample_status'
+        sample_status = get_documents(endpoint, match={"sample_id": sample_id})
+        return sample_status
+
+    @property
     def samples_for_project_lims(self):
         if self._lims_samples_for_project is None:
             self._lims_samples_for_project = self.lims.get_samples(projectname=self.project_name)
@@ -95,6 +108,15 @@ class ProjectReport:
         s = self.get_lims_sample(sample_name).udf.get('Species')
         return species_alias.get(s, s)
 
+    def get_sample_total_dna(self, sample_name):
+        return self.get_lims_sample(sample_name).udf.get('Total DNA (ng)')
+
+    def get_yield_for_quoted_coverage(self, sample_name):
+        return self.get_lims_sample(sample_name).udf.get('Yield for Quoted Coverage (Gb)')
+
+    def get_quoted_coverage(self, sample_name):
+        return self.get_lims_sample(sample_name).udf.get('Coverage (X)')
+
     def get_species(self, samples):
         species = set()
         for sample in samples:
@@ -120,6 +142,14 @@ class ProjectReport:
     def project_size_in_terabytes(self):
         project_size = self.get_folder_size(self.project_delivery)
         return (project_size/1000000000000.0)
+
+    def parse_date(self, date):
+        if not date:
+            return 'None'
+        d = parser.parse(date)
+        datelist = [d.year, d.month, d.day]
+        return '-'.join([str(i) for i in datelist])
+
 
     @staticmethod
     def calculate_mean(values):
@@ -171,6 +201,7 @@ class ProjectReport:
         sample_names = self.get_all_sample_names()
         genome_versions = set()
         species_submitted = set()
+        project = self.lims.get_projects(name=self.project_name)[0]
         library_workflow = self.get_library_workflow([sample.get('sample_id') for sample in self.samples_for_project_restapi])
         for sample in sample_names:
             lims_sample = self.get_lims_sample(sample)
@@ -184,8 +215,12 @@ class ProjectReport:
             ('Project title', self.project_title),
             ('Enquiry no', self.enquiry_number),
             ('Quote no', self.quote_number),
+            ('Quote contact', '%s %s (%s)' % (project.researcher.first_name,
+                                              project.researcher.last_name,
+                                              project.researcher.email)),
             ('Number of samples', len(sample_names)),
             ('Number of samples delivered', len(self.samples_for_project_restapi)),
+            ('Date samples received', 'Detailed in appendix 2'),
             ('Project size', '%.2f terabytes' % self.project_size_in_terabytes()),
             ('Laboratory protocol', library_workflow),
             ('Submitted species', ', '.join(list(species_submitted))),
@@ -391,35 +426,47 @@ class ProjectReport:
                     'External ID',
                     'Species found',
                     'Workflow',
+                    'Yield quoted (Gb)',
                     'Clean yield (Gb)',
-                    'Clean %Q30',
+                    '% Q30 > 75%',
                     '% Duplicate reads',
                     '% mapped reads',
-                    '% Pass filter',
-                    'Median coverage']
+                    'Quoted coverage',
+                    'Median coverage',
+                    'Total DNA',
+                    'Date received'
+                    ]
+
+        b = {'True': 'Yes', 'False': 'No'}
+
         rows = []
         for sample in self.samples_for_project_restapi:
+            s = sample.get('sample_id')
             row = [
-                sample.get('sample_id'),
+                s,
                 sample.get('user_sample_id', 'None'),
                 self.get_species_found(sample),
-                self.get_library_workflow_from_sample(sample.get('sample_id', 'None')),
+                self.get_library_workflow_from_sample(s),
+                self.get_yield_for_quoted_coverage(s),
                 round(sample.get('clean_yield_in_gb', 'None'), 2),
-                round(sample.get('clean_pc_q30', 'None'), 2),
+                b[str(round(sample.get('clean_pc_q30', 'None'), 2) > 75)],
                 round(sample.get('pc_duplicate_reads', 'None'), 2),
                 round(sample.get('pc_mapped_reads', 'None'), 2),
-                sample.get('pc_pass_filter', 'None'),
-                sample.get('median_coverage', 'None')]
+                self.get_quoted_coverage(s),
+                sample.get('median_coverage', 'None'),
+                self.get_sample_total_dna(s),
+                self.parse_date(self.sample_status(s).get('started_date'))
+            ]
 
             rows.append(row)
         return (header, rows)
 
     def write_csv_file(self):
         csv_file = path.join(self.project_delivery, 'project_data.csv')
-        header, rows = self.get_csv_data()
+        headers, rows = self.get_csv_data()
         with open(csv_file, 'w') as outfile:
             writer = csv.writer(outfile, delimiter='\t')
-            writer.writerow(header)
+            writer.writerow(headers)
             for row in rows:
                 writer.writerow(row)
         return csv_file
@@ -443,11 +490,10 @@ class ProjectReport:
             project_stats=self.get_sample_info(),
             project_templates=project_templates,
             params=self.params,
-            quote_number=self.quote_number,
             method_fields=self.method_fields()
         )
 
-        csv_table_headers, csv_table_rows = self.get_csv_data()
+        csv_table_headers, csv_table_rows  = self.get_csv_data()
         csv = template2.render(
             report_csv_headers=csv_table_headers,
             report_csv_rows=csv_table_rows,

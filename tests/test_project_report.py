@@ -29,27 +29,27 @@ class FakeSample:
 fake_sample_templates = {
     'a_project_name': {
         'name':'sample:',
-        'udf': {'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38'}
+        'udf': {'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38', 'Total DNA (ng)': 3000, 'Yield for Quoted Coverage (Gb)': 120}
     },
     'human_truseq_nano': {
         'name':'human_truseq_nano_sample_',
-        'udf': {'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
+        'udf': {'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38', 'Total DNA (ng)': 3000, 'Yield for Quoted Coverage (Gb)': 120}
     },
     'non_human_truseq_nano': {
         'name':'non_human_truseq_nano_sample_',
-        'udf':{'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy'}
+        'udf':{'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Total DNA (ng)': 3000, 'Yield for Quoted Coverage (Gb)': 120}
     },
     'human_pcr_free': {
         'name': 'human_truseq_pcrfree_sample_',
-        'udf': {'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': cycle(['hg38', 'hg19'])}
+        'udf': {'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': cycle(['hg38', 'hg19']), 'Total DNA (ng)': 3000, 'Yield for Quoted Coverage (Gb)': 120}
     },
     'non_human_pcr_free': {
         'name': 'non_human_truseq_pcrfree_sample_',
-        'udf':{'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Thingius thingy'}
+        'udf':{'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Thingius thingy', 'Total DNA (ng)': 3000, 'Required Yield (Gb)': 120}
     },
     'undelivered_human_truseq_nano': {
         'name':'un_delivered_human_truseq_nano_sample_',
-        'udf': {'Prep Workflow': cycle(['TruSeq Nano DNA Sample Prep', None, None]), 'Species': 'Homo sapiens', 'Genome Version': 'hg38'}
+        'udf': {'Prep Workflow': cycle(['TruSeq Nano DNA Sample Prep', None, None]), 'Species': 'Homo sapiens', 'Genome Version': 'hg38', 'Total DNA (ng)': 3000, 'Yield for Quoted Coverage (Gb)': 120}
     }
 }
 
@@ -69,6 +69,18 @@ for project in fake_sample_templates:
             name=template['name'] + str(i),
             udf=dict( [(k, _resolve_next(template['udf'][k])) for k in template['udf']] )
         ))
+
+fake_project_status = {
+                      "project_id": "X00000",
+                      "species": "Homo sapiens",
+                      "started_date": "2017-08-02T11:25:14.659000",
+                    }
+
+fake_sample_status = {
+                      "project_id": "X0000",
+                      "species": "Homo sapiens",
+                      "started_date": "2017-08-02T11:25:14.659000"
+                    }
 
 class FakeLims:
     @staticmethod
@@ -196,7 +208,8 @@ mocked_get_library_workflow = patch(ppath('ProjectReport.get_library_workflow'),
 mocked_get_species_from_sample = patch(ppath('get_species_from_sample'), return_value='Human')
 mocked_get_genome_version = patch(ppath('get_genome_version'), side_effect=cycle(['hg38, hg19']))
 mocked_csv = patch(ppath('ProjectReport.write_csv_file'), return_value='/path/to/csv/project_report.csv')
-
+mocked_project_status = patch(ppath('ProjectReport.project_status'), return_value=fake_project_status)
+mocked_sample_status = patch(ppath('ProjectReport.sample_status'), return_value=fake_sample_status)
 
 def get_patch_sample_restapi(project_name):
     path = ppath('ProjectReport.samples_for_project_restapi')
@@ -257,8 +270,10 @@ class TestProjectReport(TestProjectManagement):
                ('Project title', 'a_research_title_for_a_project_name'),
                ('Enquiry no', '1337'),
                ('Quote no', '1338'),
+               ('Quote contact', 'First Last (first.last@email.com)'),
                ('Number of samples', len(fake_samples['a_project_name'])),
                ('Number of samples delivered', nb_samples),
+               ('Date samples received', 'Detailed in appendix 2'),
                ('Project size', '1.34 terabytes'),
                ('Laboratory protocol', 'TruSeq Nano DNA Sample Prep'),
                ('Submitted species', 'Thingius thingy'),
@@ -391,7 +406,9 @@ class TestProjectReport(TestProjectManagement):
     @mocked_csv
     @mocked_sample_yield_metrics
     @mocked_pc_statistics
-    def test_project_types(self, mocked_pc_statistics,
+    @mocked_sample_status
+    def test_project_types(self, mocked_sample_status,
+                           mocked_pc_statistics,
                            mocked_sample_yield_metrics,
                            mocked_csv):
         os.chdir(TestProjectManagement.root_path)
@@ -403,4 +420,3 @@ class TestProjectReport(TestProjectManagement):
                 pr.generate_report('pdf')
             report = os.path.join(self.assets_path, 'project_report', 'dest', p, 'project_%s_report.pdf' % p)
             assert os.path.isfile(report)
-
