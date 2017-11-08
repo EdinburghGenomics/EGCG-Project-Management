@@ -29,7 +29,23 @@
     </head>
     <body>
         <h2>Appendix</h2>
-        <h4>Per Sample Results</h4>
+        <h4>1. Kits and Equipment</h4>
+        <table class="table table-condensed">
+            <tr>
+                {% for heading in method_fields['headings'] %}
+                    <th>{{ heading }}</th>
+                {% endfor %}
+            </tr>
+            {% for row in method_fields['rows'] %}
+                <tr>
+                {% for field in row %}
+                    <td>{{ field }}</td>
+                {% endfor %}
+                </tr>
+            {% endfor %}
+        </table>
+
+        <h4>2. Per Sample Results</h4>
         <p>Full user and facility derived metrics for each sample can be found within the delivery folder in {{ csv_path }}</p>
         <table class="table table-condensed">
             <tr>

@@ -366,39 +366,25 @@ class ProjectReport:
         qc_plot_outfile = 'file://' + os.path.abspath(qc_plot_outfile)
         self.params['mapping_duplicates_chart'] = qc_plot_outfile
 
+    def kits_and_equipment(self):
+        table_content = {'headings': ['Process', 'Critical equipment', 'Kits'],
+                         'rows': [
+                        ('Sample QC', 'Fragment analyzer, Hamilton robot', 'Kit 1, Kit 2, Kit 3, Kit 4'),
+                        ('Library prep', 'Hamilton robot, '
+                                         'Hamilton, '
+                                         'Covaris LE220, '
+                                         'Gemini Spectramax XP, '
+                                         'Hybex incubators, '
+                                         'BioRad C1000/S1000 thermal cycler', 'Kit 1, Kit 2, Kit 3, Kit 4'),
+                        ('Library QC', 'Caliper GX Touch, Roche Lightcycler', 'Kit 1, Kit 2, Kit 3, Kit 4'),
+                        ('Sequencing', 'cBot2, HiSeqX', 'Kit 1, Kit 2, Kit 3, Kit 4')
+                        ]}
 
-    def method_fields(self):
-        fields = {'sample_qc': {'title': 'Sample QC',
-                                'headings': ['Method', 'QC', 'Critical equipment', 'Pass criteria'],
-                                'rows': [('Sample picogreen', 'gDNA quantified against Lambda DNA standards', 'Hamilton robot', '> 1000ng'),
-                                         ('Fragment analyzer QC', 'Quality of gDNA determined', 'Fragment analyzer', 'Quality score > 5'),
-                                         ('gDNA QC Review Process', 'N/A', 'N/A', 'N/A')]},
-                  'library_prep': {'title': 'Library preparation',
-                                   'headings': ['Method', 'Purpose', 'Critical equipment'],
-                                   'rows': [('Sequencing plate preparation', 'Samples normalised to fall within 5-40ng/ul', 'Hamilton robot'),
-                                            ('Nano DNA', 'Libraries prepared using Illumina SeqLab %s' % (self.params['library_workflow']), 'Hamilton, Covaris LE220, Gemini Spectramax XP, Hybex incubators, BioRad C1000/S1000 thermal cycler')]},
-                  'library_qc': {'title': 'Library QC',
-                                 'headings': ['Method', 'QC', 'Critical equipment', 'Pass criteria'],
-                                 'rows': [('Library QC as part of Nano DNA', 'Insert size evaluated', 'Caliper GX Touch', 'Fragment sizes fall between 530bp and 730bp'),
-                                          ('Library QC as part of Nano DNA', 'Library concentration calculated', 'Roche Lightcycler', 'Concentration between 5.5nM and 40nM')]},
-                  'sequencing': {'title': 'Sequencing',
-                                 'headings': ['Method', 'Steps', 'Critical equipment'],
-                                 'rows': [('Clustering and sequencing of libraries as part of %s' % (self.params['library_workflow']), 'Clustering', 'cBot2'),
-                                          ('Clustering and Sequencing of libraries as part of %s' % (self.params['library_workflow']), 'Sequencing', 'HiSeqX')]},
-                  'bioinformatics': {'title': 'Bioinformatics analysis',
-                                     'headings': ['Method', 'Software', 'Version'],
-                                     'rows': [('Demultiplexing', 'bcl2fastq', self.params['bcl2fastq_version']),
-                                      ('Alignment', 'bwa mem', self.params['bwa_version']),
-                                      ('Mark duplicates', 'samblaster', self.params['samblaster_version']),
-                                      ('Indel realignment', 'GATK IndelRealigner', self.params['gatk_version']),
-                                      ('Base recalibration', 'GATK BaseRecalibrator', self.params['gatk_version']),
-                                      ('Genotype likelihood calculation', 'GATK HaplotypeCaller', self.params['gatk_version'])]}
-                  }
-        return fields
+        return table_content
 
     def get_html_template(self):
         template = {'template_base': 'report_base.html',
-                    'bioinformatics_template': ['bioinformatics_table'],
+                    'bioinformatics_template': ['non_human_bioinf'],
                     'formats_template': ['fastq', 'bam', 'vcf'],
                     'charts_template': ['yield_chart', 'mapping_duplicates_chart']}
 
@@ -489,8 +475,7 @@ class ProjectReport:
             project_info=self.get_project_info(),
             project_stats=self.get_sample_info(),
             project_templates=project_templates,
-            params=self.params,
-            method_fields=self.method_fields()
+            params=self.params
         )
 
         csv_table_headers, csv_table_rows  = self.get_csv_data()
@@ -498,7 +483,8 @@ class ProjectReport:
             report_csv_headers=csv_table_headers,
             report_csv_rows=csv_table_rows,
             csv_path=self.params['csv_path'],
-            quote_number=self.quote_number
+            quote_number=self.quote_number,
+            method_fields=self.kits_and_equipment()
         )
         combined_report_html = (report + csv)
         report_html = HTML(string=report)

@@ -43,6 +43,7 @@
 {%- endmacro %}
 
 {% macro sample_qc(params) -%}
+    <h3>Sample QC</h3>
     <p  class="font5">Genomic DNA (gDNA) samples are evaluated for quantity using Quant-iT Picogren reagent, Lambda Standard DNA
     and a Molecular Devices, Spectramax XPS Gemini plate reader.  The quality of the gDNA samples are evaluated
     using an AATI Fragment Analyzer and the Standard Sensitivity Genomic DNA Analysis Kit. Genomic DNA samples
@@ -52,6 +53,7 @@
 {%- endmacro %}
 
 {% macro truseq_nano(params) -%}
+    <h3>Library Preparation</h3>
     <p class="font5">Next Generation sequencing libraries are prepared using an Illumina SeqLab specific TruSeq Nano High
     Throughput library preparation kit in conjunction with the Hamilton MicroLab STAR and Clarity LIMS X (4.2?)
     Edition. The 200ng gDNA sample input is normalised to the concentration and volume required for the Illumina
@@ -62,6 +64,7 @@
 
 
 {% macro truseq_pcrfree(params) -%}
+    <h3>Library Preparation</h3>
     <p class="font5">Next Generation sequencing libraries are prepared using Illumina SeqLab specific TruSeq PCR-Free High Throughput library
     preparation kits in conjunction with the Hamilton MicroLab STAR and Clarity LIMS X Edition. The gDNA samples are
     normalised to the concentration and volume required for the Illumina TruSeq PCR-Free library preparation kits then sheared
@@ -71,6 +74,7 @@
 
 
 {% macro library_qc(params) -%}
+    <h3>Library QC</h3>
     <p class="font5">The insert size for each library is evaluated using the Caliper GX Touch with a HT DNA 1k/12K/HI SENS LabChip
     and HT DNA HI SENS Reagent Kit to ensure that the mean fragment sizes fall between 530bp and 730bp.
     The concentration of each library is calculated using a Roche LightCycler 480 and a Kapa Illumina Library
@@ -79,107 +83,16 @@
 
 
 {% macro sequencing(params) -%}
+    <h3>Sequencing</h3>
     <p class="font5">The libraries are normalised to 1.5nM and are denatured for clustering and sequencing at 300pM using a
     Hamilton MicroLab STAR with Genologics Clarity LIMS X (4.2?) Edition. Libraries are clustered onto a
     HiSeqX Flow cell v2.5 on cBot2s and the clustered flow cell is transferred to a HiSeqX for sequencing
     using a HiSeqX Ten Reagent kit v2.5.</p>
 {%- endmacro %}
 
-{% macro sample_qc_table(method_fields) -%}
-    <h3>Sample QC</h3>
-    <table class="table table-condensed">
-        <tr>
-        {% for heading in method_fields['sample_qc']['headings'] %}
-            <th>{{ heading }}</th>
-        {% endfor %}
-        </tr>
-        {% for row in method_fields['sample_qc']['rows'] %}
-            <tr>
-            {% for field in row %}
-                <td>{{ field }}</td>
-            {% endfor %}
-            </tr>
-        {% endfor %}
-    </table>
-    
-{%- endmacro %}
-
-
-{% macro library_prep_table(method_fields) -%}
-    <h3>Library Preparation</h3>
-    <table class="table table-condensed">
-        <tr>
-        {% for heading in method_fields['library_prep']['headings'] %}
-            <th>{{ heading }}</th>
-        {% endfor %}
-        </tr>
-        {% for row in method_fields['library_prep']['rows'] %}
-            <tr>
-            {% for field in row %}
-                <td>{{ field }}</td>
-            {% endfor %}
-            </tr>
-        {% endfor %}
-    </table>
-    <hr>
-{%- endmacro %}
-
-
-{% macro library_qc_table(method_fields) -%}
-    <h3>Library QC</h3>
-    <table class="table table-condensed">
-        <tr>
-        {% for heading in method_fields['library_qc']['headings'] %}
-            <th>{{ heading }}</th>
-        {% endfor %}
-        </tr>
-        {% for row in method_fields['library_qc']['rows'] %}
-            <tr>
-            {% for field in row %}
-                <td>{{ field }}</td>
-            {% endfor %}
-            </tr>
-        {% endfor %}
-    </table>
-    
-{%- endmacro %}
-
-
-{% macro sequencing_table(method_fields) -%}
-    <h3>Sequencing</h3>
-    <table class="table table-condensed">
-        <tr>
-        {% for heading in method_fields['sequencing']['headings'] %}
-            <th>{{ heading }}</th>
-        {% endfor %}
-        </tr>
-        {% for row in method_fields['sequencing']['rows'] %}
-            <tr>
-            {% for field in row %}
-                <td>{{ field }}</td>
-            {% endfor %}
-            </tr>
-        {% endfor %}
-    </table>
-    <hr>
-{%- endmacro %}
-
-
-{% macro bioinformatics_table(method_fields) -%}
-    <h3>Bioinformatics</h3>
-    <table class="table table-condensed"  >
-        <tr>
-        {% for heading in method_fields['bioinformatics']['headings'] %}
-            <th>{{ heading }}</th>
-        {% endfor %}
-        </tr>
-        {% for row in method_fields['bioinformatics']['rows'] %}
-            <tr>
-            {% for field in row %}
-                <td>{{ field }}</td>
-            {% endfor %}
-            </tr>
-        {% endfor %}
-    </table>
-    <hr>
+{% macro non_human_bioinf(params) -%}
+    <h3>Bioinformatics analysis</h3>
+    <p class="font5">Demultiplexing is performed using bcl2fastq ({{ params['bcl2fastq_version'] }}), allowing 1 mismatch when assigning reads
+    to barcodes. Adapters (Read1: {{ params['adapter1'] }}, Read2: {{ params['adapter2'] }}) are trimmed during the demultiplexing
+    process.</p>
 {%- endmacro %}

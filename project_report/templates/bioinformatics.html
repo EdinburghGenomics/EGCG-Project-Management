@@ -1,9 +1,9 @@
-{% from 'all_templates.html' import bioinformatics_table %}
-{% set macro_dict = {'bioinformatics_table': bioinformatics_table} %}
+{% from 'all_templates.html' import non_human_bioinf %}
+{% set macro_dict = {'non_human_bioinf': non_human_bioinf} %}
 {% for t in project_templates['bioinformatics_template'] %}
     {% for key in macro_dict %}
         {% if t == key %}
-            {{ macro_dict[key](method_fields) }}
+            {{ macro_dict[key](params) }}
         {% endif %}
     {% endfor %}
 {% endfor %}
