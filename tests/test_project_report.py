@@ -30,7 +30,7 @@ class FakeSample:
 
 fake_sample_templates = {
     'a_project_name': {
-        'name': 'sample:',
+        'name': 'sample_',
         'udf': {
             'Prep Workflow': 'TruSeq Nano DNA Sample Prep',
             'Species': 'Thingius thingy',
@@ -346,7 +346,7 @@ class TestProjectReport(TestProjectManagement):
         assert self.pr.samples_for_project_lims == self.fake_samples
 
     def test_get_sample(self):
-        assert self.pr.get_lims_sample('sample:1') == self.fake_samples[0]
+        assert self.pr.get_lims_sample('sample_1') == self.fake_samples[0]
 
     def test_get_all_sample_names(self):
         names = [s.name for  s in fake_samples['a_project_name']]
@@ -354,11 +354,11 @@ class TestProjectReport(TestProjectManagement):
         assert self.pr.get_all_sample_names(modify_names=True) == [n.replace(':', '_') for n in names]
 
     def test_get_library_workflow(self):
-        assert self.pr.get_library_workflow_from_sample('sample:1') == 'TruSeq Nano DNA Sample Prep'
+        assert self.pr.get_library_workflow_from_sample('sample_1') == 'TruSeq Nano DNA Sample Prep'
 
     def test_get_report_type(self):
-        assert self.pr.get_species_from_sample('sample:1') == 'Thingius thingy'
-        self.pr.project_name = 'human_truseq_nano'
+        assert self.pr.get_species_from_sample('sample_1') == 'Thingius thingy'
+        self.pr.project_name = 'htn999'
         self.pr._lims_samples_for_project = None
         assert self.pr.get_species_from_sample('human_truseq_nano_sample_1') == 'Human'
 
@@ -368,8 +368,8 @@ class TestProjectReport(TestProjectManagement):
             TestProjectManagement.assets_path,
             'project_report',
             'source',
-            'a_project_name',
-            'sample_1',
+            'htn999',
+            'human_truseq_nano_sample_1',
             'programs.txt'
         )
         self.pr.update_from_program_csv(program_csv)
@@ -389,47 +389,20 @@ class TestProjectReport(TestProjectManagement):
             TestProjectManagement.assets_path,
             'project_report',
             'source',
-            'a_project_name',
-            'sample_1',
+            'htn999',
+            'human_truseq_nano_sample_1',
             'project-summary.yaml'
         )
         self.pr.update_from_project_summary_yaml(summary_yaml)
         assert self.pr.params['bcbio_version'] == 'bcbio-0.9.4'
         assert self.pr.params['genome_version'] == 'GRCh38 (with alt, decoy and HLA sequences)'
 
-    def test_read_metrics_csv(self):
-        exp = {}
-        for s in ('1', '2'):
-            sample_id = 'sample_' + s
-            exp[sample_id] = {
-                'Project': 'a_project_name',
-                'Sample Id': sample_id,
-                'User sample id': sample_id,
-                'Read pair sequenced': '1100000000',
-                'Yield': '100',
-                'Yield Q30': '90',
-                'Nb reads in bam': '1000000000',
-                'mapping rate': '90.9',
-                'properly mapped reads rate': '85',
-                'duplicate rate': '20',
-                'Mean coverage': '30',
-                'Callable bases rate': '90',
-                'Delivery folder': '2016-03-08'
-            }
-        metrics_csv = os.path.join(
-            TestProjectManagement.assets_path,
-            'project_report',
-            'dest',
-            'a_project_name',
-            'summary_metrics.csv'
-        )
-        obs = self.pr.read_metrics_csv(metrics_csv)
-        assert obs == exp
 
     @mocked_get_folder_size
     @mocked_calculate_project_statistics
     def test_get_sample_info(self, mocked_project_stats, mocked_project_size):
-        project_stats = self.pr.get_sample_info()
+        with get_patch_sample_restapi('a_project_name'):
+            project_stats = self.pr.get_sample_info()
 
         assert project_stats == [('Total yield (Gb):', '524.13'),
                                ('Average yield (Gb):', '131.0'),
@@ -437,15 +410,13 @@ class TestProjectReport(TestProjectManagement):
                                ('Average percent mapped reads:', 85.45270355584897),
                                ('Average percent Q30:', 80.32382821869467)]
         assert self.pr.params == {
-            'project_name': 'a_project_name',
+            'bcl2fastq_version': 2.1,
             'adapter1': 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCA',
             'adapter2': 'AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT',
-            'bcbio_version': 'bcbio-0.9.4',
-            'bcl2fastq_version': '2.17.1.14',
-            'bwa_version': '1.2',
-            'gatk_version': '1.3',
-            'genome_version': 'GRCh38 (with alt, decoy and HLA sequences)',
-            'samblaster_version': '1.4'
+            'bwa_version': 1.2,
+            'biobambam_sortmapdup_version': 2,
+            'project_name': 'a_project_name',
+            'gatk_version': 'v1.3'
         }
 
 

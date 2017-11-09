@@ -214,15 +214,6 @@ class ProjectReport:
                 if p in full_yaml:
                     self.params[p + '_version'] = full_yaml.get(p)
 
-    @staticmethod
-    def read_metrics_csv(metrics_csv):
-        samples_to_info = {}
-        with open(metrics_csv) as open_metrics:
-            reader = csv.DictReader(open_metrics, delimiter='\t', quoting=csv.QUOTE_NONE)
-            for row in reader:
-                samples_to_info[row['Sample Id']] = row
-        return samples_to_info
-
     def get_project_info(self):
         sample_names = self.get_all_sample_names()
         genome_versions = set()
@@ -246,7 +237,7 @@ class ProjectReport:
                                               project.researcher.email)),
             ('Number of samples', len(sample_names)),
             ('Number of samples delivered', len(self.samples_for_project_restapi)),
-            ('Date samples received', 'Detailed in appendices 2'),
+            ('Date samples received', 'Detailed in appendix 2'),
             ('Project size', '%.2f terabytes' % self.project_size_in_terabytes()),
             ('Laboratory protocol', library_workflow),
             ('Submitted species', ', '.join(list(species_submitted))),
@@ -305,8 +296,7 @@ class ProjectReport:
         return project_stats
 
     def get_sample_info(self):
-        sample_delivered = self.sample_name_delivered
-        for sample in set(sample_delivered):
+        for sample in set(self.sample_name_delivered):
             sample_source = path.join(self.project_source, sample)
             if self.get_species_from_sample(sample) == 'Human':
                 program_csv = find_file(sample_source, 'programs.txt')
