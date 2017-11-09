@@ -33,51 +33,51 @@ def check(sample_id):
     logger.debug('Found %s files', len(fstates))
 
     restorable_files = []
+    unreleased_files = []
     unarchived_files = []
     dirty_files = []
     for f in sorted(fstates):
         states = fstates[f]
         if am.is_dirty(f, states):
-            target_list = dirty_files
+            dirty_files.append(f)
         elif am.is_released(f, states):
-            target_list = restorable_files
+            restorable_files.append(f)
+        elif am.is_archived(f, states):
+            unreleased_files.append(f)
         else:
-            target_list = unarchived_files
-        target_list.append(f)
+            unarchived_files.append(f)
 
-    logger.info(
-        'Found %s files: %s restorable (%s Gb), %s dirty (%s Gb), %s unarchived (%s Gb)',
-        len(fstates),
-        len(restorable_files),
-        get_file_list_size(restorable_files) / 1000000000,
-        len(unarchived_files),
-        get_file_list_size(dirty_files) / 1000000000,
-        len(dirty_files),
-        get_file_list_size(unarchived_files) / 1000000000
-    )
-    return restorable_files, unarchived_files, dirty_files
+    msg_parts = [
+        '%s %s (%s Gb)' % (len(l), name, get_file_list_size(l) / 1000000000)
+        for name, l in (
+            ('restorable', restorable_files), ('unreleased', unreleased_files),
+            ('unarchived', unarchived_files), ('dirty', dirty_files)
+        )
+
+
+    ]
+    logger.info('Found %s files: %s', len(fstates), ', '.join(msg_parts))
+    return restorable_files, unreleased_files, unarchived_files, dirty_files
 
 
 def restore(sample_id):
     if disk_usage(cfg['data_deletion']['delivered_data']).free < 50000000000000:  # TODO: refactor config
         raise EGCGError('Unsafe to recall: less than 50Tb free')
 
-    files_to_restore, files_not_archived, dirty_files = check(sample_id)
+    files_to_restore, files_not_released, files_not_archived, dirty_files = check(sample_id)
 
     if dirty_files:
         raise EGCGError('Found %s dirty files: %s' % (len(dirty_files), dirty_files))
-
+    if files_not_released:
+        logger.warning('Found %s files not released: %s', len(files_not_released), files_not_released)
     if files_not_archived:
-        logger.warning(
-            'Found %s files not archived. Have they already been restored? %s',
-            len(files_not_archived),
-            files_not_archived
-        )
+        logger.warning('Found %s files not archived: %s', len(files_not_archived), files_not_archived)
+
     if not files_to_restore:
         logger.info('No files to restore found - nothing to do')
         return None
 
-    logger.info('Recalling %s files: %s', len(files_to_restore), files_to_restore)
+    logger.info('Recalling %s files for sample %s', len(files_to_restore), sample_id)
     for f in files_to_restore:
         am.recall_from_tape(f)
 

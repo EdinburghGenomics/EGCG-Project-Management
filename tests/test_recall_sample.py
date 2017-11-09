@@ -39,9 +39,11 @@ class TestRecall(TestProjectManagement):
     @patch(ppath + 'get_file_list_size', return_value=1000000000)
     @patch('egcg_core.archive_management.archive_states', return_value=[])
     def test_check(self, mocked_archive_states, mocked_file_size, mocked_file_states):
-        assert recall_sample.check('a_sample_id') == (
+        obs = recall_sample.check('a_sample_id')
+        assert obs == (
             ['this.vcf.gz'],
-            ['this.bam', 'this_r2.fastq.gz'],
+            ['this_r2.fastq.gz'],
+            ['this.bam'],
             ['this_r1.fastq.gz']
         )
 
@@ -59,21 +61,21 @@ class TestRecall(TestProjectManagement):
         mocked_check.assert_not_called()
         mocked_disk_usage.return_value.free = 50000000000000
 
-        mocked_check.return_value = ([], [], ['dirty', 'files'])
+        mocked_check.return_value = ([], [], [], ['dirty', 'files'])
         with self.assertRaises(EGCGError) as e:
             recall_sample.restore('a_sample_id')
 
         assert str(e.exception) == "Found 2 dirty files: ['dirty', 'files']"
 
-        mocked_check.return_value = ([], ['unarchived', 'files'], [])
+        mocked_check.return_value = ([], ['unreleased', 'files'], [], [])
         recall_sample.restore('a_sample_id')
-        mocked_log.assert_any_call(
-            logging.WARNING,
-            'Found %s files not archived. Have they already been restored? %s',
-            (2, ['unarchived', 'files'])
-        )
+        mocked_log.assert_any_call(logging.WARNING, 'Found %s files not released: %s', (2, ['unreleased', 'files']))
 
-        mocked_check.return_value = (['restorable', 'files'], [], [])
+        mocked_check.return_value = ([], [], ['unarchived', 'files'], [])
+        recall_sample.restore('a_sample_id')
+        mocked_log.assert_any_call(logging.WARNING, 'Found %s files not archived: %s', (2, ['unarchived', 'files']))
+
+        mocked_check.return_value = (['restorable', 'files'], [], [], [])
         recall_sample.restore('a_sample_id')
 
         for f in ['restorable', 'files']:
