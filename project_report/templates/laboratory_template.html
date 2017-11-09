@@ -8,7 +8,7 @@
 {% for t in project_templates['laboratory_template'] %}
     {% for key in macro_dict %}
         {% if t == key %}
-            {{ macro_dict[key]() }}
+            {{ macro_dict[key](method_fields, params) }}
         {% endif %}
     {% endfor %}
 {% endfor %}

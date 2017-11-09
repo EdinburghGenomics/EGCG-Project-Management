@@ -29,19 +29,19 @@ class FakeSample:
 fake_sample_templates = {
     'a_project_name': {
         'name':'sample:',
-        'udf': {'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38', 'Total DNA (ng)': 3000, 'Yield for Quoted Coverage (Gb)': 120}
+        'udf': {'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38', 'Total DNA (ng)': 3000, 'Required Yield (Gb)': 120}
     },
     'human_truseq_nano': {
         'name':'human_truseq_nano_sample_',
-        'udf': {'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38', 'Total DNA (ng)': 3000, 'Yield for Quoted Coverage (Gb)': 120}
+        'udf': {'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38', 'Total DNA (ng)': 3000, 'Required Yield (Gb)': 120}
     },
     'non_human_truseq_nano': {
         'name':'non_human_truseq_nano_sample_',
-        'udf':{'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Total DNA (ng)': 3000, 'Yield for Quoted Coverage (Gb)': 120}
+        'udf':{'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Total DNA (ng)': 3000, 'Required Yield (Gb)': 120, 'Analysis Type': 'Variant Calling gatk'}
     },
     'human_pcr_free': {
         'name': 'human_truseq_pcrfree_sample_',
-        'udf': {'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': cycle(['hg38', 'hg19']), 'Total DNA (ng)': 3000, 'Yield for Quoted Coverage (Gb)': 120}
+        'udf': {'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': cycle(['hg38', 'hg19']), 'Total DNA (ng)': 3000, 'Required Yield (Gb)': 120}
     },
     'non_human_pcr_free': {
         'name': 'non_human_truseq_pcrfree_sample_',
@@ -49,7 +49,7 @@ fake_sample_templates = {
     },
     'undelivered_human_truseq_nano': {
         'name':'un_delivered_human_truseq_nano_sample_',
-        'udf': {'Prep Workflow': cycle(['TruSeq Nano DNA Sample Prep', None, None]), 'Species': 'Homo sapiens', 'Genome Version': 'hg38', 'Total DNA (ng)': 3000, 'Yield for Quoted Coverage (Gb)': 120}
+        'udf': {'Prep Workflow': cycle(['TruSeq Nano DNA Sample Prep', None, None]), 'Species': 'Homo sapiens', 'Genome Version': 'hg38', 'Total DNA (ng)': 3000, 'Required Yield (Gb)': 120}
     }
 }
 
@@ -185,6 +185,7 @@ for project in fake_samples:
             t = copy.copy(next(fake_rest_api_samples_template))
             t['sample_id'] = sample.name
             t['project_id'] = project
+            t['species_name'] = sample.udf['Species']
             fake_rest_api_samples[project].append(t)
 
 
@@ -253,10 +254,14 @@ class TestProjectReport(TestProjectManagement):
             for sample in fake_samples[project]:
                 smp_dir = os.path.join(prj_dir, sample.name.replace(':', '_'))
                 os.makedirs(smp_dir, exist_ok=True)
-                with open(os.path.join(smp_dir, 'programs.txt'), 'w') as open_file:
-                    open_file.write('bcbio,1.1\nbwa,1.2\ngatk,1.3\nsamblaster,1.4\n')
-                with open(os.path.join(smp_dir, 'project-summary.yaml'), 'w') as open_file:
-                    open_file.write('samples:\n- dirs:\n    galaxy: path/to/bcbio/bcbio-0.9.4/galaxy\n  genome_build: hg38\n')
+                if sample.udf['Species'] == 'Homo sapiens':
+                    with open(os.path.join(smp_dir, 'programs.txt'), 'w') as open_file:
+                        open_file.write('bcbio,1.1\nbwa,1.2\ngatk,1.3\nsamblaster,1.4\n')
+                    with open(os.path.join(smp_dir, 'project-summary.yaml'), 'w') as open_file:
+                        open_file.write('samples:\n- dirs:\n    galaxy: path/to/bcbio/bcbio-0.9.4/galaxy\n  genome_build: hg38\n')
+                else:
+                    with open(os.path.join(smp_dir, 'program_versions.yaml'), 'w') as open_file:
+                        open_file.write('biobambam_sortmapdup: 2\nbwa: 1.2\n\ngatk: v1.3\nbcl2fastq: 2.1\n')
 
     def tearDown(self):
         # delete the source folders
@@ -301,10 +306,10 @@ class TestProjectReport(TestProjectManagement):
         assert self.pr.get_library_workflow_from_sample('sample:1') == 'TruSeq Nano DNA Sample Prep'
 
     def test_get_report_type(self):
-        assert self.pr.get_report_type_from_sample('sample:1') == 'Thingius thingy'
+        assert self.pr.get_species_from_sample('sample:1') == 'Thingius thingy'
         self.pr.project_name = 'human_truseq_nano'
         self.pr._lims_samples_for_project = None
-        assert self.pr.get_report_type_from_sample('human_truseq_nano_sample_1') == 'Human'
+        assert self.pr.get_species_from_sample('human_truseq_nano_sample_1') == 'Human'
 
     def test_update_program_from_csv(self):
         assert len(self.pr.params) == 3
@@ -420,3 +425,4 @@ class TestProjectReport(TestProjectManagement):
                 pr.generate_report('pdf')
             report = os.path.join(self.assets_path, 'project_report', 'dest', p, 'project_%s_report.pdf' % p)
             assert os.path.isfile(report)
+

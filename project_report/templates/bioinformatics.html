@@ -1,5 +1,10 @@
-{% from 'all_templates.html' import non_human_bioinf %}
-{% set macro_dict = {'non_human_bioinf': non_human_bioinf} %}
+{% from 'all_templates.html' import bioinformatics_table, bioinformatics_qc, bioinformatics_analysis_bcbio, bioinformatics_analysis %}
+{% set macro_dict = {
+    'bioinformatics_table': bioinformatics_table,
+    'bioinformatics_qc': bioinformatics_qc,
+    'bioinformatics_analysis_bcbio': bioinformatics_analysis_bcbio,
+    'bioinformatics_analysis': bioinformatics_analysis
+} %}
 {% for t in project_templates['bioinformatics_template'] %}
     {% for key in macro_dict %}
         {% if t == key %}

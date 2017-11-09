@@ -87,7 +87,7 @@
     </div>
     <div id="results" class="page_break">
         <table class="table table-condensed">
-            <h1>Results</h1>
+            <h2>Results</h2>
             {% for title, data in project_stats %}
             <tr>
                 <th>{{ title }}</th>
@@ -96,6 +96,7 @@
             {% endfor %}
         </table>
         {% include 'charts.html' %}
+
     </div>
 
     <div id="file_format" class="page_break">
@@ -103,7 +104,7 @@
         {% include 'formats.html' %}
     </div>
 
-    <div id="formal_statement" class="page_break">
+    <div id="formal_statement">
         <h4>Deviations, Additions and Exclusions</h4>
             <p>N/A</p>
 
@@ -116,6 +117,9 @@
             All the associated test instrumentation is maintained, calibrated and qualified as appropriate.
         </p>
     </div>
-    <div class="text-center"><p>End of test report</p></div>
+    <div class="text-center" style="margin-top:100px;">
+        <hr>
+        <h4>End of project {{ params['project_name'] }} report</h4>
+    </div>
 </body>
 </html>

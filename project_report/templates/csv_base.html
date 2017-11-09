@@ -5,12 +5,16 @@
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" crossorigin="anonymous">
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto">
         <style type="text/css">
-            @page {
-                html, body {
-                    font-family: 'Roboto', sans-serif;
-                }
-                h1, h2, h3, h4, p, div { font-family: inherit !important }
+            html, body {
+                font-family: 'Roboto', sans-serif;
+            }
 
+            h1, h2, h3, h4, p, div { font-family: inherit !important }
+
+            div.page_break {
+                page-break-after: always;
+            }
+            @page {
                 margin-top: 2cm;
                 margin-bottom: 2cm;
                 size: A4 landscape;
@@ -18,48 +22,53 @@
                     content: "Appendix page "counter(page) " of " counter(pages);
                 }
                 @bottom-left {
-                content: "EGC-BTP-1 rev. 1";
+                    content: "EGC-BTP-1 rev. 1";
                 }
+
                 @bottom-right {
-                    content: "Quote Number: {{ quote_number }}";
+                    content: "Project ID: {{ project_id }}";
                 }
             }
         </style>
         <meta charset="UTF-8">
     </head>
     <body>
-        <h2>Appendix</h2>
-        <h4>1. Kits and Equipment</h4>
-        <table class="table table-condensed">
-            <tr>
-                {% for heading in method_fields['headings'] %}
-                    <th>{{ heading }}</th>
-                {% endfor %}
-            </tr>
-            {% for row in method_fields['rows'] %}
+        <h1>Appendix</h1>
+        <div id="kits_equipment" class="page_break">
+            <h2>I. Kits and Equipment</h2>
+            <table class="table table-condensed">
                 <tr>
-                {% for field in row %}
-                    <td>{{ field }}</td>
-                {% endfor %}
+                    {% for heading in method_fields['headings'] %}
+                        <th>{{ heading }}</th>
+                    {% endfor %}
                 </tr>
-            {% endfor %}
-        </table>
+                {% for row in method_fields['rows'] %}
+                    <tr>
+                    {% for field in row %}
+                        <td>{{ field }}</td>
+                    {% endfor %}
+                    </tr>
+                {% endfor %}
+            </table>
+        </div>
 
-        <h4>2. Per Sample Results</h4>
-        <p>Full user and facility derived metrics for each sample can be found within the delivery folder in {{ csv_path }}</p>
-        <table class="table table-condensed">
-            <tr>
-                {% for heading in report_csv_headers %}
-                    <th>{{ heading }}</th>
-                {% endfor %}
-            </tr>
-            {% for row in report_csv_rows %}
+        <div>
+            <h2>II. Per Sample Results</h2>
+            <p>Full user and facility derived metrics for each sample can be found within the delivery folder in {{ csv_path }}</p>
+            <table class="table table-condensed">
                 <tr>
-                {% for field in row %}
-                    <td>{{ field }}</td>
-                {% endfor %}
+                    {% for heading in report_csv_headers %}
+                        <th>{{ heading }}</th>
+                    {% endfor %}
                 </tr>
-            {% endfor %}
-        </table>
+                {% for row in report_csv_rows %}
+                    <tr>
+                    {% for field in row %}
+                        <td>{{ field }}</td>
+                    {% endfor %}
+                    </tr>
+                {% endfor %}
+            </table>
+        </div>
     </body>
 </html>
