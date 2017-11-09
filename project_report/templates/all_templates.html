@@ -1,6 +1,6 @@
 {% macro yield_chart(params) -%}
     <h3>Yield</h3>
-    <img id="chart1" class="charts" src="{{ params['yield_chart'] }}" />
+    <img id="yield" class="charts" src="{{ params['yield_chart'] }}" />
     <p class="justify_text">
         Yield is calculated as the yield in gigabases (Gb) after adapters have been
         trimmed during processing. The yield Q30 is the quantity of bases
@@ -8,9 +8,25 @@
     </p>
 {%- endmacro %}
 
+{% macro yield_cov_chart(params) -%}
+    <h3>Yield and coverage</h3>
+        <p class="justify_text">
+            Yield is calculated as the number of in bases provided in the fastq files and is expressed in Gigabases.
+            Coverage is the average number of bases covering each position of the reference genome.
+        </p>
+    {% for chart_dict in params['yield_cov_chart'] %}
+        <img id="yieldcov" class="charts" src="{{ chart_dict['file'] }}" />
+        <p class="justify_text">
+            Chart showing the yield and coverage for {{ chart_dict['nb_sample'] }} sample. The sections in the represent the expected yield
+            ({{ chart_dict['req_yield'] }} Gb) and the expected coverage ({{ chart_dict['req_cov'] }}X).
+        </p>
+    {% endfor %}
+
+{%- endmacro %}
+
 {% macro mapping_duplicates_chart(params) -%}
     <h3>Read Mapping and Duplicates</h3>
-    <img id="chart2" class="charts" src="{{ params['mapping_duplicates_chart'] }}" />
+    <img id="mapdup" class="charts" src="{{ params['mapping_duplicates_chart'] }}" />
     <p class="justify_text">
         Optical and PCR duplicates can be generated during library preparation, clustering, or be due to
         sample quality. The percentage of duplicates is calculated by comparing the number of duplicate reads

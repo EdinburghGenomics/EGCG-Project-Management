@@ -7,6 +7,8 @@ matplotlib.use('Agg')
 import pandas as pd
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
+import matplotlib.collections as mpcollections
+
 import numpy as np
 from dateutil import parser
 from os import path, listdir
@@ -105,6 +107,9 @@ class ProjectReport:
             return [re.sub(r'[: ]', '_', s.name) for s in self.samples_for_project_lims]
         return [s.name for s in self.samples_for_project_lims]
 
+    def get_fluidx_barcode(self, sample_name):
+        return self.get_lims_sample(sample_name).udf.get('2D Barcode')
+
     def get_analysis_type_from_sample(self, sample_name):
         return self.get_lims_sample(sample_name).udf.get('Analysis Type')
 
@@ -182,7 +187,6 @@ class ProjectReport:
     def enquiry_number(self):
         return self.project.udf.get('Enquiry Number', '')
 
-
     def update_from_program_csv(self, program_csv):
         all_programs = {}
         if program_csv and path.exists(program_csv):
@@ -224,7 +228,7 @@ class ProjectReport:
         genome_versions = set()
         species_submitted = set()
         project = self.lims.get_projects(name=self.project_name)[0]
-        library_workflow = self.get_library_workflow([sample.get('sample_id') for sample in self.samples_for_project_restapi])
+        library_workflow = self.get_library_workflow(self.sample_name_delivered)
         for sample in sample_names:
             lims_sample = self.get_lims_sample(sample)
             species = lims_sample.udf.get('Species')
@@ -321,6 +325,22 @@ class ProjectReport:
                 project_stats.append((stat, get_project_stats[stat]))
         return project_stats
 
+    def get_sample_yield_coverage_metrics(self):
+        req_to_metrics = {}
+        for sample in self.samples_for_project_restapi:
+
+            req = (self.get_required_yield(sample.get('sample_id')), self.get_quoted_coverage(sample.get('sample_id')))
+            if not req in req_to_metrics:
+                req_to_metrics[req] = {'samples': [], 'clean_yield': [], 'coverage': []}
+            all_yield_metrics = [sample.get('sample_id'),
+                                 sample.get('clean_yield_in_gb'),
+                                 sample.get('coverage').get('mean')]
+            if not None in all_yield_metrics:
+                req_to_metrics[req]['samples'].append(all_yield_metrics[0])
+                req_to_metrics[req]['clean_yield'].append(all_yield_metrics[1])
+                req_to_metrics[req]['coverage'].append(all_yield_metrics[2])
+        return req_to_metrics
+
     def get_sample_yield_metrics(self):
         yield_metrics = {'samples': [], 'clean_yield': [], 'clean_yield_Q30': []}
         for sample in self.samples_for_project_restapi:
@@ -348,6 +368,53 @@ class ProjectReport:
                 pc_statistics['samples'].append(all_pc_statistics[3])
         return pc_statistics
 
+    def yield_vs_coverage_plot(self):
+        req_to_metrics = self.get_sample_yield_coverage_metrics()
+        list_plots = []
+        for req in req_to_metrics:
+            df = pd.DataFrame(req_to_metrics[req])
+            req_yield, req_cov = req
+            max_x = max(df['clean_yield']) + .1 * max(df['clean_yield'])
+            max_y = max(df['coverage']) + .1 * max(df['coverage'])
+            min_x = min(df['clean_yield']) - .1 * max(df['clean_yield'])
+            min_y = min(df['coverage']) - .1 * max(df['coverage'])
+
+            min_x = min((min_x, req_yield - .1 * req_yield))
+            min_y = min((min_y, req_cov - .1 * req_cov))
+
+            plt.figure(figsize=(10, 5))
+            df.plot(kind='scatter', x='clean_yield', y='coverage')
+
+            plt.xlim(min_x, max_x)
+            plt.ylim(min_y, max_y)
+            plt.xlabel('Delivered yield (Gb)')
+            plt.ylabel('Covereage (X)')
+
+            xrange1 = [(0, req_yield)]
+            xrange2 = [(req_yield, max_x)]
+            yrange1 = (0, req_cov)
+            yrange2 = (req_cov, max_y)
+
+            c1 = mpcollections.BrokenBarHCollection(xrange1, yrange1, facecolor='red', alpha=0.2)
+            c2 = mpcollections.BrokenBarHCollection(xrange1, yrange2, facecolor='yellow', alpha=0.2)
+            c3 = mpcollections.BrokenBarHCollection(xrange2, yrange1, facecolor='yellow', alpha=0.2)
+            c4 = mpcollections.BrokenBarHCollection(xrange2, yrange2, facecolor='green', alpha=0.2)
+
+            ax = plt.gca()
+            ax.add_collection(c1)
+            ax.add_collection(c2)
+            ax.add_collection(c3)
+            ax.add_collection(c4)
+
+            plot_outfile = path.join(self.project_source, 'yield%s_cov%s_plot.png' %(req_yield, req_cov))
+            plt.savefig(plot_outfile, bbox_inches='tight', pad_inches=0.2)
+            list_plots.append({
+                'nb_sample': len(df),
+                'req_yield': req_yield,
+                'req_cov': req_cov,
+                'file': 'file://' + os.path.abspath(plot_outfile)
+            })
+        self.params['yield_cov_chart'] = list_plots
 
     def yield_plot(self, sample_labels=False):
         yield_plot_outfile = path.join(self.project_source, 'yield_plot.png')
@@ -395,8 +462,7 @@ class ProjectReport:
         table_content = {'headings': ['Process', 'Critical equipment', 'Kits'],
                          'rows': [
                         ('Sample QC', 'Fragment analyzer, Hamilton robot', 'Kit 1, Kit 2, Kit 3, Kit 4'),
-                        ('Library prep', 'Hamilton robot, '
-                                         'Hamilton, '
+                        ('Library prep', 'Hamilton Star, '
                                          'Covaris LE220, '
                                          'Gemini Spectramax XP, '
                                          'Hybex incubators, '
@@ -443,20 +509,23 @@ class ProjectReport:
 
     def get_html_template(self):
         template = {'template_base': 'report_base.html',
-                    'formats_template': ['fastq', 'bam', 'vcf'],
-                    'charts_template': ['yield_chart', 'mapping_duplicates_chart']}
+                    'glossary': [],
+                    'charts_template': ['yield_cov_chart']}
 
         species = self.get_species(self.sample_name_delivered)
         analysis_type = self.get_analysis_type(self.sample_name_delivered)
         library_workflow = self.get_library_workflow(self.sample_name_delivered)
         if len(species) == 1 and species.pop() == 'Human':
             bioinfo_template = ['bioinformatics_analysis_bcbio']
+            formats_template = ['fastq', 'bam', 'vcf']
         elif analysis_type and analysis_type in ['Variant Calling', 'Variant Calling gatk']:
             bioinfo_template = ['bioinformatics_analysis']
+            formats_template = ['fastq', 'bam', 'vcf']
         else:
             bioinfo_template = ['bioinformatics_qc']
+            formats_template = ['fastq']
         template['bioinformatics_template'] = bioinfo_template
-
+        template['formats_template'] = formats_template
 
         self.params['library_workflow'] = library_workflow
         workflow_alias = self.workflow_alias.get(library_workflow)
@@ -493,18 +562,18 @@ class ProjectReport:
 
         rows = []
         for sample in self.samples_for_project_restapi:
-            s = sample.get('sample_id')
+            internal_sample_name = self.get_fluidx_barcode(sample.get('sample_id')) or sample.get('sample_id')
             row = [
-                s,
+                internal_sample_name,
                 sample.get('user_sample_id', 'None'),
-                self.get_sample_total_dna(s),
-                self.parse_date(self.sample_status(s).get('started_date')),
+                self.get_sample_total_dna(sample.get('sample_id')),
+                self.parse_date(self.sample_status(sample.get('sample_id')).get('started_date')),
                 sample.get('species_name'),
-                self.get_library_workflow_from_sample(s),
-                self.get_required_yield(s),
+                self.get_library_workflow_from_sample(sample.get('sample_id')),
+                self.get_required_yield(sample.get('sample_id')),
                 round(sample.get('clean_yield_in_gb', 'None'), 2),
                 round(sample.get('clean_pc_q30', 'None'), 2),
-                self.get_quoted_coverage(s),
+                self.get_quoted_coverage(sample.get('sample_id')),
                 sample.get('coverage', {}).get('mean', 'None')
             ]
 
@@ -527,9 +596,12 @@ class ProjectReport:
             raise EGCGError('No samples found for project %s ' % (self.project_name))
         if len(self.get_all_sample_names()) < 35:
             sample_labels = True
-        self.yield_plot(sample_labels=sample_labels)
-        self.qc_plot(sample_labels=sample_labels)
-        self.params['csv_path'] = self.write_csv_file()
+        #self.yield_plot(sample_labels=sample_labels)
+        #self.qc_plot(sample_labels=sample_labels)
+        self.yield_vs_coverage_plot()
+
+        #self.params['csv_path'] = self.write_csv_file()
+        self.params['csv_path'] = 'summary_metrics.csv'
         template_dir = path.join(path.dirname(path.abspath(__file__)), 'templates')
         env = Environment(loader=FileSystemLoader(template_dir))
         project_templates = self.get_html_template()

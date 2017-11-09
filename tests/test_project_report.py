@@ -17,6 +17,7 @@ cfg.load_config_file(TestProjectManagement.etc_config)
 
 nb_samples = 9
 
+
 def ppath(ext):
     return 'project_report.' + ext
 
@@ -26,30 +27,72 @@ class FakeSample:
         self.name = name
         self.udf = udf
 
+
 fake_sample_templates = {
     'a_project_name': {
-        'name':'sample:',
-        'udf': {'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Genome Version': 'hg38', 'Total DNA (ng)': 3000, 'Required Yield (Gb)': 120}
+        'name': 'sample:',
+        'udf': {
+            'Prep Workflow': 'TruSeq Nano DNA Sample Prep',
+            'Species': 'Thingius thingy',
+            'Genome Version': 'hg38',
+            'Total DNA (ng)': 3000,
+            'Required Yield (Gb)': 120,
+            'Coverage (X)': 30
+        }
     },
-    'human_truseq_nano': {
+    'htn999': {
         'name':'human_truseq_nano_sample_',
-        'udf': {'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': 'hg38', 'Total DNA (ng)': 3000, 'Required Yield (Gb)': 120}
+        'udf': {
+            'Prep Workflow': 'TruSeq Nano DNA Sample Prep',
+            'Species': 'Homo sapiens',
+            'Genome Version': 'hg38',
+            'Total DNA (ng)': 3000,
+            'Required Yield (Gb)': cycle([120, 60]),
+            'Coverage (X)': cycle([30,15])
+        }
     },
-    'non_human_truseq_nano': {
+    'nhtn999': {
         'name':'non_human_truseq_nano_sample_',
-        'udf':{'Prep Workflow': 'TruSeq Nano DNA Sample Prep', 'Species': 'Thingius thingy', 'Total DNA (ng)': 3000, 'Required Yield (Gb)': 120, 'Analysis Type': 'Variant Calling gatk'}
+        'udf':{
+            'Prep Workflow': 'TruSeq Nano DNA Sample Prep',
+            'Species': 'Thingius thingy',
+            'Total DNA (ng)': 3000,
+            'Required Yield (Gb)': 120,
+            'Coverage (X)': 30,
+            'Analysis Type': 'Variant Calling gatk'
+        }
     },
-    'human_pcr_free': {
+    'hpf999': {
         'name': 'human_truseq_pcrfree_sample_',
-        'udf': {'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Homo sapiens', 'Genome Version': cycle(['hg38', 'hg19']), 'Total DNA (ng)': 3000, 'Required Yield (Gb)': 120}
+        'udf': {
+            'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep',
+            'Species': 'Homo sapiens',
+            'Genome Version': cycle(['hg38', 'hg19']),
+            'Total DNA (ng)': 3000,
+            'Required Yield (Gb)': 120,
+            'Coverage (X)': 30
+        }
     },
-    'non_human_pcr_free': {
+    'nhpf999': {
         'name': 'non_human_truseq_pcrfree_sample_',
-        'udf':{'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep', 'Species': 'Thingius thingy', 'Total DNA (ng)': 3000, 'Required Yield (Gb)': 120}
+        'udf':{
+            'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep',
+            'Species': 'Thingius thingy',
+            'Total DNA (ng)': 3000,
+            'Required Yield (Gb)': 120,
+            'Coverage (X)': 30
+        }
     },
-    'undelivered_human_truseq_nano': {
+    'uhtn999': {
         'name':'un_delivered_human_truseq_nano_sample_',
-        'udf': {'Prep Workflow': cycle(['TruSeq Nano DNA Sample Prep', None, None]), 'Species': 'Homo sapiens', 'Genome Version': 'hg38', 'Total DNA (ng)': 3000, 'Required Yield (Gb)': 120}
+        'udf': {
+            'Prep Workflow': cycle(['TruSeq Nano DNA Sample Prep', None, None]),
+            'Species': 'Homo sapiens',
+            'Genome Version': 'hg38',
+            'Total DNA (ng)': 3000,
+            'Required Yield (Gb)': 120,
+            'Coverage (X)': 30
+        }
     }
 }
 
@@ -61,14 +104,16 @@ def _resolve_next(o):
         return next(o)
     return o
 
+
 for project in fake_sample_templates:
     fake_samples[project] = []
     for i in range(1, nb_samples+1):
         template = fake_sample_templates[project]
         fake_samples[project].append(FakeSample(
             name=template['name'] + str(i),
-            udf=dict( [(k, _resolve_next(template['udf'][k])) for k in template['udf']] )
+            udf=dict([(k, _resolve_next(template['udf'][k])) for k in template['udf']] )
         ))
+
 
 fake_project_status = {
                       "project_id": "X00000",
@@ -76,11 +121,13 @@ fake_project_status = {
                       "started_date": "2017-08-02T11:25:14.659000",
                     }
 
+
 fake_sample_status = {
                       "project_id": "X0000",
                       "species": "Homo sapiens",
                       "started_date": "2017-08-02T11:25:14.659000"
                     }
+
 
 class FakeLims:
     @staticmethod
@@ -99,7 +146,7 @@ rest_api_sample1 = {
     'clean_pc_q30': 80.66940576163829,
     'mapped_reads': 837830805,
     'clean_yield_q30': 0.893051514,
-    'clean_yield_in_gb': 1.107051063,
+    'clean_yield_in_gb': 124.107051063,
     'properly_mapped_reads': 813246360,
     'user_sample_id': 'test_10015AT_1',
     'pc_mapped_reads': 98.58539455188284,
@@ -112,14 +159,15 @@ rest_api_sample1 = {
     'pc_pass_filter': 100.0,
     'project_id': '10015AT',
     'sample_contamination': {'freemix': 0.0, 'ti_tv_ratio': 1.95, 'het_hom_ratio': 0.07},
-    'coverage': {'bases_at_coverage': {'bases_at_15X': 300}, 'mean': 21, 'evenness': 15}
+    'coverage': {'bases_at_coverage': {'bases_at_15X': 300}, 'mean': 29, 'evenness': 15}
 }
+
 
 rest_api_sample2 = {
     'clean_pc_q30': 80.52789488784828,
     'mapped_reads': 914871303,
     'clean_yield_q30': 0.953095261,
-    'clean_yield_in_gb': 1.183559141,
+    'clean_yield_in_gb': 142.183559141,
     'properly_mapped_reads': 894575183,
     'user_sample_id': 'test_10015AT_2',
     'pc_mapped_reads': 98.31187710234869,
@@ -132,14 +180,15 @@ rest_api_sample2 = {
     'pc_pass_filter': 100.0,
     'project_id': '10015AT',
     'sample_contamination': {'freemix': 0.0, 'ti_tv_ratio': 1.95, 'het_hom_ratio': 0.07},
-    'coverage': {'bases_at_coverage': {'bases_at_15X': 310}, 'mean': 20, 'evenness': 10}
+    'coverage': {'bases_at_coverage': {'bases_at_15X': 310}, 'mean': 34, 'evenness': 10}
 }
+
 
 rest_api_sample3 = {
     'clean_pc_q30': 80.66940576163829,
     'mapped_reads': 837830805,
     'clean_yield_q30': 0.893051514,
-    'clean_yield_in_gb': 1.107051063,
+    'clean_yield_in_gb': 135.107051063,
     'properly_mapped_reads': 813246360,
     'user_sample_id': 'test_10015AT_3',
     'pc_mapped_reads': 98.58539455188284,
@@ -152,14 +201,14 @@ rest_api_sample3 = {
     'pc_pass_filter': 100.0,
     'project_id': '10015AT',
     'sample_contamination': {'freemix': 0.0, 'ti_tv_ratio': 1.95, 'het_hom_ratio': 0.07},
-    'coverage': {'bases_at_coverage': {'bases_at_15X': 300}, 'mean': 21, 'evenness': 15}
+    'coverage': {'bases_at_coverage': {'bases_at_15X': 300}, 'mean': 31, 'evenness': 15}
 }
 
 rest_api_sample4 = {
     'clean_pc_q30': 80.52789488784828,
     'mapped_reads': 914871303,
     'clean_yield_q30': 0.953095261,
-    'clean_yield_in_gb': 1.183559141,
+    'clean_yield_in_gb': 110.183559141,
     'properly_mapped_reads': 894575183,
     'user_sample_id': 'test_10015AT_4',
     'pc_mapped_reads': 98.31187710234869,
@@ -172,7 +221,7 @@ rest_api_sample4 = {
     'pc_pass_filter': 100.0,
     'project_id': '10015AT',
     'sample_contamination': {'freemix': 0.0, 'ti_tv_ratio': 1.95, 'het_hom_ratio': 0.07},
-    'coverage': {'bases_at_coverage': {'bases_at_15X': 310}, 'mean': 20, 'evenness': 10}
+    'coverage': {'bases_at_coverage': {'bases_at_15X': 310}, 'mean': 39, 'evenness': 10}
 }
 fake_rest_api_samples_template = cycle([rest_api_sample1, rest_api_sample2, rest_api_sample3, rest_api_sample4])
 
@@ -186,6 +235,8 @@ for project in fake_samples:
             t['sample_id'] = sample.name
             t['project_id'] = project
             t['species_name'] = sample.udf['Species']
+            t['clean_yield_in_gb'] = randint(100, 150)
+            t['coverage']['mean'] = randint(25, 39)
             fake_rest_api_samples[project].append(t)
 
 
@@ -417,7 +468,7 @@ class TestProjectReport(TestProjectManagement):
                            mocked_sample_yield_metrics,
                            mocked_csv):
         os.chdir(TestProjectManagement.root_path)
-        projects = ('human_truseq_nano', 'human_pcr_free', 'non_human_truseq_nano', 'non_human_pcr_free', 'undelivered_human_truseq_nano')
+        projects = ('htn999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999')
         for p in projects:
             with mocked_get_genome_version, mocked_get_species_found, get_patch_sample_restapi(p):
                 pr = ProjectReport(p)
@@ -425,4 +476,3 @@ class TestProjectReport(TestProjectManagement):
                 pr.generate_report('pdf')
             report = os.path.join(self.assets_path, 'project_report', 'dest', p, 'project_%s_report.pdf' % p)
             assert os.path.isfile(report)
-
