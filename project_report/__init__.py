@@ -18,7 +18,7 @@ from egcg_core.util import find_file
 from egcg_core.clarity import connection
 from egcg_core.app_logging import logging_default as log_cfg
 from config import cfg
-from egcg_core.rest_communication import get_documents
+from egcg_core.rest_communication import get_documents, get_document
 from egcg_core.exceptions import EGCGError
 
 app_logger = log_cfg.get_logger(__name__)
@@ -67,9 +67,7 @@ class ProjectReport:
         return self._project
 
     def sample_status(self, sample_id):
-        endpoint = 'lims/status/sample_status'
-        sample_status = get_documents(endpoint, match={"sample_id": sample_id})
-        return sample_status
+        return  get_document('lims/status/sample_status', match={"sample_id": sample_id})
 
     @property
     def samples_for_project_lims(self):
