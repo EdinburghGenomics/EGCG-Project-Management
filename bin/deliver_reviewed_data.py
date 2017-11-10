@@ -427,7 +427,7 @@ class DataDelivery(AppLogger):
             project_report = join(self.delivery_dest, project, 'project_%s_report.pdf' % project)
             try:
                 if not self.dry_run:
-                    pr = ProjectReport(project)
+                    pr = ProjectReport(project, self.work_dir)
                     pr.generate_report('pdf')
             except Exception:
                 self.critical('Project report generation for %s failed' % project)

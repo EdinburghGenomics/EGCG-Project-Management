@@ -47,8 +47,9 @@ class ProjectReport:
         'TruSeq DNA PCR-Free Sample Prep': 'truseq_pcrfree'
     }
 
-    def __init__(self, project_name):
+    def __init__(self, project_name, working_dir=None):
         self.project_name = project_name
+        self.working_dir = working_dir or os.getcwd()
         self.project_source = path.join(cfg.query('sample', 'delivery_source'), project_name)
         self.project_delivery = path.join(cfg.query('sample', 'delivery_dest'), project_name)
         self.lims = connection()
@@ -401,7 +402,7 @@ class ProjectReport:
             ax.add_collection(c3)
             ax.add_collection(c4)
 
-            plot_outfile = path.join(self.project_source, 'yield%s_cov%s_plot.png' %(req_yield, req_cov))
+            plot_outfile = path.join(self.working_dir, 'yield%s_cov%s_plot.png' %(req_yield, req_cov))
             plt.savefig(plot_outfile, bbox_inches='tight', pad_inches=0.2)
             list_plots.append({
                 'nb_sample': len(df),
@@ -412,7 +413,7 @@ class ProjectReport:
         self.params['yield_cov_chart'] = list_plots
 
     def yield_plot(self, sample_labels=False):
-        yield_plot_outfile = path.join(self.project_source, 'yield_plot.png')
+        yield_plot_outfile = path.join(self.working_dir, 'yield_plot.png')
         sample_yields = self.get_sample_yield_metrics()
         df = pd.DataFrame(sample_yields)
         indices = np.arange(len(df))
@@ -433,7 +434,7 @@ class ProjectReport:
         self.params['yield_chart'] = yield_plot_outfile
 
     def qc_plot(self, sample_labels=False):
-        qc_plot_outfile = path.join(self.project_source, 'qc_plot.png')
+        qc_plot_outfile = path.join(self.working_dir, 'qc_plot.png')
         pc_statistics = self.get_pc_statistics()
         df = pd.DataFrame(pc_statistics)
         indices = np.arange(len(df))

@@ -273,12 +273,16 @@ mocked_get_library_workflow_from_sample = patch(ppath('ProjectReport.get_library
 class TestProjectReport(TestProjectManagement):
     def setUp(self):
         cfg.load_config_file(self.etc_config)
-        self.pr = ProjectReport('a_project_name')
-        self.pr.lims = FakeLims()
+
         self.fake_samples = fake_samples['a_project_name']
         os.chdir(self.root_path)
         self.source_dir = os.path.join(self.assets_path, 'project_report', 'source')
+        self.working_dir = os.path.join(self.assets_path, 'project_report', 'work')
+        os.makedirs(self.working_dir, exist_ok=True)
         self.dest_dir = os.path.join(self.assets_path, 'project_report', 'dest')
+
+        self.pr = ProjectReport('a_project_name', working_dir=self.working_dir)
+        self.pr.lims = FakeLims()
 
         #clean up previous reports
         project_report_pdfs = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.pdf'))
@@ -307,6 +311,7 @@ class TestProjectReport(TestProjectManagement):
         # delete the source folders
         for project in fake_samples:
             shutil.rmtree(os.path.join(self.source_dir, project))
+        shutil.rmtree(self.working_dir)
 
     @mocked_get_folder_size
     def test_get_project_info(self, mocked_folder_size):
@@ -431,7 +436,7 @@ class TestProjectReport(TestProjectManagement):
         projects = ('htn999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999')
         for p in projects:
             with mocked_get_species_found, get_patch_sample_restapi(p):
-                pr = ProjectReport(p)
+                pr = ProjectReport(p, self.working_dir)
                 pr.lims = FakeLims()
                 pr.generate_report('pdf')
             report = os.path.join(self.assets_path, 'project_report', 'dest', p, 'project_%s_report.pdf' % p)
