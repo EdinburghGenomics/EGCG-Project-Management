@@ -419,15 +419,13 @@ class DataDelivery(AppLogger):
                 self.generate_md5_summary(project, batch_delivery_folder)
             self.mark_samples_as_released(list(sample2stagedirectory))
 
-        self.cleanup()
-
         # Generate project report
         project_to_reports = {}
         for project in project_to_samples:
             project_report = join(self.delivery_dest, project, 'project_%s_report.pdf' % project)
             try:
                 if not self.dry_run:
-                    pr = ProjectReport(project, self.work_dir)
+                    pr = ProjectReport(project, self.staging_dir)
                     pr.generate_report('pdf')
             except Exception:
                 self.critical('Project report generation for %s failed' % project)
@@ -441,6 +439,8 @@ class DataDelivery(AppLogger):
 
         # Send email confirmation with attachments
         self.emails_report(project_to_samples, project_to_reports)
+
+        self.cleanup()
 
     def emails_report(self, project_to_samples, project_to_reports):
         for project_id in project_to_samples:
