@@ -202,12 +202,11 @@ class ProjectReport:
             if p in all_programs:
                 self.params[p + '_version'] = all_programs.get(p)
 
-    def update_from_project_summary_yaml(self, summary_yaml):
+    def get_from_project_summary_yaml(self, summary_yaml):
         with open(summary_yaml, 'r') as open_file:
             full_yaml = yaml.safe_load(open_file)
         sample_yaml = full_yaml['samples'][0]
-        self.params['bcbio_version'] = path.basename(path.dirname(sample_yaml['dirs']['galaxy']))
-        self.params['genome_version'] = sample_yaml['genome_build']
+        return (path.basename(path.dirname(sample_yaml['dirs']['galaxy'])), sample_yaml['genome_build'])
 
     def update_from_program_version_yaml(self, prog_vers_yaml):
         with open(prog_vers_yaml, 'r') as open_file:
@@ -217,16 +216,12 @@ class ProjectReport:
                     self.params[p + '_version'] = full_yaml.get(p)
 
     def get_project_info(self):
-        sample_names = self.get_all_sample_names()
-        genome_versions = set()
         species_submitted = set()
         project = self.lims.get_projects(name=self.project_name)[0]
         library_workflow = self.get_library_workflow(self.sample_name_delivered)
         for sample in self.sample_name_delivered:
             species = self.get_species_from_sample(sample)
-            genome_version = self.get_genome_version(sample)
             species_submitted.add(species)
-            genome_versions.add(genome_version)
 
         project_info = (
             ('Project name', self.project_name),
@@ -242,8 +237,9 @@ class ProjectReport:
             ('Project size', '%.2f terabytes' % self.project_size_in_terabytes()),
             ('Laboratory protocol', library_workflow),
             ('Submitted species', ', '.join(list(species_submitted))),
-            ('Genome version', ', '.join(list(genome_versions)))
+            ('Genome version', self.params['genome_version'])
         )
+
         return project_info
 
     def get_list_of_sample_fields(self, samples, field, subfields=None):
@@ -288,39 +284,38 @@ class ProjectReport:
 
     def calculate_project_statistsics(self):
         p = self.gather_project_data()
-        project_stats = OrderedDict()
-        project_stats['Yield per sample (Gb)'] = self.min_mean_max(p['clean_yield']['values'])
-        project_stats['% Q30'] = self.min_mean_max(p['clean_pc_q30']['values'])
-        project_stats['Coverage per sample'] = self.min_mean_max(p['coverage_per_sample']['values'])
-        project_stats['% Reads mapped'] = self.min_mean_max(p['pc_mapped_reads']['values'])
-        project_stats['% Duplicate reads'] = self.min_mean_max(p['pc_duplicate_reads']['values'])
+        project_stats = []
+        project_stats.append(('Yield per sample (Gb)', self.min_mean_max(p['clean_yield']['values'])))
+        project_stats.append(('% Q30', self.min_mean_max(p['clean_pc_q30']['values'])))
+        project_stats.append(('Coverage per sample', self.min_mean_max(p['coverage_per_sample']['values'])))
+        project_stats.append(('% Reads mapped', self.min_mean_max(p['pc_mapped_reads']['values'])))
+        project_stats.append(('% Duplicate reads', self.min_mean_max(p['pc_duplicate_reads']['values'])))
         return project_stats
 
-    def get_sample_info(self):
+    def store_sample_info(self):
+        genome_versions = set()
         for sample in set(self.sample_name_delivered):
+            genome_version = None
             sample_source = path.join(self.project_source, sample)
             if self.get_species_from_sample(sample) == 'Human':
                 program_csv = find_file(sample_source, 'programs.txt')
                 self.update_from_program_csv(program_csv)
                 summary_yaml = find_file(sample_source, 'project-summary.yaml')
                 if summary_yaml:
-                    self.update_from_project_summary_yaml(summary_yaml)
+                    bcbio_version, genome_version = self.get_from_project_summary_yaml(summary_yaml)
+                    self.params['bcbio_version'] = bcbio_version
             else:
                 program_yaml = find_file(sample_source, 'program_versions.yaml')
                 self.update_from_program_version_yaml(program_yaml)
 
-            if not 'genome_version' in self.params:
-                self.params['genome_version'] = self.get_genome_version(sample)
+            if not genome_version in self.params:
+                genome_version = self.get_genome_version(sample)
 
-            if self.params['genome_version'] == 'hg38':
-                self.params['genome_version'] = 'GRCh38 (with alt, decoy and HLA sequences)'
+            if genome_version == 'hg38':
+                genome_version = 'GRCh38 (with alt, decoy and HLA sequences)'
+            genome_versions.add(genome_version)
+        self.params['genome_version'] = ', '.join(genome_versions)
 
-        get_project_stats = self.calculate_project_statistsics()
-        project_stats = []
-        for stat in get_project_stats:
-            if get_project_stats[stat]:
-                project_stats.append((stat, get_project_stats[stat]))
-        return project_stats
 
     def get_sample_yield_coverage_metrics(self):
         req_to_metrics = {}
@@ -604,9 +599,10 @@ class ProjectReport:
         project_templates = self.get_html_template()
         template1 = env.get_template(project_templates.get('template_base'))
         template2 = env.get_template('csv_base.html')
+        self.store_sample_info()
         report = template1.render(
             project_info=self.get_project_info(),
-            project_stats=self.get_sample_info(),
+            project_stats=self.calculate_project_statistsics(),
             project_templates=project_templates,
             params=self.params
         )

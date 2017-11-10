@@ -327,8 +327,9 @@ class TestProjectReport(TestProjectManagement):
                ('Project size', '1.34 terabytes'),
                ('Laboratory protocol', 'TruSeq Nano DNA Sample Prep'),
                ('Submitted species', 'Thingius thingy'),
-               ('Genome version', 'hg38'))
+               ('Genome version', 'GRCh38 (with alt, decoy and HLA sequences)'))
         with get_patch_sample_restapi('a_project_name'):
+            self.pr.store_sample_info()
             assert self.pr.get_project_info() == exp
 
     def test_get_list_of_sample_fields(self):
@@ -387,22 +388,16 @@ class TestProjectReport(TestProjectManagement):
             'human_truseq_nano_sample_1',
             'project-summary.yaml'
         )
-        self.pr.update_from_project_summary_yaml(summary_yaml)
-        assert self.pr.params['bcbio_version'] == 'bcbio-0.9.4'
-        assert self.pr.params['genome_version'] == 'hg38'
+        assert self.pr.get_from_project_summary_yaml(summary_yaml) == ('bcbio-0.9.4', 'hg38')
 
 
     @mocked_get_folder_size
     @mocked_calculate_project_statistics
     def test_get_sample_info(self, mocked_project_stats, mocked_project_size):
         with get_patch_sample_restapi('a_project_name'):
-            project_stats = self.pr.get_sample_info()
+            self.pr.store_sample_info()
 
-        assert project_stats == [('Total yield (Gb):', '524.13'),
-                               ('Average yield (Gb):', '131.0'),
-                               ('Average percent duplicate reads:', 17.380661102525934),
-                               ('Average percent mapped reads:', 85.45270355584897),
-                               ('Average percent Q30:', 80.32382821869467)]
+
         assert self.pr.params == {
             'bcl2fastq_version': 2.1,
             'adapter1': 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCA',
