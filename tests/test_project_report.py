@@ -124,7 +124,7 @@ class FakeLims:
     @staticmethod
     def get_projects(name):
         return [Mock(
-            udf={'Project Title': 'a_research_title_for_' + name, 'Enquiry Number': '1337', 'Quote No.': '1338'},
+            udf={'Project Title': 'a_research_title_for_' + name, 'Enquiry Number': '1337', 'Quote No.': '1338', 'Number of Quoted Samples': nb_samples},
             researcher=Mock(first_name='First', last_name='Last', email='first.last@email.com')
         )]
 

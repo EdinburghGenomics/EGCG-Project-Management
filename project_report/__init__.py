@@ -186,6 +186,10 @@ class ProjectReport:
     def enquiry_number(self):
         return self.project.udf.get('Enquiry Number', '')
 
+    @property
+    def number_quoted_samples(self):
+        return self.project.udf.get('Number of Quoted Samples', '')
+
     def update_from_program_csv(self, program_csv):
         all_programs = {}
         if program_csv and path.exists(program_csv):
@@ -232,7 +236,7 @@ class ProjectReport:
             ('Quote contact', '%s %s (%s)' % (project.researcher.first_name,
                                               project.researcher.last_name,
                                               project.researcher.email)),
-            ('Number of samples', len(sample_names)),
+            ('Number of samples', self.number_quoted_samples),
             ('Number of samples delivered', len(self.samples_for_project_restapi)),
             ('Date samples received', 'Detailed in appendix 2'),
             ('Project size', '%.2f terabytes' % self.project_size_in_terabytes()),
@@ -559,15 +563,15 @@ class ProjectReport:
             row = [
                 internal_sample_name,
                 sample.get('user_sample_id', 'None'),
-                self.get_sample_total_dna(sample.get('sample_id')),
+                round(self.get_sample_total_dna(sample.get('sample_id')),1),
                 self.parse_date(self.sample_status(sample.get('sample_id')).get('started_date')),
                 sample.get('species_name'),
                 self.get_library_workflow_from_sample(sample.get('sample_id')),
                 self.get_required_yield(sample.get('sample_id')),
-                round(sample.get('clean_yield_in_gb', 'None'), 2),
-                round(sample.get('clean_pc_q30', 'None'), 2),
+                round(sample.get('clean_yield_in_gb', 'None'), 1),
+                round(sample.get('clean_pc_q30', 'None'), 1),
                 self.get_quoted_coverage(sample.get('sample_id')),
-                sample.get('coverage', {}).get('mean', 'None')
+                round(sample.get('coverage', {}).get('mean', 'None'), 1)
             ]
 
             rows.append(row)
