@@ -305,7 +305,8 @@ class TestProjectReport(TestProjectManagement):
                         open_file.write('samples:\n- dirs:\n    galaxy: path/to/bcbio/bcbio-0.9.4/galaxy\n  genome_build: hg38\n')
                 else:
                     with open(os.path.join(smp_dir, 'program_versions.yaml'), 'w') as open_file:
-                        open_file.write('biobambam_sortmapdup: 2\nbwa: 1.2\n\ngatk: v1.3\nbcl2fastq: 2.1\n')
+                        open_file.write('biobambam_sortmapdup: 2\nbwa: 1.2\ngatk: v1.3\nbcl2fastq: 2.1\nsamtools: 0.3')
+
 
     def tearDown(self):
         # delete the source folders

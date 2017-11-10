@@ -212,7 +212,7 @@ class ProjectReport:
     def update_from_program_version_yaml(self, prog_vers_yaml):
         with open(prog_vers_yaml, 'r') as open_file:
             full_yaml = yaml.safe_load(open_file)
-            for p in ['bcl2fastq', 'bwa', 'gatk', 'samblaster', 'biobambam_sortmapdup']:
+            for p in ['bcl2fastq', 'bwa', 'gatk', 'samtools', 'samblaster', 'biobambam_sortmapdup']:
                 if p in full_yaml:
                     self.params[p + '_version'] = full_yaml.get(p)
 
