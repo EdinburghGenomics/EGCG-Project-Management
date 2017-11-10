@@ -66,7 +66,6 @@ class ProjectReport:
             self._project = self.lims.get_projects(name=self.project_name)[0]
         return self._project
 
-    @property
     def sample_status(self, sample_id):
         endpoint = 'lims/status/sample_status'
         sample_status = get_documents(endpoint, match={"sample_id": sample_id})
