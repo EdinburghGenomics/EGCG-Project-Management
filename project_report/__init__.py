@@ -308,7 +308,7 @@ class ProjectReport:
                 program_yaml = find_file(sample_source, 'program_versions.yaml')
                 self.update_from_program_version_yaml(program_yaml)
 
-            if not genome_version in self.params:
+            if not genome_version:
                 genome_version = self.get_genome_version(sample)
 
             if genome_version == 'hg38':
