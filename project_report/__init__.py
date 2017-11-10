@@ -15,7 +15,7 @@ from os import path, listdir
 from collections import OrderedDict
 from jinja2 import Environment, FileSystemLoader
 from egcg_core.util import find_file
-from egcg_core.clarity import connection, get_genome_version
+from egcg_core.clarity import connection
 from egcg_core.app_logging import logging_default as log_cfg
 from config import cfg
 from egcg_core.rest_communication import get_documents
@@ -42,7 +42,6 @@ class ProjectReport:
 
     workflow_alias = {
         'TruSeq Nano DNA Sample Prep': 'truseq_nano',
-        None: 'truseq_nano',
         'TruSeq PCR-Free DNA Sample Prep': 'truseq_pcrfree',
         'TruSeq PCR-Free Sample Prep': 'truseq_pcrfree',
         'TruSeq DNA PCR-Free Sample Prep': 'truseq_pcrfree'
@@ -65,12 +64,6 @@ class ProjectReport:
         if self._project is None:
             self._project = self.lims.get_projects(name=self.project_name)[0]
         return self._project
-
-    @property
-    def project_status(self):
-        endpoint = 'lims/status/project_status'
-        project_status = get_documents(endpoint, match={"project_id":self.project_name})
-        return project_status
 
     @property
     def sample_status(self, sample_id):
@@ -128,6 +121,14 @@ class ProjectReport:
 
     def get_quoted_coverage(self, sample_name):
         return self.get_lims_sample(sample_name).udf.get('Coverage (X)')
+
+    def get_genome_version(self, sample_name):
+        s = self.get_lims_sample(sample_name)
+        species = self.get_species_from_sample(sample_name)
+        genome_version = s.udf.get('Genome Version', None)
+        if not genome_version and species:
+            return cfg.query('species', species, 'default')
+        return genome_version
 
     def get_species(self, samples):
         species = set()
@@ -204,8 +205,7 @@ class ProjectReport:
             full_yaml = yaml.safe_load(open_file)
         sample_yaml = full_yaml['samples'][0]
         self.params['bcbio_version'] = path.basename(path.dirname(sample_yaml['dirs']['galaxy']))
-        if sample_yaml['genome_build'] == 'hg38':
-            self.params['genome_version'] = 'GRCh38 (with alt, decoy and HLA sequences)'
+        self.params['genome_version'] = sample_yaml['genome_build']
 
     def update_from_program_version_yaml(self, prog_vers_yaml):
         with open(prog_vers_yaml, 'r') as open_file:
@@ -220,10 +220,9 @@ class ProjectReport:
         species_submitted = set()
         project = self.lims.get_projects(name=self.project_name)[0]
         library_workflow = self.get_library_workflow(self.sample_name_delivered)
-        for sample in sample_names:
-            lims_sample = self.get_lims_sample(sample)
-            species = lims_sample.udf.get('Species')
-            genome_version = get_genome_version(sample, species=species)
+        for sample in self.sample_name_delivered:
+            species = self.get_species_from_sample(sample)
+            genome_version = self.get_genome_version(sample)
             species_submitted.add(species)
             genome_versions.add(genome_version)
 
@@ -242,7 +241,7 @@ class ProjectReport:
             ('Laboratory protocol', library_workflow),
             ('Submitted species', ', '.join(list(species_submitted))),
             ('Genome version', ', '.join(list(genome_versions)))
-                        )
+        )
         return project_info
 
     def get_list_of_sample_fields(self, samples, field, subfields=None):
@@ -307,6 +306,12 @@ class ProjectReport:
             else:
                 program_yaml = find_file(sample_source, 'program_versions.yaml')
                 self.update_from_program_version_yaml(program_yaml)
+
+            if not 'genome_version' in self.params:
+                self.params['genome_version'] = self.get_genome_version(sample)
+
+            if self.params['genome_version'] == 'hg38':
+                self.params['genome_version'] = 'GRCh38 (with alt, decoy and HLA sequences)'
 
         get_project_stats = self.calculate_project_statistsics()
         project_stats = []

@@ -41,3 +41,9 @@ default:
 
     genome_downloader:
         base_dir: path/to/reference_data
+
+    species:
+        Homo sapiens:
+            default: hg38
+        Thingius thingy:
+            default: thingius47

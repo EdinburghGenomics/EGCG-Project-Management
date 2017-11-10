@@ -115,18 +115,9 @@ for project in fake_sample_templates:
         ))
 
 
-fake_project_status = {
-                      "project_id": "X00000",
-                      "species": "Homo sapiens",
-                      "started_date": "2017-08-02T11:25:14.659000",
-                    }
-
-
 fake_sample_status = {
-                      "project_id": "X0000",
-                      "species": "Homo sapiens",
-                      "started_date": "2017-08-02T11:25:14.659000"
-                    }
+    "started_date": "2017-08-02T11:25:14.659000"
+}
 
 
 class FakeLims:
@@ -258,9 +249,7 @@ for i in range(1, nb_samples+1):
 mocked_get_folder_size = patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
 mocked_get_library_workflow = patch(ppath('ProjectReport.get_library_workflow'), return_value='TruSeq Nano DNA Sample Prep')
 mocked_get_species_from_sample = patch(ppath('get_species_from_sample'), return_value='Human')
-mocked_get_genome_version = patch(ppath('get_genome_version'), side_effect=cycle(['hg38, hg19']))
 mocked_csv = patch(ppath('ProjectReport.write_csv_file'), return_value='/path/to/csv/project_report.csv')
-mocked_project_status = patch(ppath('ProjectReport.project_status'), return_value=fake_project_status)
 mocked_sample_status = patch(ppath('ProjectReport.sample_status'), return_value=fake_sample_status)
 
 def get_patch_sample_restapi(project_name):
@@ -319,9 +308,8 @@ class TestProjectReport(TestProjectManagement):
         for project in fake_samples:
             shutil.rmtree(os.path.join(self.source_dir, project))
 
-    @mocked_get_genome_version
     @mocked_get_folder_size
-    def test_get_project_info(self, mocked_folder_size, mocked_genome_version):
+    def test_get_project_info(self, mocked_folder_size):
         exp = (('Project name', 'a_project_name'),
                ('Project title', 'a_research_title_for_a_project_name'),
                ('Enquiry no', '1337'),
@@ -333,7 +321,7 @@ class TestProjectReport(TestProjectManagement):
                ('Project size', '1.34 terabytes'),
                ('Laboratory protocol', 'TruSeq Nano DNA Sample Prep'),
                ('Submitted species', 'Thingius thingy'),
-               ('Genome version', 'hg38, hg19'))
+               ('Genome version', 'hg38'))
         with get_patch_sample_restapi('a_project_name'):
             assert self.pr.get_project_info() == exp
 
@@ -395,7 +383,7 @@ class TestProjectReport(TestProjectManagement):
         )
         self.pr.update_from_project_summary_yaml(summary_yaml)
         assert self.pr.params['bcbio_version'] == 'bcbio-0.9.4'
-        assert self.pr.params['genome_version'] == 'GRCh38 (with alt, decoy and HLA sequences)'
+        assert self.pr.params['genome_version'] == 'hg38'
 
 
     @mocked_get_folder_size
@@ -416,7 +404,8 @@ class TestProjectReport(TestProjectManagement):
             'bwa_version': 1.2,
             'biobambam_sortmapdup_version': 2,
             'project_name': 'a_project_name',
-            'gatk_version': 'v1.3'
+            'gatk_version': 'v1.3',
+            'genome_version': 'GRCh38 (with alt, decoy and HLA sequences)'
         }
 
 
@@ -441,7 +430,7 @@ class TestProjectReport(TestProjectManagement):
         os.chdir(TestProjectManagement.root_path)
         projects = ('htn999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999')
         for p in projects:
-            with mocked_get_genome_version, mocked_get_species_found, get_patch_sample_restapi(p):
+            with mocked_get_species_found, get_patch_sample_restapi(p):
                 pr = ProjectReport(p)
                 pr.lims = FakeLims()
                 pr.generate_report('pdf')
