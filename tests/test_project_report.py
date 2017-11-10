@@ -411,6 +411,7 @@ class TestProjectReport(TestProjectManagement):
             'biobambam_sortmapdup_version': 2,
             'project_name': 'a_project_name',
             'gatk_version': 'v1.3',
+            'samtools_version': 0.3,
             'genome_version': 'GRCh38 (with alt, decoy and HLA sequences)'
         }
 
