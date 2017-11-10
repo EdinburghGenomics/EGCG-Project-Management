@@ -17,7 +17,7 @@
     {% for chart_dict in params['yield_cov_chart'] %}
         <img id="yieldcov" class="charts" src="{{ chart_dict['file'] }}" />
         <p class="justify_text">
-            Chart showing the yield and coverage for {{ chart_dict['nb_sample'] }} sample. The sections in the represent the expected yield
+            Chart showing the yield and coverage for {{ chart_dict['nb_sample'] }} sample. The sections in the graph highlight the expected yield
             ({{ chart_dict['req_yield'] }} Gb) and the expected coverage ({{ chart_dict['req_cov'] }}X).
         </p>
     {% endfor %}
