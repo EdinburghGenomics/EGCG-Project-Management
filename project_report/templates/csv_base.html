@@ -33,27 +33,8 @@
         <meta charset="UTF-8">
     </head>
     <body>
-        <h1>Appendix</h1>
-        <div id="kits_equipment" class="page_break">
-            <h2>I. Kits and Equipment</h2>
-            <table class="table table-condensed">
-                <tr>
-                    {% for heading in method_fields['headings'] %}
-                        <th>{{ heading }}</th>
-                    {% endfor %}
-                </tr>
-                {% for row in method_fields['rows'] %}
-                    <tr>
-                    {% for field in row %}
-                        <td>{{ field }}</td>
-                    {% endfor %}
-                    </tr>
-                {% endfor %}
-            </table>
-        </div>
-
         <div>
-            <h2>II. Per Sample Results</h2>
+            <h2>I. Per Sample Results</h2>
             <p>Full user and facility derived metrics for each sample can be found within the delivery folder in {{ csv_path }}</p>
             <table class="table table-condensed">
                 <tr>
