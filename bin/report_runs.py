@@ -12,7 +12,6 @@ from config import load_config
 cache = {
     'run_elements_data':{},
     'sample_data':{},
-    'lane_data':{},
 }
 
 
@@ -27,10 +26,6 @@ def sample_data(sample_id):
         cache['sample_data'][sample_id] = rest_communication.get_document('aggregate/samples', match={"sample_id": sample_id})
     return cache['sample_data'][sample_id]
 
-def lane_data(run_id):
-    if not run_id in cache['lane_data']:
-        cache['lane_data'][run_id] = rest_communication.get_document('aggregate/run_elements_by_lane', match={"run_id": run_id})
-    return cache['lane_data'][run_id]
 
 def samples_from_run(run_id):
     samples = []
@@ -38,8 +33,6 @@ def samples_from_run(run_id):
         sample_id = re.get('sample_id')
         if sample_id != 'Undetermined': samples.append(sample_id)
     return samples
-
-
 
 
 def report_runs(run_ids):
@@ -80,24 +73,11 @@ def report_runs(run_ids):
             print('%s: No repeat' % run_id)
 
 
-
-
-
-
-
-
-
-
-
-
-
 def main():
     args = _parse_args()
     load_config()
 
     report_runs(args.run_ids)
-
-
 
 
 def _parse_args():
