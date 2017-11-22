@@ -66,12 +66,13 @@ def restore(sample_id):
 
     files_to_restore, files_not_released, files_not_archived, dirty_files = check(sample_id)
 
-    if dirty_files:
-        raise EGCGError('Found %s dirty files: %s' % (len(dirty_files), dirty_files))
+    if dirty_files or files_not_archived:
+        logger.error('Found %s dirty files: %s', len(dirty_files), dirty_files)
+        logger.error('Found %s files not archived: %s', len(files_not_archived), files_not_archived)
+        raise EGCGError('Found %s dirty, %s unarchived files' % (len(dirty_files), len(files_not_archived)))
+
     if files_not_released:
         logger.warning('Found %s files not released: %s', len(files_not_released), files_not_released)
-    if files_not_archived:
-        logger.warning('Found %s files not archived: %s', len(files_not_archived), files_not_archived)
 
     if not files_to_restore:
         logger.info('No files to restore found - nothing to do')

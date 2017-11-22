@@ -65,15 +65,19 @@ class TestRecall(TestProjectManagement):
         with self.assertRaises(EGCGError) as e:
             recall_sample.restore('a_sample_id')
 
-        assert str(e.exception) == "Found 2 dirty files: ['dirty', 'files']"
+        mocked_log.assert_any_call(logging.ERROR, 'Found %s dirty files: %s', (2, ['dirty', 'files']))
+        assert str(e.exception) == 'Found 2 dirty, 0 unarchived files'
 
         mocked_check.return_value = ([], ['unreleased', 'files'], [], [])
         recall_sample.restore('a_sample_id')
         mocked_log.assert_any_call(logging.WARNING, 'Found %s files not released: %s', (2, ['unreleased', 'files']))
 
         mocked_check.return_value = ([], [], ['unarchived', 'files'], [])
-        recall_sample.restore('a_sample_id')
-        mocked_log.assert_any_call(logging.WARNING, 'Found %s files not archived: %s', (2, ['unarchived', 'files']))
+        with self.assertRaises(EGCGError) as e:
+            recall_sample.restore('a_sample_id')
+
+        mocked_log.assert_any_call(logging.ERROR, 'Found %s files not archived: %s', (2, ['unarchived', 'files']))
+        assert str(e.exception) == 'Found 0 dirty, 2 unarchived files'
 
         mocked_check.return_value = (['restorable', 'files'], [], [], [])
         recall_sample.restore('a_sample_id')
