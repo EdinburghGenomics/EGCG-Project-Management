@@ -1,5 +1,6 @@
 import hashlib
 import os
+from email.mime.multipart import MIMEMultipart
 from unittest.mock import patch, Mock
 import shutil
 import datetime
@@ -336,37 +337,25 @@ class TestDataDelivery(TestProjectManagement):
             self.delivery_real.mark_only()
             mocked_route.assert_called_with(['deliverable_sample', 'deliverable_sample2'])
 
-    def test_email_report(self):
+    def test_get_email_data(self):
         with patch('egcg_core.clarity.get_queue_uri', return_value='http://testclarity.com/queue/999'):
-            msg = self.delivery_dry.create_email_report('test_project', [sample1, sample2])
-            assert msg == '''Hi
-2 samples from project test_project have been delivered:
-Consult delivery queue at
-http://testclarity.com/queue/999
-template delivery email is appended bellow
-----
-Dear all,
+            exp = {
+                'num_samples': 2,
+                'release_batch': '2017-11-29',
+                'delivery_queue': 'http://testclarity.com/queue/999',
+                'project_id': 'test_project'
+            }
+            assert exp == self.delivery_dry.get_email_data('test_project', [sample1, sample2])
 
-The data for 2 samples from project test_project has been released to our Aspera server at:
-https://transfer.epcc.ed.ac.uk/test_project
+    def test_emails_report(self):
+        with patched_get_species, \
+             patch('egcg_core.clarity.get_queue_uri', return_value='http://testclarity.com/queue/999'), \
+             patch('egcg_core.notifications.email.EmailSender._try_send') as mock_send_email:
+            self.delivery_dry.email = True
+            self.delivery_dry.emails_report(
+                {'test_project': [sample1, sample2]},
+                {'test_project': os.path.join(self.assets_path, 'data_delivery', 'test_project_report.pdf')}
+            )
+            assert mock_send_email.call_count == 1
+            assert type(mock_send_email.call_args_list[0][0][0]) == MIMEMultipart
 
-
-Your usernames are:
-[ENTER USERNAMES]
-
-Your passwords will be sent separately.
-
-Please see the link below for guidance on how to download:
-https://genomics.ed.ac.uk/resources/download-help-clinical
-
-
-The data for your project will be stored on our server for 3 months and deleted after this time. Please check your data for corruption once downloaded. Email notifications will be sent 1 month and 1 week before deletion.
-
-If you have any questions about the data or download then please don’t hesitate to contact me.
-
-Kind regards,
-
-[NAME]
-
-[SIGNATURE]
-'''
