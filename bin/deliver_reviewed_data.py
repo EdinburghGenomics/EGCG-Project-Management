@@ -441,7 +441,7 @@ class DataDelivery(AppLogger):
                     stacktrace = ''.join(traceback.format_exception(etype, value, tb))
                     self.info('Stacktrace below:\n' + stacktrace)
                 project_report = None
-            if project_report:
+            if project_report and os.path.exists(project_report):
                 project_to_reports[project] = project_report
 
         # Send email confirmation with attachments
