@@ -457,17 +457,18 @@ class DataDelivery(AppLogger):
                             project_to_samples[project_id]]
 
             subject = '%s: %s WGS Data Release' % (project_id, ', '.join(sorted(set(species_list))))
-
+            params = {}
+            params.update(cfg['delivery']['email_notification'])
+            params.update(self.get_email_data(project_id, project_to_samples[project_id]))
             if self.dry_run:
                 subject = 'Dry run: ' + subject
-            self.info('Send email for project %s', project_id )
+            self.info('Send email for project %s', project_id)
             if self.email:
                 send_html_email(
                     subject=subject,
                     attachments=project_to_reports.values(),
-                    email_template = email_template,
-                    **cfg['delivery']['email_notification'],
-                    **self.get_email_data(project_id, project_to_samples[project_id])
+                    email_template=email_template,
+                    **params
                 )
 
     def get_email_data(self, project_id, samples):
