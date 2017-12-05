@@ -9,15 +9,15 @@
 {%- endmacro %}
 
 {% macro yield_cov_chart(params) -%}
-    <h3>Yield and coverage</h3>
+    <h3>Yield and Coverage</h3>
         <p class="justify_text">
-            Yield is calculated as the number of in bases provided in the fastq files and is expressed in Gigabases.
+            Yield is calculated as the number of in bases provided in the fastq files and is expressed in gigabases (Gb).
             Coverage is the average number of bases covering each position of the reference genome.
         </p>
     {% for chart_dict in params['yield_cov_chart'] %}
         <img id="yieldcov" class="charts" src="{{ chart_dict['file'] }}" />
         <p class="justify_text">
-            Chart showing the yield and coverage for {{ chart_dict['nb_sample'] }} sample. The sections in the graph highlight the expected yield
+            Chart showing the yield and coverage for {{ chart_dict['nb_sample'] }} sample(s). The sections in the graph highlight the expected yield
             ({{ chart_dict['req_yield'] }} Gb) and the expected coverage ({{ chart_dict['req_cov'] }}X).
         </p>
     {% endfor %}
@@ -54,7 +54,7 @@
         variant calling. Each sample has one BAM file plus a '.bam.bai' file, which is the BAM index. This
         allows some programmes fast random access to any part of the BAM file.
     </p>
-    <p><a href="https://samtools.github.io/hts-specs/SAMv1.pdf">Sam/Bam specification</a></p>
+    <p><a href="https://samtools.github.io/hts-specs/SAMv1.pdf">SAM/BAM specification</a></p>
 {%- endmacro %}
 
 {% macro vcf() -%}
@@ -68,7 +68,7 @@
     <p><a href="https://samtools.github.io/hts-specs/VCFv4.2.pdf">VCF specification</a></p>
 {%- endmacro %}
 
-{% macro sample_qc(method_fields, params) -%}
+{% macro sample_qc_nano(method_fields, params) -%}
     <h3>Sample QC</h3>
     <p class="justify_text">
         Genomic DNA (gDNA) samples are evaluated for quantity using Quant-iT Picogren reagent, Lambda Standard DNA
@@ -80,11 +80,24 @@
     </p>
 {%- endmacro %}
 
+{% macro sample_qc_pcrfree(method_fields, params) -%}
+    <h3>Sample QC</h3>
+    <p class="justify_text">
+        Genomic DNA (gDNA) samples are evaluated for quantity using Quant-iT Picogren reagent, Lambda Standard DNA
+        and a Molecular Devices, Spectramax XPS Gemini plate reader.  The quality of the gDNA samples are evaluated
+        using an AATI Fragment Analyzer and the Standard Sensitivity Genomic DNA Analysis Kit. Genomic DNA samples
+        found to have a total amount of >1000ng and a quality score >5 pass sample QC. Based on the quantification results,
+        gDNA samples are pre-normalised to fall within the 20-100ng/uL concentration range required for Illumina SeqLab
+        TruSeq PCR Free library preparation method using the Hamilton MicroLab STAR.
+    </p>
+{%- endmacro %}
+
+
 {% macro truseq_nano(method_fields, params) -%}
-    <h3>Truseq Nano Library Preparation</h3>
+    <h3>TruSeq Nano Library Preparation</h3>
     <p class="justify_text">
         Next Generation sequencing libraries are prepared using an Illumina SeqLab specific TruSeq Nano High
-        Throughput library preparation kit in conjunction with the Hamilton MicroLab STAR and Clarity LIMS X (4.2?)
+        Throughput library preparation kit in conjunction with the Hamilton MicroLab STAR and Clarity LIMS X (4.2)
         Edition. The 200ng gDNA sample input is normalised to the concentration and volume required for the Illumina
         TruSeq Nano library preparation kit, then sheared to a 450bp mean insert size using a Covaris LE220
         focused-ultrasonicator. The inserts are blunt ended, A-tailed, size selected, TruSeq adapters are ligated
@@ -94,7 +107,7 @@
 
 
 {% macro truseq_pcrfree(method_fields, params) -%}
-    <h3>Truseq PCR-Free Library Preparation</h3>
+    <h3>TruSeq PCR-Free Library Preparation</h3>
     <p class="justify_text">
         Next Generation sequencing libraries are prepared using Illumina SeqLab specific TruSeq PCR-Free High Throughput library
         preparation kits in conjunction with the Hamilton MicroLab STAR and Clarity LIMS X Edition. The gDNA samples are
@@ -120,7 +133,7 @@
     <h3>Sequencing</h3>
     <p class="justify_text">
         The libraries are normalised to 1.5nM and are denatured for clustering and sequencing at 300pM using a
-        Hamilton MicroLab STAR with Genologics Clarity LIMS X (4.2?) Edition. Libraries are clustered onto a
+        Hamilton MicroLab STAR with Genologics Clarity LIMS X (4.2) Edition. Libraries are clustered onto a
         HiSeqX Flow cell v2.5 on cBot2s and the clustered flow cell is transferred to a HiSeqX for sequencing
         using a HiSeqX Ten Reagent kit v2.5.
     </p>

@@ -8,11 +8,9 @@ import pandas as pd
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import matplotlib.collections as mpcollections
-
 import numpy as np
 from dateutil import parser
 from os import path, listdir
-from collections import OrderedDict
 from jinja2 import Environment, FileSystemLoader
 from egcg_core.util import find_file
 from egcg_core.clarity import connection
@@ -45,6 +43,11 @@ class ProjectReport:
         'TruSeq PCR-Free DNA Sample Prep': 'truseq_pcrfree',
         'TruSeq PCR-Free Sample Prep': 'truseq_pcrfree',
         'TruSeq DNA PCR-Free Sample Prep': 'truseq_pcrfree'
+    }
+
+    sample_qc_alias = {
+        'truseq_nano': 'sample_qc_nano',
+        'truseq_pcrfree': 'sample_qc_pcrfree'
     }
 
     def __init__(self, project_name, working_dir=None):
@@ -217,7 +220,6 @@ class ProjectReport:
 
     def get_project_info(self):
         species_submitted = set()
-        project = self.lims.get_projects(name=self.project_name)[0]
         library_workflow = self.get_library_workflow(self.sample_name_delivered)
         for sample in self.sample_name_delivered:
             species = self.get_species_from_sample(sample)
@@ -228,12 +230,9 @@ class ProjectReport:
             ('Project title', self.project_title),
             ('Enquiry no', self.enquiry_number),
             ('Quote no', self.quote_number),
-            ('Quote contact', '%s %s (%s)' % (project.researcher.first_name,
-                                              project.researcher.last_name,
-                                              project.researcher.email)),
             ('Number of samples', self.number_quoted_samples),
             ('Number of samples delivered', len(self.samples_for_project_restapi)),
-            ('Date samples received', 'Detailed in appendix 2'),
+            ('Date samples received', 'Detailed in appendix I'),
             ('Project size', '%.2f terabytes' % self.project_size_in_terabytes()),
             ('Laboratory protocol', library_workflow),
             ('Submitted species', ', '.join(list(species_submitted))),
@@ -380,7 +379,7 @@ class ProjectReport:
             plt.xlim(min_x, max_x)
             plt.ylim(min_y, max_y)
             plt.xlabel('Delivered yield (Gb)')
-            plt.ylabel('Covereage (X)')
+            plt.ylabel('Coverage (X)')
 
             xrange1 = [(0, req_yield)]
             xrange2 = [(req_yield, max_x)]
@@ -523,7 +522,8 @@ class ProjectReport:
         workflow_alias = self.workflow_alias.get(library_workflow)
         if not workflow_alias:
             raise EGCGError('No workflow found for project %s' % self.project_name)
-        template['laboratory_template'] = ['sample_qc', 'sample_qc_table',  workflow_alias, 'library_prep_table', 'library_qc', 'library_qc_table','sequencing', 'sequencing_table']
+        qc_alias = self.sample_qc_alias.get(workflow_alias)
+        template['laboratory_template'] = [qc_alias, 'sample_qc_table',  workflow_alias, 'library_prep_table', 'library_qc', 'library_qc_table','sequencing', 'sequencing_table']
         return template
 
     def generate_report(self, output_format):
