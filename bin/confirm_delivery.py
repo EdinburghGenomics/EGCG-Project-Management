@@ -266,7 +266,7 @@ class ConfirmDelivery(AppLogger):
             self.test_sample(sample.name)
 
 
-def main():
+def main(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument('--csv_files', type=str, nargs='+')
     group = p.add_mutually_exclusive_group()
@@ -277,7 +277,7 @@ def main():
                    help='Confirm all successfully tested samples.')
 
     p.add_argument('--debug', action='store_true')
-    args = p.parse_args()
+    args = p.parse_args(argv)
 
     load_config()
 
