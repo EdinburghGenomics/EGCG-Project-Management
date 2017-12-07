@@ -8,7 +8,7 @@ from data_deletion.delivered_data import DeliveredDataDeleter
 from config import load_config
 
 
-def main():
+def main(argv=None):
     deleters = {
         'raw': RawDataDeleter,
         'fastq': FastqDeleter,
@@ -24,7 +24,7 @@ def main():
     p.add_argument('--project_id', type=str)
     p.add_argument('--manual_delete', type=str, nargs='+')
     p.add_argument('--sample_ids', nargs='+', default=[])
-    args = p.parse_args()
+    args = p.parse_args(argv)
 
     load_config()
 
