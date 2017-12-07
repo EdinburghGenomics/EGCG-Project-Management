@@ -1,0 +1,11 @@
+{% block formats %}
+{% from 'all_templates.html' import fastq, bam, vcf %}
+{% set macro_dict = {'fastq': fastq, 'bam': bam, 'vcf': vcf} %}
+{% for t in project_templates['formats_template'] %}
+    {% for key in macro_dict %}
+        {% if t == key %}
+            {{ macro_dict[key]() }}
+        {% endif %}
+    {% endfor %}
+{% endfor %}
+{% endblock %}
