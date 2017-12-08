@@ -3,16 +3,24 @@ import os
 import sys
 import argparse
 from collections import defaultdict, Counter
+
+from datetime import date
 from egcg_core import rest_communication
 from egcg_core.clarity import get_list_of_samples, connection, sanitize_user_id, get_sample
+from egcg_core.notifications.email import send_html_email
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from egcg_core.config import cfg
 from config import load_config
 
 cache = {
     'run_elements_data':{},
     'sample_data':{},
 }
+
+email_template = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'etc', 'run_report.html'
+)
 
 
 def run_elements_data(run_id):
@@ -34,10 +42,17 @@ def samples_from_run(run_id):
         if sample_id != 'Undetermined': samples.append(sample_id)
     return samples
 
+reason_map = {
+    'Est. Dup. rate': 'Optical duplicate rate > 20%',
+    '':'',
+}
 
 def report_runs(run_ids):
     run_ids.sort()
+    runs_info = []
     for run_id in run_ids:
+        run_info = {'name': run_id}
+        runs_info.append(run_info)
         re_data = run_elements_data(run_id)
         lane_review = defaultdict(set)
         lane_review_comment = defaultdict(set)
@@ -52,13 +67,29 @@ def report_runs(run_ids):
                 raise ValueError('More than one review status for lane %s in run %s' % (lane, run_id))
             if lane_review.get(lane).pop() == 'fail':
                 count_failure += 1
-                reasons.update(lane_review_comment.get(lane).pop()[len('failed due to '):].split(', '))
+                reasons.update(
+                    lane_review_comment.get(lane).pop()[len('failed due to '):].split(', ')
+                )
         message = '%s: %s lanes failed ' % (run_id, count_failure)
+        run_info['count_fail'] = count_failure
         if count_failure > 0:
             message += ' due to %s' % ', '.join(reasons)
+        run_info['details'] = ', '.join(reasons)
         print(message)
+    params = {}
+    params.update(cfg['run_report']['email_notification'])
+    params['runs'] = runs_info
+    today = date.today()
+    send_html_email(
+        subject='Run report %s' % today.isoformat(),
+        email_template=email_template,
+        **params
+    )
+
     print('\n_____________________________________\n')
+
     for run_id in run_ids:
+
         list_repeat = set()
         for sample_id in sorted(samples_from_run(run_id)):
             sdata = sample_data(sample_id)
@@ -71,6 +102,7 @@ def report_runs(run_ids):
             print('\n'.join(sorted(list_repeat)))
         else:
             print('%s: No repeat' % run_id)
+
 
 
 def main():
