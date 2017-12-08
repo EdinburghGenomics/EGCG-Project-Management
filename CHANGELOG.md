@@ -1,10 +1,17 @@
 Changelog for EGCG-Project-Management
 =====================================
 
-0.5 (unreleased)
+0.6 (unreleased)
 ----------------
 
-- Add new script to rsync data to GEL and notify their REST API
+- Nothing changed yet.
+
+
+0.5 (2017-11-28)
+----------------
+
+- Added new script to rsync data to GEL and notify their REST API
+- Added recall_sample.py for recalling a sample from tape
 
 0.4 (2017-10-23)
 ----------------

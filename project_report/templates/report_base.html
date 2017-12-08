@@ -3,73 +3,132 @@
 <head>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" crossorigin="anonymous">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto">
     <style type="text/css">
-        #edgen_logo { width: 150px; }
-        h1 { font-size: 2.7em; }
-        h2 { font-size: 2.0em; }
-        h3 { font-size: 1.3em; }
-        .pagebreak { page-break-before: always; }
+        img.logo {
+            width: 200px;
+            margin-left: auto;
+            margin-right: auto;
+            display: inline-block;
+        }
+        html, body {
+            font-family: 'Roboto', sans-serif;
+        }
+        h1, h2, h3, h4, p, div { font-family: inherit !important }
+
+        div.page_break {
+            page-break-after: always;
+        }
+        p.justify_text, div.justify_text{
+            text-align: justify;
+        }
+
+        @page {
+            size: A4 portrait;
+            margin-top: 2cm;
+            margin-bottom: 2cm;
+            @bottom-center {
+                content: "Page "counter(page) " of " counter(pages);
+            }
+            @bottom-left {
+                content: "EGC-BTP-1 rev. 1";
+            }
+            @bottom-right {
+                content: "Project ID: {{ params['project_name'] }}";
+            }
+        }
+
+        table.borderless td, table.borderless th{
+            border: none !important;
+        }
+
+        table {
+            border-top: hidden !important;
+            page-break-inside: avoid;
+        }
     </style>
     <meta charset="UTF-8">
-    {% block head %}
-    <title>Summary for project {{ project_name }}</title>
-    {% endblock %}
 </head>
-<body>
-    <div class="container">
-        <div class="page-header">
-            <img id="edgen_logo" src="http://s29.postimg.org/8qp6u1agn/EG_logo_final_version_colourwhite_cropped.png"/>
-            <h1>Summary for project {{ project_name }}</h1>
-        </div>
-        <div id="general_info">
-            {% block general_info %}
-            <h2>General project information</h2>
-            {% for title, data in project_info %}
-            <div class="row">
-                <div class="col-xs-3">{{ title }}</div>
-                <div class="col-xs-9 ">{{ data }}</div>
-            </div>
-            {% endfor %}
-            {% endblock %}
-        </div>
 
-        <div id="method">
-            {% block method %}
-            <h2>Method</h2>
+<body>
+    <div id="page-header" class="text-center" style="margin-bottom:100px;">
+        <table class="table borderless">
+            <tbody>
+                <tr>
+                    <td><img class="logo" src="http://s29.postimg.org/8qp6u1agn/EG_logo_final_version_colourwhite_cropped.png"/></td>
+                    <td>
+                        Edinburgh Genomics Clinical<br>
+                        The Roslin Institute <br>
+                        Easter Bush, Midlothian <br>
+                        EH25 9RG Scotland, UK<br>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <hr>
+        <h1>Project {{ params['project_name'] }} report</h1>
+
+    </div>
+
+    <div id="general_info" class="page_break">
+        <h2>Summary</h2>
+        <table class="table table-condensed borderless">
+            {% for title, data in project_info %}
+            <tr>
+                <th>{{ title }}</th>
+                <td>{{ data }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        <hr>
+        For detailed per-sample information, please see Appendix I.
+    </div>
+
+    <div id="method" class="page_break">
+        <h2>Methods</h2>
+        <p class="justify_text">
             Edinburgh Genomics: Clinical Genomics utilises Illumina SeqLab, which integrates Illumina TruSeq
             library preparation, Illumina cBot2 cluster generation, Illumina HiSeqX sequencing, Hamilton
             Microlab STAR integrative automation, and Genologics Clarity LIMS X Edition.
-            {% endblock %}
-        </div>
-
-        <div id="sample_qc">
-            {% block sample_qc %}
-            <h3>Sample QC</h3>
-            Genomic DNA (gDNA) samples are evaluated for quantity and quality using an AATI Fragment Analyzer
-            and the DNF-487 Standard Sensitivity Genomic DNA Analysis Kit. The AATI ProSize 2.0 software
-            provides a quantification value and a quality (integrity) score for each gDNA sample. Genomic DNA
-            samples found to have a quality score <7 and have little or no high molecular weight material
-            fails Sample QC and replacement samples are requested. Based on the quantification results, gDNA
-            samples are pre-normalised to fall within the acceptable range of the Illumina SeqLab TruSeq Nano
-            library preparation method using the Hamilton MicroLab STAR.
-            {% endblock %}
-        </div>
-        <div id="library_prep">{% block library_prep %}{% endblock %}</div>
-        <div id="library_qc">{% block library_qc %}{% endblock %}</div>
-        <div id="sequencing">{% block sequencing %}{% endblock %}</div>
-        <div id="bioinformatics_analysis">{% block bioinformatics_analysis %}{% endblock %}</div>
-        <p class="pagebreak"></p>
-        <div id="results">
-            {% block results %}
+        </p>
+        {% include 'laboratory_template.html' %}
+        {% include 'bioinformatics.html' %}
+    </div>
+    <div id="results" class="page_break">
+        <table class="table table-condensed">
             <h2>Results</h2>
-            {% for title, data in results %}
-            <div class="row">
-                <div class="col-xs-4">{{ title }}</div><div class="col-xs-8">{{ data }}</div>
-            </div>
+            {% for title, data in project_stats %}
+            <tr>
+                <th>{{ title }}</th>
+                <td>{{ data }}</td>
+            </tr>
             {% endfor %}
-            {% endblock %}
-        </div>
-        <div id="formats">{% block formats %}{% endblock %}</div>
+        </table>
+        {% include 'charts.html' %}
+
+    </div>
+
+    <div id="file_format" class="page_break">
+        <h2>Format of the Files Delivered</h2>
+        {% include 'formats.html' %}
+    </div>
+
+    <div id="formal_statement">
+        <!--<h4>Deviations, Additions and Exclusions</h4>-->
+            <!--<p>N/A</p>-->
+
+        <h2>Declaration of Compliance</h2>
+        <p class="justify_text">
+            The FASTQ data has been generated in accordance with the documented processes contained within the Edinburgh
+            Genomics Clinical Quality Management system as to meet agreed customer requirements.
+            The samples and outputted data have been inspected and tested by trained and competency evaluated personnel.
+            The instrumentation and materials used in the inspection and testing processes are traceable.
+            All the associated test instrumentation is maintained, calibrated and qualified as appropriate.
+        </p>
+    </div>
+    <div class="text-center" style="margin-top:100px;">
+        <hr>
+        <h4>End of project {{ params['project_name'] }} report</h4>
     </div>
 </body>
 </html>

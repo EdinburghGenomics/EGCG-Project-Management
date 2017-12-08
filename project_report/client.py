@@ -9,7 +9,7 @@ def main():
     args = _parse_args()
     log_level = 10 if args.debug else 20
     log_cfg.add_stdout_handler(log_level)
-    pr = ProjectReport(args.project_name)
+    pr = ProjectReport(args.project_name, args.working_dir)
     pr.generate_report(args.output_format)
 
 
@@ -18,5 +18,6 @@ def _parse_args():
     a.add_argument('-p', '--project_name', dest='project_name', type=str,
                    help='The name of the project to generate a report for')
     a.add_argument('-o', '--output_format', type=str, choices=('html', 'pdf'), default='pdf')
+    a.add_argument('-w', '--working_dir', type=str, help='directory where temporary files will be created')
     a.add_argument('-d', '--debug', action='store_true')
     return a.parse_args()

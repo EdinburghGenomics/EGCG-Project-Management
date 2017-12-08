@@ -1,0 +1,13 @@
+{% from 'all_templates.html' import yield_cov_chart, yield_chart, mapping_duplicates_chart %}
+{% set macro_dict = {
+    'yield_cov_chart': yield_cov_chart,
+    'yield_chart': yield_chart,
+    'mapping_duplicates_chart': mapping_duplicates_chart
+} %}
+{% for t in project_templates['charts_template'] %}
+    {% for key in macro_dict %}
+        {% if t == key %}
+            {{ macro_dict[key](params) }}
+        {% endif %}
+    {% endfor %}
+{% endfor %}
