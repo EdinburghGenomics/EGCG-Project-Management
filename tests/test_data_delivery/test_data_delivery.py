@@ -341,7 +341,7 @@ class TestDataDelivery(TestProjectManagement):
         with patch('egcg_core.clarity.get_queue_uri', return_value='http://testclarity.com/queue/999'):
             exp = {
                 'num_samples': 2,
-                'release_batch': '2017-11-29',
+                'release_batch': '2017-12-13',
                 'delivery_queue': 'http://testclarity.com/queue/999',
                 'project_id': 'test_project'
             }
