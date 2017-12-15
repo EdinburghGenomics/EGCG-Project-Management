@@ -339,7 +339,7 @@ class TestDataDelivery(TestProjectManagement):
 
     def test_get_email_data(self):
         with patch('egcg_core.clarity.get_queue_uri', return_value='http://testclarity.com/queue/999'), \
-             patch.object(DataDelivery, 'today', new_callable=PropertyMock(return_value='2017-11-29')):
+             patch.object(DataDelivery, 'today', new_callable=PropertyMock(return_value='2017-12-15')):
 
             exp = {
                 'num_samples': 2,
