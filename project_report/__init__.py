@@ -293,7 +293,10 @@ class ProjectReport:
 
     def store_sample_info(self):
         genome_versions = set()
+        species_submitted = set()
         for sample in set(self.sample_name_delivered):
+            species = self.get_species_from_sample(sample)
+            species_submitted.add(species)
             genome_version = None
             sample_source = path.join(self.project_source, sample)
             if self.get_species_from_sample(sample) == 'Human':
@@ -314,7 +317,7 @@ class ProjectReport:
                 genome_version = 'GRCh38 (with alt, decoy and HLA sequences)'
             genome_versions.add(genome_version)
         self.params['genome_version'] = ', '.join(genome_versions)
-
+        self.params['species_submitted'] = ', '.join(species_submitted)
 
     def get_sample_yield_coverage_metrics(self):
         req_to_metrics = {}
