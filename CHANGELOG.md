@@ -1,7 +1,7 @@
 Changelog for EGCG-Project-Management
 =====================================
 
-0.6 (unreleased)
+0.6 (2018-01-17)
 ----------------
 
 - email sent in HTML rather than plain text
