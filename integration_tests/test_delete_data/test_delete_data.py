@@ -73,17 +73,13 @@ class TestDeleteRawData(TestDeletion):
             'analysis_driver_procs',
             {'proc_id': 'a_proc', 'dataset_type': 'run', 'dataset_name': 'a_run', 'status': 'finished'}
         )
-        rest_communication.post_entry(
-            'runs',
-            {'run_id': 'a_run', 'analysis_driver_procs': ['a_proc']}
-        )
+        rest_communication.post_entry('runs', {'run_id': 'a_run', 'analysis_driver_procs': ['a_proc']})
 
     def test_raw_data(self):
         run_dir = os.path.join(self.raw_dir, 'a_run')
         assert os.path.isdir(run_dir)
 
-        with patches():
-            self._run_main(['raw'])
+        self._run_main(['raw'])
 
         assert not os.path.isdir(run_dir)
         assert os.path.isfile(os.path.join(self.archive_dir, 'a_run', 'some_metadata', 'some_data.txt'))
@@ -93,8 +89,7 @@ class TestDeleteRawData(TestDeletion):
         run_dir = os.path.join(self.raw_dir, 'a_run')
         assert os.path.isdir(run_dir)
 
-        with patches():
-            self._run_main(['raw'])
+        self._run_main(['raw'])
 
         # nothing should have happened
         assert os.path.isdir(run_dir)

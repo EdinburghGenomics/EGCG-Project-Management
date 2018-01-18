@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import pytest
+import requests
 import argparse
 import subprocess
 from io import StringIO
@@ -23,6 +24,8 @@ class NamedMock(Mock):
 
 
 class IntegrationTest(TestCase):
+    container_id = None
+
     def setUp(self):
         assert self.container_id is None
         self.container_id = execute(
@@ -37,12 +40,23 @@ class IntegrationTest(TestCase):
         rest_communication.default._baseurl = container_url
         rest_communication.default._auth = ('apiuser', 'apiuser')
 
-        sleep(30)  # allow time for the container's database and API to start running
+        self._ping(container_url)
 
     def tearDown(self):
         assert self.container_id
         execute('docker', 'stop', self.container_id)
         execute('docker', 'rm', self.container_id)
+
+    def _ping(self, url, retries=36):
+        try:
+            requests.get(url, timeout=2)
+            return True
+        except requests.exceptions.ConnectionError:
+            if retries > 0:
+                sleep(5)
+                return self._ping(url, retries - 1)
+            else:
+                raise
 
 
 def now():
@@ -62,12 +76,24 @@ def main():
     a.add_argument('--stdout', action='store_true')
     a.add_argument('--email', action='store_true')
     a.add_argument('--log_repo')
+    a.add_argument('--test', nargs='+', default=[])
+    a.add_argument('--ls', action='store_true')
     args = a.parse_args()
+
+    test_files = util.find_files(os.path.dirname(__file__), '*', '*.py')
+    tests = sorted(set(os.path.basename(os.path.dirname(t)) for t in test_files))
+
+    if args.ls:
+        print('Available tests: %s' % tests)
+        return 0
+
+    if args.test:
+        tests = [t for t in tests if t in args.test]
 
     start_time = now()
     s = StringIO()
     with redirect_stdout(s):
-        exit_status = pytest.main([__file__])
+        exit_status = pytest.main([os.path.join(os.path.dirname(__file__), t) for t in tests])
     end_time = now()
 
     test_output = util.str_join(
