@@ -8,14 +8,14 @@ import sys
 import traceback
 from collections import defaultdict
 from os.path import basename, join, dirname
-
+from cached_property import cached_property
 from egcg_core import executor, rest_communication, clarity
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
 from egcg_core.config import cfg
 from egcg_core.constants import ELEMENT_NB_READS_CLEANED, ELEMENT_RUN_NAME, ELEMENT_PROJECT_ID, ELEMENT_LANE, \
     ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_RUN_ELEMENT_ID, ELEMENT_USEABLE
 from egcg_core.exceptions import EGCGError
-from egcg_core.notifications.email import send_email
+from egcg_core.notifications.email import send_html_email
 from egcg_core.util import find_fastqs
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -40,6 +40,9 @@ variant_call_list_files = [
 
 other_list_files = []
 
+email_template = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'etc', 'delivery_email_template.html'
+)
 
 def _execute(*commands, **kwargs):
     exit_status = executor.execute(*commands, **kwargs).join()
@@ -66,6 +69,10 @@ class DataDelivery(AppLogger):
         self.delivery_dest = cfg.query('delivery', 'dest')
         self.delivery_source = cfg.query('delivery', 'source')
         self.samples2list_files = defaultdict(list)
+
+    @cached_property
+    def today(self):
+        return  datetime.date.today().isoformat()
 
     def get_deliverable_projects_samples(self, project_id=None, sample_id=None):
         project_to_samples = defaultdict(list)
@@ -390,8 +397,7 @@ class DataDelivery(AppLogger):
             print('\n'.join(self.all_commands_for_cluster))
             print('Will move')
             for project in project_to_samples:
-                today = datetime.date.today().isoformat()
-                batch_delivery_folder = os.path.join(self.delivery_dest, project, today)
+                batch_delivery_folder = os.path.join(self.delivery_dest, project, self.today)
                 for sample in project_to_samples.get(project):
                     print('%s --> %s' % (sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)),
                                          batch_delivery_folder))
@@ -404,8 +410,7 @@ class DataDelivery(AppLogger):
             self.register_postponed_files()
             for project in project_to_samples:
                 # Create the batch directory
-                today = datetime.date.today().isoformat()
-                batch_delivery_folder = os.path.join(self.delivery_dest, project, today)
+                batch_delivery_folder = os.path.join(self.delivery_dest, project, self.today)
                 os.makedirs(batch_delivery_folder, exist_ok=True)
                 # Move all the staged sample directory
                 project_to_delivery_folder[project] = batch_delivery_folder
@@ -419,15 +424,13 @@ class DataDelivery(AppLogger):
                 self.generate_md5_summary(project, batch_delivery_folder)
             self.mark_samples_as_released(list(sample2stagedirectory))
 
-        self.cleanup()
-
         # Generate project report
         project_to_reports = {}
         for project in project_to_samples:
             project_report = join(self.delivery_dest, project, 'project_%s_report.pdf' % project)
             try:
                 if not self.dry_run:
-                    pr = ProjectReport(project)
+                    pr = ProjectReport(project, self.staging_dir)
                     pr.generate_report('pdf')
             except Exception:
                 self.critical('Project report generation for %s failed' % project)
@@ -436,71 +439,48 @@ class DataDelivery(AppLogger):
                     stacktrace = ''.join(traceback.format_exception(etype, value, tb))
                     self.info('Stacktrace below:\n' + stacktrace)
                 project_report = None
-            if project_report:
+            if project_report and os.path.exists(project_report):
                 project_to_reports[project] = project_report
 
         # Send email confirmation with attachments
         self.emails_report(project_to_samples, project_to_reports)
 
-    def emails_report(self, project_to_samples, project_to_reports):
-        for project_id in project_to_samples:
+        self.cleanup()
 
-            msg = self.create_email_report(project_id, project_to_samples[project_id])
+    def emails_report(self, project_to_samples, project_to_reports):
+        if not {'mailhost', 'port', 'sender', 'recipients'} == set(cfg['delivery']['email_notification']):
+            self.warning('Missing paramter in config: will not sent email')
+            return
+
+        for project_id in project_to_samples:
+            species_list = [self.get_sample_species(sample.get('sample_id')) for sample in
+                            project_to_samples[project_id]]
+
+            subject = '%s: %s WGS Data Release' % (project_id, ', '.join(sorted(set(species_list))))
+            params = {}
+            params.update(cfg['delivery']['email_notification'])
+            params.update(self.get_email_data(project_id, project_to_samples[project_id]))
             if self.dry_run:
-                subject = 'Dry run: ' + project_id
-            else:
-                subject = 'Data delivery: ' + project_id
-            self.info(msg)
+                subject = 'Dry run: ' + subject
+            self.info('Send email for project %s', project_id)
             if self.email:
-                send_email(
-                    msg=msg,
+                send_html_email(
                     subject=subject,
                     attachments=project_to_reports.values(),
-                    strict=True,
-                    **cfg['delivery']['email_notification']
+                    email_template=email_template,
+                    **params
                 )
 
-    def create_email_report(self, project_id, samples):
-        queue_uri = clarity.get_queue_uri(
-            cfg['delivery']['clarity_workflow_name'],
-            cfg.query('delivery', 'clarity_stage_name', ret_default=None)
-        )
-        msg = '''Hi
-{num_samples} samples from project {project} have been delivered:
-Consult delivery queue at
-{delivery_queue}
-template delivery email is appended bellow
-----
-Dear all,
-
-The data for {num_samples} samples from project {project} has been released to our Aspera server at:
-https://transfer.epcc.ed.ac.uk/{project}
-
-
-Your usernames are:
-[ENTER USERNAMES]
-
-Your passwords will be sent separately.
-
-Please see the link below for guidance on how to download:
-https://genomics.ed.ac.uk/resources/download-help-clinical
-
-
-The data for your project will be stored on our server for 3 months and deleted after this time. Please check your data for corruption once downloaded. Email notifications will be sent 1 month and 1 week before deletion.
-
-If you have any questions about the data or download then please don’t hesitate to contact me.
-
-Kind regards,
-
-[NAME]
-
-[SIGNATURE]
-'''
-        return msg.format(
-            num_samples=len(samples),
-            project=project_id,
-            delivery_queue=queue_uri,
-        )
+    def get_email_data(self, project_id, samples):
+        return {
+            'release_batch': self.today,
+            'num_samples': len(samples),
+            'project_id': project_id,
+            'delivery_queue': clarity.get_queue_uri(
+                cfg['delivery']['clarity_workflow_name'],
+                cfg.query('delivery', 'clarity_stage_name', ret_default=None)
+            )
+        }
 
 
 def main(argv=None):
@@ -521,7 +501,6 @@ def main(argv=None):
 
     if args.debug:
         log_cfg.set_log_level(logging.DEBUG)
-
 
     cfg.merge(cfg['sample'])
     dd = DataDelivery(args.dry_run, args.work_dir, no_cleanup=args.no_cleanup, email=args.email)

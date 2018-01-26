@@ -1,10 +1,18 @@
 Changelog for EGCG-Project-Management
 =====================================
 
-0.6 (unreleased)
+0.7 (unreleased)
 ----------------
 
 - Nothing changed yet.
+
+
+0.6 (2018-01-17)
+----------------
+
+- email sent in HTML rather than plain text
+- Project summary examples generated
+- Fixes made to project report
 
 
 0.5 (2017-11-28)

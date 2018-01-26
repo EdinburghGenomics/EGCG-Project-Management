@@ -1,0 +1,209 @@
+{% macro yield_chart(params) -%}
+    <h3>Yield</h3>
+    <img id="yield" class="charts" src="{{ params['yield_chart'] }}" />
+    <p class="justify_text">
+        Yield is calculated as the yield in gigabases (Gb) after adapters have been
+        trimmed during processing. The yield Q30 is the quantity of bases
+        which have a quality score of 30 or higher.
+    </p>
+{%- endmacro %}
+
+{% macro yield_cov_chart(params) -%}
+    <h3>Yield and Coverage</h3>
+        <p class="justify_text">
+            Yield is calculated as the number of in bases provided in the fastq files and is expressed in gigabases (Gb).
+            Coverage is the average number of bases covering each position of the reference genome.
+        </p>
+    {% for chart_dict in params['yield_cov_chart'] %}
+        <img id="yieldcov" class="charts" src="{{ chart_dict['file'] }}" />
+        <p class="justify_text">
+            Chart showing the yield and coverage for {{ chart_dict['nb_sample'] }} sample(s). The sections in the graph highlight the expected yield
+            ({{ chart_dict['req_yield'] }} Gb) and the expected coverage ({{ chart_dict['req_cov'] }}X).
+        </p>
+    {% endfor %}
+
+{%- endmacro %}
+
+{% macro mapping_duplicates_chart(params) -%}
+    <h3>Read Mapping and Duplicates</h3>
+    <img id="mapdup" class="charts" src="{{ params['mapping_duplicates_chart'] }}" />
+    <p class="justify_text">
+        Optical and PCR duplicates can be generated during library preparation, clustering, or be due to
+        sample quality. The percentage of duplicates is calculated by comparing the number of duplicate reads
+        to the total read count. Duplicates are identified during read mapping to prevent the overestimation
+        of coverage, therefore, the percentage of paired reads aligned to the reference genome includes
+        non-duplicate reads only. A duplicate rate of < 30% is required for each sample, except in circumstances
+        where a very high yield achieves sufficient coverage of the genome despite a high duplicate rate.
+    </p>
+{%- endmacro %}
+
+{% macro fastq() -%}
+    <h3>Fastq</h3>
+    <p class="justify_text">
+        Files ending in 'fastq.gz' are in gzipped Sanger fastq format, and contain the raw sequence data after
+        demultiplexing. Each sample has two files: an 'R1.fastq.gz' and an 'R2.fastq.gz', respectively containing
+        the first and second reads of each read pair.
+    </p>
+    <p><a href="https://en.wikipedia.org/wiki/FASTQ_format">Fastq specification</a></p>
+{%- endmacro %}
+
+{% macro bam() -%}
+    <h3>BAM</h3>
+    <p class="justify_text">
+        Files ending in '.bam' are in BAM format, and contain the reads aligned to the genome and ready for
+        variant calling. Each sample has one BAM file plus a '.bam.bai' file, which is the BAM index. This
+        allows some programmes fast random access to any part of the BAM file.
+    </p>
+    <p><a href="https://samtools.github.io/hts-specs/SAMv1.pdf">SAM/BAM specification</a></p>
+{%- endmacro %}
+
+{% macro vcf() -%}
+    <h3>VCF</h3>
+    <p class="justify_text">
+        Files ending in '.vcf.gz' are gzipped VCF files, and contain variants detected between the sample and
+        the reference genome. There is also a 'g.vcf.gz' file, which contains genotype likelihoods across the
+        genome regardless of the presence of a variant. Files ending in 'vcf.gz.tbi' are Tabix indexes
+        allowing fast random access to any part of their corresponding VCF.
+    </p>
+    <p><a href="https://samtools.github.io/hts-specs/VCFv4.2.pdf">VCF specification</a></p>
+{%- endmacro %}
+
+{% macro sample_qc_nano(method_fields, params) -%}
+    <h3>Sample QC</h3>
+    <p class="justify_text">
+        Genomic DNA (gDNA) samples are evaluated for quantity using Quant-iT Picogreen reagent, Lambda Standard DNA
+        and a Molecular Devices, Spectramax XPS Gemini plate reader.  The quality of the gDNA samples are evaluated
+        using an AATI Fragment Analyzer and the Standard Sensitivity Genomic DNA Analysis Kit. Genomic DNA samples
+        found to have a total amount of >1000ng and a quality score >5 pass sample QC. Based on the quantification results,
+        gDNA samples are pre-normalised to fall within the 5-40ng/uL concentration range required for Illumina SeqLab
+        TruSeq Nano library preparation method using the Hamilton MicroLab STAR.
+    </p>
+{%- endmacro %}
+
+{% macro sample_qc_pcrfree(method_fields, params) -%}
+    <h3>Sample QC</h3>
+    <p class="justify_text">
+        Genomic DNA (gDNA) samples are evaluated for quantity using Quant-iT Picogreen reagent, Lambda Standard DNA
+        and a Molecular Devices, Spectramax XPS Gemini plate reader.  The quality of the gDNA samples are evaluated
+        using an AATI Fragment Analyzer and the Standard Sensitivity Genomic DNA Analysis Kit. Genomic DNA samples
+        found to have a total amount of >1000ng and a quality score >5 pass sample QC. Based on the quantification results,
+        gDNA samples are pre-normalised to fall within the 20-100ng/uL concentration range required for Illumina SeqLab
+        TruSeq PCR Free library preparation method using the Hamilton MicroLab STAR.
+    </p>
+{%- endmacro %}
+
+
+{% macro truseq_nano(method_fields, params) -%}
+    <h3>TruSeq Nano Library Preparation</h3>
+    <p class="justify_text">
+        Next Generation sequencing libraries are prepared using an Illumina SeqLab specific TruSeq Nano High
+        Throughput library preparation kit in conjunction with the Hamilton MicroLab STAR and Clarity LIMS X (4.2)
+        Edition. The 200ng gDNA sample input is normalised to the concentration and volume required for the Illumina
+        TruSeq Nano library preparation kit, then sheared to a 450bp mean insert size using a Covaris LE220
+        focused-ultrasonicator. The inserts are blunt ended, A-tailed, size selected, TruSeq adapters are ligated
+        onto the ends of each fragment before being PCR amplified.
+    </p>
+{%- endmacro %}
+
+
+{% macro truseq_pcrfree(method_fields, params) -%}
+    <h3>TruSeq PCR-Free Library Preparation</h3>
+    <p class="justify_text">
+        Next Generation sequencing libraries are prepared using Illumina SeqLab specific TruSeq PCR-Free High Throughput library
+        preparation kits in conjunction with the Hamilton MicroLab STAR and Clarity LIMS X Edition. The gDNA samples are
+        normalised to the concentration and volume required for the Illumina TruSeq PCR-Free library preparation kits then sheared
+        to a 450bp mean insert size using a Covaris LE220 focused-ultrasonicator. The inserts are blunt ended,
+        A-tailed, size selected and the TruSeq adapters are ligated onto the ends.
+    </p>
+{%- endmacro %}
+
+
+{% macro library_qc(method_fields, params) -%}
+    <h3>Library QC</h3>
+    <p class="justify_text">
+        The insert size for each library is evaluated using the Caliper GX Touch with a HT DNA 1k/12K/HI SENS LabChip
+        and HT DNA HI SENS Reagent Kit to ensure that the mean fragment sizes fall between 530bp and 730bp.
+        The concentration of each library is calculated using a Roche LightCycler 480 and a Kapa Illumina Library
+        Quantification kit and Standards to ensure that the concentration of each library is between 5.5nM and 40nM.
+    </p>
+{%- endmacro %}
+
+
+{% macro sequencing(method_fields, params) -%}
+    <h3>Sequencing</h3>
+    <p class="justify_text">
+        The libraries are normalised to 1.5nM and are denatured for clustering and sequencing at 300pM using a
+        Hamilton MicroLab STAR with Genologics Clarity LIMS X (4.2) Edition. Libraries are clustered onto a
+        HiSeqX Flow cell v2.5 on cBot2s and the clustered flow cell is transferred to a HiSeqX for sequencing
+        using a HiSeqX Ten Reagent kit v2.5.
+    </p>
+{%- endmacro %}
+
+
+{% macro bioinformatics_qc(params) -%}
+    <h3>Bioinformatics QC</h3>
+    <p class="justify_text">
+        Demultiplexing is performed using bcl2fastq ({{ params['bcl2fastq_version'] }}), allowing 1 mismatch when assigning reads
+        to barcodes. Adapters (Read1:  {{ params['adapter1'] }}, Read2:  {{ params['adapter2'] }}) are trimmed during the demultiplexing
+        process. Bwa mem ({{ params['bwa_version'] }}) is used to align the raw reads to the  {{ params['species_submitted'] }}
+        genome(s) ({{ params['genome_version'] }}), the duplicated fragments are marked using
+        {% if params.biobambam_sortmapdup_version is defined  %} biobambam ({{ params['biobambam_sortmapdup_version'] }})
+        {% else %} samblaster ({{ params['samblaster_version'] }})
+        {% endif %}to mark the duplicated fragments, and
+        samtools ({{ params['samtools_version'] }}) is used to assess coverage.
+        The BAM file generated by the alignement is discarded and only the fastq files are kept.
+    </p>
+{%- endmacro %}
+
+
+{% macro bioinformatics_analysis_bcbio(params) -%}
+    <h3>Bioinformatics analysis</h3>
+    <p class="justify_text">
+        Demultiplexing is performed using bcl2fastq ({{ params['bcl2fastq_version'] }}), allowing 1 mismatch when assigning reads
+        to barcodes. Adapters (Read1:  {{ params['adapter1'] }}, Read2:  {{ params['adapter2'] }}) are trimmed during the demultiplexing
+        process. BCBio-Nextgen ({{ params['bcbio_version'] }}) is used to perform alignment, BAM file preparation and variant
+        detection. BCBio uses bwa mem ({{ params['bwa_version'] }}) to align the raw reads to the  {{ params['species_submitted'] }}
+        genome(s) ({{ params['genome_version'] }}), then
+        {% if params.biobambam_sortmapdup_version is defined  %} biobambam ({{ params['biobambam_sortmapdup_version'] }})
+        {% else %} samblaster ({{ params['samblaster_version'] }})
+        {% endif %} to mark the duplicated fragments, and
+        the Genome Analysis ToolKit ({{ params['gatk_version'] }}) for the indel realignment and base recalibration. The genotype
+        likelihoods are calculated using Genome Analysis Toolkit ({{ params['gatk_version'] }}) HaplotypeCaller creating a final
+        gvcf file.
+    </p>
+{%- endmacro %}
+
+
+{% macro bioinformatics_analysis(params) -%}
+    <h3>Bioinformatics analysis</h3>
+    <p class="justify_text">
+        Demultiplexing is performed using bcl2fastq ({{ params['bcl2fastq_version'] }}), allowing 1 mismatch when assigning reads
+        to barcodes. Adapters (Read1:  {{ params['adapter1'] }}, Read2:  {{ params['adapter2'] }}) are trimmed during the demultiplexing
+        process. Bwa mem ({{ params['bwa_version'] }}) is used to align the raw reads to the  {{ params['species_submitted'] }}
+        genome(s) ({{ params['genome_version'] }}), the duplicated fragments are marked using samblaster ({{ params['samblaster_version'] }} and
+        indel realignment and base recalibration are performed using the Genome Analysis ToolKit ({{ params['gatk_version'] }}).
+        This generate the final BAM file. The genotype likelihoods are calculated using Genome Analysis Toolkit
+        ({{ params['gatk_version'] }}) HaplotypeCaller creating a gvcf file per sample.
+    </p>
+{%- endmacro %}
+
+
+
+{% macro bioinformatics_table(method_fields, params) -%}
+    <h3>Bioinformatics</h3>
+    <table class="table table-condensed"  >
+        <tr>
+        {% for heading in method_fields['bioinformatics']['headings'] %}
+            <th>{{ heading }}</th>
+        {% endfor %}
+        </tr>
+        {% for row in method_fields['bioinformatics']['rows'] %}
+            <tr>
+            {% for field in row %}
+                <td>{{ field }}</td>
+            {% endfor %}
+            </tr>
+        {% endfor %}
+    </table>
+    <hr>
+{%- endmacro %}
