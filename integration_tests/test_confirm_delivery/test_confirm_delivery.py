@@ -1,6 +1,5 @@
 import os
 from shutil import rmtree
-from contextlib import contextmanager
 from egcg_core import rest_communication
 from egcg_core.config import cfg
 from unittest.mock import Mock, patch
@@ -11,37 +10,22 @@ src_dir = os.path.dirname(__file__)
 downloaded_files = os.path.join(src_dir, 'downloaded_files.csv')
 
 
-@contextmanager
-def patches():
-    _patches = []
-
-    def _patch(ppath, **kwargs):
-        _p = patch(ppath, **kwargs)
-        _p.start()
-        _patches.append(_p)
-
-    _patch('bin.confirm_delivery.load_config')
-    _patch('bin.confirm_delivery.clarity.connection')
-    _patch('bin.confirm_delivery.clarity.get_workflow_stage')
-    _patch(
-        'bin.confirm_delivery.Queue',
-        return_value=Mock(
-            artifacts=[
-                Mock(samples=[NamedMock('sample_1')]),
-                Mock(samples=[NamedMock('sample_2')])
-            ]
+class TestConfirmDelivery(IntegrationTest):
+    delivered_projects = os.path.join(src_dir, 'delivered_projects')
+    patches = (
+        patch('bin.confirm_delivery.load_config'),
+        patch('bin.confirm_delivery.clarity.connection'),
+        patch('bin.confirm_delivery.clarity.get_workflow_stage'),
+        patch(
+            'bin.confirm_delivery.Queue',
+            return_value=Mock(
+                artifacts=[
+                    Mock(samples=[NamedMock('sample_1')]),
+                    Mock(samples=[NamedMock('sample_2')])
+                ]
+            )
         )
     )
-
-    yield
-
-    for p in _patches:
-        p.stop()
-
-
-class TestConfirmDelivery(IntegrationTest):
-    container_id = None
-    delivered_projects = os.path.join(src_dir, 'delivered_projects')
 
     samples = [
         {
@@ -98,17 +82,11 @@ class TestConfirmDelivery(IntegrationTest):
         rmtree(cls.delivered_projects)
 
     def test_samples(self):
-        with patches():
-            confirm_delivery.main(
-                ['--csv_files', downloaded_files, '--samples', 'sample_1', 'sample_2']
-            )
+        confirm_delivery.main(['--csv_files', downloaded_files, '--samples', 'sample_1', 'sample_2'])
         self._check_outputs()
 
     def test_all_queued_samples(self):
-        with patches():
-            confirm_delivery.main(
-                ['--csv_files', downloaded_files, '--queued_samples']
-            )
+        confirm_delivery.main(['--csv_files', downloaded_files, '--queued_samples'])
         self._check_outputs()
 
     @staticmethod

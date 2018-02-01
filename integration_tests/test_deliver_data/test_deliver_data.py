@@ -2,7 +2,6 @@ import os
 import gzip
 import hashlib
 from shutil import rmtree
-from contextlib import contextmanager
 from unittest.mock import Mock, patch
 from integration_tests import IntegrationTest, integration_cfg
 from egcg_core import rest_communication, util
@@ -71,32 +70,18 @@ fake_samples = {
 }
 
 
-@contextmanager
-def patches():
-    _patches = []
-
-    def _patch(ppath, **kwargs):
-        _p = patch('bin.deliver_reviewed_data.' + ppath, **kwargs)
-        _p.start()
-        _patches.append(_p)
-
-    _patch('load_config')
-    _patch('clarity.get_sample', new=lambda s: fake_samples[s]['lims'])
-    _patch('clarity.get_species_from_sample', new=lambda s: fake_samples[s]['species'])
-    _patch('clarity.get_queue_uri', return_value='a_queue_uri')
-    _patch('clarity.route_samples_to_delivery_workflow')
-    _patch('ProjectReport')  # TODO: run the project report once it can take mixed projects
-
-    yield
-
-    for p in _patches:
-        p.stop()
-
-
 class TestDelivery(IntegrationTest):
     processed_run_dir = os.path.join(work_dir, 'processed_runs')
     processed_projects_dir = os.path.join(work_dir, 'processed_projects')
     delivered_projects_dir = os.path.join(work_dir, 'delivered_projects')
+    patches = (
+        patch('bin.deliver_reviewed_data.load_config'),
+        patch('bin.deliver_reviewed_data.clarity.get_sample', new=lambda s: fake_samples[s]['lims']),
+        patch('bin.deliver_reviewed_data.clarity.get_species_from_sample', new=lambda s: fake_samples[s]['species']),
+        patch('bin.deliver_reviewed_data.clarity.get_queue_uri', return_value='a_queue_uri'),
+        patch('bin.deliver_reviewed_data.clarity.route_samples_to_delivery_workflow'),
+        patch('bin.deliver_reviewed_data.ProjectReport')  # TODO: run the project report once it can take mixed projects
+    )
 
     @classmethod
     def setUpClass(cls):
@@ -172,8 +157,7 @@ class TestDelivery(IntegrationTest):
         if args:
             argv += args
 
-        with patches():
-            deliver_reviewed_data.main(argv)
+        deliver_reviewed_data.main(argv)
 
     @staticmethod
     def _seed_file(fp, md5=False):

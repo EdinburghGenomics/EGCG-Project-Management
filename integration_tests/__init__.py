@@ -7,11 +7,13 @@ import argparse
 import subprocess
 from io import StringIO
 from time import sleep
+from shutil import rmtree
 from datetime import datetime
 from unittest import TestCase
 from unittest.mock import Mock
+from collections import defaultdict
 from contextlib import redirect_stdout
-from egcg_core import notifications, util, rest_communication
+from egcg_core import notifications, util, rest_communication, archive_management
 from egcg_core.config import Configuration
 
 integration_cfg = Configuration(os.getenv('INTEGRATIONCONFIG'))
@@ -25,6 +27,7 @@ class NamedMock(Mock):
 
 class IntegrationTest(TestCase):
     container_id = None
+    patches = ()
 
     def setUp(self):
         assert self.container_id is None
@@ -42,7 +45,13 @@ class IntegrationTest(TestCase):
 
         self._ping(container_url)
 
+        for p in self.patches:
+            p.start()
+
     def tearDown(self):
+        for p in self.patches:
+            p.stop()
+
         assert self.container_id
         execute('docker', 'stop', self.container_id)
         execute('docker', 'rm', self.container_id)
@@ -57,6 +66,54 @@ class IntegrationTest(TestCase):
                 return self._ping(url, retries - 1)
             else:
                 raise
+
+
+def setup_delivered_samples(processed_dir, delivered_dir, fastq_dir):
+    for d in (processed_dir, delivered_dir, fastq_dir):
+        if os.path.isdir(d):
+            rmtree(d)
+
+    all_files = defaultdict(list)
+    for i in range(1, 4):
+        sample_id = 'sample_' + str(i)
+        ext_sample_id = 'ext_' + sample_id
+        sample_dir = os.path.join(processed_dir, 'a_project', sample_id)
+        delivered_dir = os.path.join(delivered_dir, 'a_project', 'a_delivery_date', sample_id)
+        sample_fastq_dir = os.path.join(fastq_dir, 'a_run', 'a_project', sample_id)
+
+        os.makedirs(sample_dir)
+        os.makedirs(sample_fastq_dir)
+        os.makedirs(delivered_dir)
+
+        rest_communication.post_entry(
+            'samples',
+            {'sample_id': sample_id, 'user_sample_id': ext_sample_id, 'project_id': 'a_project'}
+        )
+        rest_communication.post_entry(
+            'run_elements',
+            {'run_element_id': 'a_run_%s_ATGC' % i, 'run_id': 'a_run', 'lane': i, 'barcode': 'ATGC',
+             'project_id': 'a_project', 'sample_id': sample_id, 'library_id': 'a_library'}
+        )
+
+        for ext in ('.bam', '.vcf.gz'):
+            f = os.path.join(sample_dir, ext_sample_id + ext)
+            all_files[sample_id].append(f)
+
+        for r in ('1', '2'):
+            f = os.path.join(sample_fastq_dir, 'L00%s_R%s.fastq.gz' % (i, r))
+            all_files[sample_id].append(f)
+
+        for f in all_files[sample_id]:
+            open(f, 'w').close()
+            os.link(f, os.path.join(delivered_dir, os.path.basename(f)))
+            archive_management.register_for_archiving(f)
+
+    for sample_id in ('sample_1', 'sample_2', 'sample_3'):
+        for f in all_files[sample_id]:
+            while not archive_management.is_archived(f):
+                sleep(10)
+
+    return all_files
 
 
 def now():
@@ -113,8 +170,8 @@ def main():
         print(test_output)
 
     if args.email:
-        notifications.send_email(
-            test_output, subject='Analysis Driver integration test', **integration_cfg['notification']
+        notifications.send_plain_text_email(
+            test_output, subject='EGCG-Project-Management integration test', **integration_cfg['notification']
         )
 
     return exit_status

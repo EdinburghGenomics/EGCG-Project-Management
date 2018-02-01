@@ -1,12 +1,11 @@
 import os
 import shutil
 from time import sleep
-from collections import defaultdict
 from egcg_core import archive_management, rest_communication
 from egcg_core.config import cfg
 from egcg_core.exceptions import EGCGError
 from unittest.mock import patch
-from integration_tests import IntegrationTest, integration_cfg
+from integration_tests import IntegrationTest, integration_cfg, setup_delivered_samples
 import data_deletion.client
 from bin import recall_sample
 
@@ -35,50 +34,7 @@ class TestRecall(IntegrationTest):
 
     def setUp(self):
         super().setUp()
-
-        for d in (self.processed_data_dir, self.delivered_data_dir, self.fastq_dir):
-            if os.path.isdir(d):
-                shutil.rmtree(d)
-
-        self.all_files = defaultdict(list)
-        for i in range(1, 4):
-            sample_id = 'sample_' + str(i)
-            ext_sample_id = 'ext_' + sample_id
-            sample_dir = os.path.join(self.processed_data_dir, 'a_project', sample_id)
-            delivered_dir = os.path.join(self.delivered_data_dir, 'a_project', 'a_delivery_date', sample_id)
-            fastq_dir = os.path.join(self.fastq_dir, 'a_run', 'a_project', sample_id)
-
-            os.makedirs(sample_dir)
-            os.makedirs(fastq_dir)
-            os.makedirs(delivered_dir)
-
-            rest_communication.post_entry(
-                'samples',
-                {'sample_id': sample_id, 'user_sample_id': ext_sample_id, 'project_id': 'a_project'}
-            )
-            rest_communication.post_entry(
-                'run_elements',
-                {'run_element_id': 'a_run_%s_ATGC' % i, 'run_id': 'a_run', 'lane': i, 'barcode': 'ATGC',
-                 'project_id': 'a_project', 'sample_id': sample_id, 'library_id': 'a_library'}
-            )
-
-            for ext in ('.bam', '.vcf.gz'):
-                f = os.path.join(sample_dir, ext_sample_id + ext)
-                self.all_files[sample_id].append(f)
-
-            for r in ('1', '2'):
-                f = os.path.join(fastq_dir, 'L00%s_R%s.fastq.gz' % (i, r))
-                self.all_files[sample_id].append(f)
-
-            for f in self.all_files[sample_id]:
-                open(f, 'w').close()
-                os.link(f, os.path.join(delivered_dir, os.path.basename(f)))
-                archive_management.register_for_archiving(f)
-
-        for sample_id in ('sample_1', 'sample_2', 'sample_3'):
-            for f in self.all_files[sample_id]:
-                while not archive_management.is_archived(f):
-                    sleep(10)
+        self.all_files = setup_delivered_samples(self.processed_data_dir, self.delivered_data_dir, self.fastq_dir)
 
     def assert_hsm_state_for_sample(self, sample_id, state_func, retries=10):
         if not all(state_func(f) for f in self.all_files[sample_id]):
