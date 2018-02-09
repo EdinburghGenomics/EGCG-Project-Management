@@ -91,15 +91,6 @@ class TestProjectReport(IntegrationTest):
                 'Species': 'Thingius thingy',
                 'Genome Version': 'Tthi1'
             }
-        },
-        'uhtn999': {
-            'samples': [],
-            'udfs': {
-                'Prep Workflow': 'TruSeq Nano DNA Sample Prep',
-                'Analysis Type': None,
-                'Species': 'Homo sapiens',
-                'Genome Version': 'hg38'
-            }
         }
     }
 
@@ -204,8 +195,7 @@ class TestProjectReport(IntegrationTest):
             'htn999': '97a33dc5f258471ed01e75e0a08335a5',
             'nhtn999': '7f9043cc4f92757efe26898c1e1612a3',
             'hpf999': '13889fe466a57fe622449d6e5afe45a7',
-            'nhpf999': '3b4c97c3dc17732b392d6d8a0b73fae8',
-            'uhtn999': '271691c98746d98f0b13b24b24ed4455'
+            'nhpf999': '3b4c97c3dc17732b392d6d8a0b73fae8'
         }
         for k, v in exp_md5s.items():
             client.main(['-p', k, '-o', 'html', '-w', work_dir])
