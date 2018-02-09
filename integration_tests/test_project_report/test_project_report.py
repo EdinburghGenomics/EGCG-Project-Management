@@ -2,17 +2,11 @@ import os
 import re
 from hashlib import md5
 from unittest.mock import Mock, patch
-from integration_tests import IntegrationTest
+from integration_tests import IntegrationTest, NamedMock
 from egcg_core import rest_communication
 from egcg_core.config import cfg
 from project_report import client
 work_dir = os.path.dirname(__file__)
-
-
-class NamedMock(Mock):
-    @property
-    def name(self):
-        return self.real_name
 
 
 class FakeLims:
@@ -25,7 +19,7 @@ class FakeLims:
         project = self.data[projectname]
         return [
             NamedMock(
-                real_name=s['rest_data']['sample_id'],
+                s['rest_data']['sample_id'],
                 udf=dict(self.sample_udf_template, **project['udfs'])
             ) for s in project['samples']
         ]
