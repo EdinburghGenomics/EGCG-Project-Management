@@ -210,7 +210,7 @@ class TestConfirmDelivery(TestProjectManagement):
     def test_confirm_download_in_lims(self, mocked_get_list_of_samples, mocked_get_workflow_stage,
                                       mocked_lims_connection):
         mocked_get_list_of_samples.return_value = [Mock(artifact=Mock(spec=Artifact))]
-        mocked_get_workflow_stage.return_value = Mock(step=Mock(spec=ProtocolStep, id='s1', permittedcontainers=list()))
+        mocked_get_workflow_stage.return_value = Mock(step=Mock(spec=ProtocolStep, id='s1', permitted_containers=list()))
         self.c.confirmed_samples.append('sample1')
         self.c.confirm_download_in_lims()
         mocked_get_list_of_samples.assert_called_with(sample_names=['sample1'])
