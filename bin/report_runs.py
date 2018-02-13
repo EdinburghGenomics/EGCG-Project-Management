@@ -6,7 +6,6 @@ from collections import defaultdict, Counter
 
 from datetime import date
 from egcg_core import rest_communication
-from egcg_core.clarity import get_list_of_samples, connection, sanitize_user_id, get_sample
 from egcg_core.notifications.email import send_html_email
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -14,13 +13,25 @@ from egcg_core.config import cfg
 from config import load_config
 
 cache = {
-    'run_elements_data':{},
-    'sample_data':{},
+    'run_elements_data': {},
+    'sample_data': {},
+    'run_status_data': {}
 }
 
-email_template = os.path.join(
+email_template_report = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'etc', 'run_report.html'
 )
+
+email_template_repeats = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'etc', 'list_repeat.html'
+)
+
+def run_status_data(run_id):
+    if not cache['run_status_data']:
+        data = rest_communication.get_documents('lims/status/run_status')
+        for d in data:
+            cache['run_status_data'][d.get('run_id')] = d
+    return cache['run_status_data'][run_id]
 
 
 def run_elements_data(run_id):
@@ -31,78 +42,103 @@ def run_elements_data(run_id):
 
 def sample_data(sample_id):
     if not sample_id in cache['sample_data']:
-        cache['sample_data'][sample_id] = rest_communication.get_document('aggregate/samples', match={"sample_id": sample_id})
+        cache['sample_data'][sample_id] = rest_communication.get_document('samples', where={"sample_id": sample_id})
     return cache['sample_data'][sample_id]
 
 
 def samples_from_run(run_id):
-    samples = []
-    for re in run_elements_data(run_id):
-        sample_id = re.get('sample_id')
-        if sample_id != 'Undetermined': samples.append(sample_id)
-    return samples
+    return run_status_data(run_id).get('sample_ids')
 
-reason_map = {
-    'Est. Dup. rate': 'Optical duplicate rate > 20%',
-    '':'',
-}
+
+def get_run_success(run_id):
+    run_info = {'name': run_id}
+    re_data = run_elements_data(run_id)
+    lane_review = defaultdict(set)
+    lane_review_comment = defaultdict(set)
+
+    for re in re_data:
+        lane_review[re.get('lane')].add(re.get('reviewed'))
+        lane_review_comment[re.get('lane')].add(re.get('review_comments'))
+    count_failure = 0
+    reasons = set()
+    for lane in sorted(lane_review):
+        if len(lane_review.get(lane)) != 1:
+            raise ValueError('More than one review status for lane %s in run %s' % (lane, run_id))
+        if lane_review.get(lane).pop() == 'fail':
+            count_failure += 1
+            reasons.update(
+                lane_review_comment.get(lane).pop()[len('failed due to '):].split(', ')
+            )
+    message = '%s: %s lanes failed ' % (run_id, count_failure)
+    run_info['count_fail'] = count_failure
+    if count_failure > 0:
+        message += ' due to %s' % ', '.join(reasons)
+    run_info['details'] = ', '.join(reasons)
+    print(message)
+    return run_info
+
 
 def report_runs(run_ids):
     run_ids.sort()
     runs_info = []
     for run_id in run_ids:
-        run_info = {'name': run_id}
+        run_status = run_status_data(run_id).get('run_status')
+        if run_status == 'RunCompleted':
+            run_info = get_run_success(run_id)
+        else:
+            print('%s: 8 lanes failed due to %s' % (run_id, run_status))
+            run_info = {'name': run_id, 'count_fail': 8, 'details': '%s' % run_status}
         runs_info.append(run_info)
-        re_data = run_elements_data(run_id)
-        lane_review = defaultdict(set)
-        lane_review_comment = defaultdict(set)
-
-        for re in re_data:
-            lane_review[re.get('lane')].add(re.get('reviewed'))
-            lane_review_comment[re.get('lane')].add(re.get('review_comments'))
-        count_failure = 0
-        reasons = set()
-        for lane in sorted(lane_review):
-            if len(lane_review.get(lane)) != 1:
-                raise ValueError('More than one review status for lane %s in run %s' % (lane, run_id))
-            if lane_review.get(lane).pop() == 'fail':
-                count_failure += 1
-                reasons.update(
-                    lane_review_comment.get(lane).pop()[len('failed due to '):].split(', ')
-                )
-        message = '%s: %s lanes failed ' % (run_id, count_failure)
-        run_info['count_fail'] = count_failure
-        if count_failure > 0:
-            message += ' due to %s' % ', '.join(reasons)
-        run_info['details'] = ', '.join(reasons)
-        print(message)
-    params = {}
-    params.update(cfg['run_report']['email_notification'])
-    params['runs'] = runs_info
-    today = date.today()
-    send_html_email(
-        subject='Run report %s' % today.isoformat(),
-        email_template=email_template,
-        **params
-    )
 
     print('\n_____________________________________\n')
 
+    runs_repeats = []
     for run_id in run_ids:
 
         list_repeat = set()
+        samples_fail = []
         for sample_id in sorted(samples_from_run(run_id)):
+
             sdata = sample_data(sample_id)
-            lims_sample = get_sample(sample_id)
-            if sdata.get('clean_yield_in_gb') < lims_sample.udf.get('Required Yield (Gb)') or \
-                sdata.get('clean_yield_q30') < lims_sample.udf.get('Yield for Quoted Coverage (Gb)'):
-                list_repeat.add(sample_id + ': ' + sdata.get('proc_status', 'Not processing'))
+            proc_status = 'Not processing'
+            if sdata and sdata.get('aggregated', {}) and sdata.get('aggregated', {}).get('most_recent_proc', {}):
+                proc_status = sdata.get('aggregated', {}).get('most_recent_proc', {}).get('status', 'Not processing')
+            if not sdata:
+                list_repeat.add(sample_id + ': No data')
+                samples_fail.append({'id': sample_id, 'reason': 'No data'})
+            elif sdata.get('aggregated').get('clean_pc_q30') < 75:
+                list_repeat.add(sample_id + ': Low quality (%s)' % proc_status)
+                samples_fail.append({'id': sample_id, 'reason': 'Low quality'})
+            elif sdata.get('aggregated').get('clean_yield_in_gb') * 1000000000 < sdata.get('required_yield') and \
+                 sdata.get('aggregated').get('from_run_elements').get('mean_coverage') < sdata.get('required_coverage'):
+                list_repeat.add(sample_id + ': Not enough data (%s)' % proc_status)
+                samples_fail.append({'id': sample_id, 'reason': 'Not enough data'})
         if list_repeat:
             print('%s: List repeat' % run_id)
             print('\n'.join(sorted(list_repeat)))
         else:
             print('%s: No repeat' % run_id)
+        runs_repeats.append({'name': run_id, 'count_repeat': len(samples_fail), 'sample_list': samples_fail})
 
+    today = date.today()
+
+    params = {}
+    params.update(cfg['run_report']['email_notification'])
+    params['runs'] = runs_info
+    send_html_email(
+        subject='Run report %s' % today.isoformat(),
+        email_template=email_template_report,
+        **params
+    )
+
+    params = {}
+    params.update(cfg['run_report']['email_notification'])
+    params['runs'] = runs_repeats
+    send_html_email(
+        subject='List of repeat %s' % today.isoformat(),
+        email_template=email_template_repeats,
+        **params
+    )
 
 
 def main():
