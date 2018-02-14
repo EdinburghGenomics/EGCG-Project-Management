@@ -52,12 +52,12 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
         count += 1
 
     pc_useable = pass_count / count * 100
-
-    print(nb_run)
-    print(avg_yield)
-    print(avg_q30)
-    print(pc_pass)
-    print(pc_useable)
+    res = {}
+    res['nb_run'] = nb_run
+    res['avg_yield'] = avg_yield
+    res['avg_q30'] = avg_q30
+    res['run_pc_pass'] = pc_pass
+    res['run_pc_useable'] = pc_useable
 
     seven_days_ago = meeting_date - timedelta(days=7)
 
@@ -80,12 +80,15 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
     pc_pass = len([s for s in rest_samples if s.get('reviewed') == 'pass']) / nb_reviewed * 100
     pc_useable = len([s for s in rest_samples if s.get('useable') == 'yes']) / nb_reviewed * 100
 
-    print(nb_sample_processed)
-    print(nb_reviewed)
-    print(pc_pass)
-    print(pc_useable)
+    res['nb_sample_processed'] = nb_sample_processed
+    res['nb_reviewed'] = nb_reviewed
+    res['sample_pc_pass'] = pc_pass
+    res['sample_pc_useable'] = pc_useable
 
-    print(set([(s.get('project_id'), s.get('review_comments')) for s in rest_samples if s.get('reviewed') == 'fail']))
+    res['review_errors'] = list(set([(s.get('project_id'), s.get('review_comments')) for s in rest_samples if s.get('reviewed') == 'fail']))
+
+    for k in ['nb_run', 'avg_yield', 'avg_q30', 'run_pc_pass', 'run_pc_useable', 'nb_sample_processed',  'nb_reviewed', 'sample_pc_pass','sample_pc_useable']:
+        print('%s: %s' % (k, res[k]))
 
 
 def main():
