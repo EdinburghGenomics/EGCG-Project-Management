@@ -1,12 +1,13 @@
-import argparse
-import logging
-import sys
 import os
+import sys
+import logging
+import argparse
 from egcg_core.app_logging import logging_default as log_cfg
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import load_config
-from upload_to_gel.deliver_data_to_gel import GelDataDelivery, check_all_md5sums
+from upload_to_gel.deliver_data_to_gel import GelDataDelivery, check_all_md5sums, report
+
 
 def main():
     p = argparse.ArgumentParser()
@@ -18,18 +19,20 @@ def main():
     group.add_argument('--user_sample_id', type=str)
     p.add_argument('--force_new_delivery', action='store_true')
     p.add_argument('--no_cleanup', action='store_true')
-    p.add_argument('--check_all_md5', action='store_true')
+    p.add_argument('--check_all_md5sums', action='store_true')
+    p.add_argument('--report')
 
     args = p.parse_args()
-
     load_config()
 
     if args.debug:
         log_cfg.set_log_level(logging.DEBUG)
         log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout))
 
-    if args.check_all_md5:
+    if args.check_all_md5sums:
         check_all_md5sums(args.work_dir)
+    elif args.report:
+        report()
     else:
         gel_delivery = GelDataDelivery(args.work_dir, sample_id=args.sample_id, user_sample_id=args.user_sample_id,
                                        no_cleanup=args.no_cleanup, dry_run=args.dry_run, force_new_delivery=args.force_new_delivery)

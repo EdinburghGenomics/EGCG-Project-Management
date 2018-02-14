@@ -30,12 +30,9 @@ fluidx = {
     'sample3': 'FD3'
 }
 
+
 def fake_get_sample(self, sample_id):
     return samples[sample_id]
-
-
-def touch(f):
-    open(f, 'w').close()
 
 
 def md5(fname):
@@ -48,7 +45,6 @@ def md5(fname):
 
 
 class TestDeliveryDB(TestProjectManagement):
-
     def setUp(self):
         os.chdir(self.root_path)
         etc_config = os.path.join(self.root_path, 'etc', 'example_gel_data_delivery.yaml')
@@ -63,9 +59,9 @@ class TestDeliveryDB(TestProjectManagement):
         assert os.path.exists(self.db_file)
 
     def test_create_delivery(self):
-        id = self.deliverydb.create_delivery('sample1', 'external_sample1')
-        assert id == 'ED00000001'
-        assert self.deliverydb.get_sample_from(id) == 'sample1'
+        _id = self.deliverydb.create_delivery('sample1', 'external_sample1')
+        assert _id == 'ED00000001'
+        assert self.deliverydb.get_sample_from(_id) == 'sample1'
 
     def test_get_most_recent_delivery_id(self):
         id1 = self.deliverydb.create_delivery('sample1', 'external_sample1')
@@ -115,9 +111,7 @@ class TestGelDataDelivery(TestProjectManagement):
         new_callable=PropertyMock(return_value='FD2')
     )
     patch_create_delivery = patch.object(DeliveryDB, 'create_delivery', return_value='ED00000005')
-
     patch_send_action = patch('upload_to_gel.deliver_data_to_gel.send_action_to_rest_api')
-
 
     @staticmethod
     def get_patch_info(info):
@@ -137,10 +131,11 @@ class TestGelDataDelivery(TestProjectManagement):
         for sample in ['sample1', 'sample2', 'sample3']:
             sample_dir = os.path.join(self.dest_proj1, fluidx.get(sample))
             os.makedirs(sample_dir, exist_ok=True)
-            for suffix in ['_R1.fastq.gz', '_R2.fastq.gz', ]:
-                f = os.path.join(sample_dir,samples.get(sample).get(ELEMENT_SAMPLE_EXTERNAL_ID) + suffix)
-                touch(f)
+            for suffix in ['_R1.fastq.gz', '_R2.fastq.gz']:
+                f = os.path.join(sample_dir, samples.get(sample).get(ELEMENT_SAMPLE_EXTERNAL_ID) + suffix)
+                open(f, 'w').close()
                 md5(f)
+
         self.gel_data_delivery_dry = GelDataDelivery(
             self.staging_dir,
             'sample1',
@@ -200,8 +195,8 @@ class TestGelDataDelivery(TestProjectManagement):
         with self.patch_sample_data1, self.patch_fluidxbarcode1, \
              patch('upload_to_gel.deliver_data_to_gel.GelDataDelivery.info') as mock_info:
             self.gel_data_delivery_dry.deliver_data()
-            mock_info.assert_any_call('Create delivery id ED00TEST from sample_id=sample1')
-            mock_info.assert_any_call('Create delivery plateform sample_barcode=123456789_ext_sample1')
+            mock_info.assert_any_call('Create delivery id %s from sample_id=%s', 'ED00TEST', 'sample1')
+            mock_info.assert_any_call('Create delivery platform sample_barcode=%s', '123456789_ext_sample1')
             mock_info.assert_called_with('Run rsync')
 
     def test_deliver_data(self):
@@ -209,7 +204,7 @@ class TestGelDataDelivery(TestProjectManagement):
              patch.object(GelDataDelivery, 'delivery_id', PropertyMock(return_value='ED01')), \
              self.patch_send_action as mocked_send_action, \
              patch('egcg_core.executor.local_execute') as mock_execute, \
-             patch.object(GelDataDelivery, 'delivery_id_exist', return_value=False):
+             patch.object(GelDataDelivery, 'delivery_id_exists', return_value=False):
             mock_execute.return_value = Mock(join=Mock(return_value = 0))
             self.gel_data_delivery.deliver_data()
             source = os.path.join(self.gel_data_delivery.staging_dir, self.gel_data_delivery.delivery_id)
@@ -226,10 +221,14 @@ class TestGelDataDelivery(TestProjectManagement):
             mocked_send_action.assert_any_call(action='create', delivery_id='ED01', sample_id='123456789_ext_sample1')
             mocked_send_action.assert_called_with(action='delivered', delivery_id='ED01', sample_id='123456789_ext_sample1')
 
-
     def test_check_md5sum(self):
-        md5_ready = (1, 'sample1', 'user_sample1', 'dummy_date', 'passed', 'dummy_date', None, None)
-        with self.patch_create_delivery,  self.patch_sample_data1, self.get_patch_info(md5_ready),\
+        md5_ready = (1, 'sample1', 'user_sample1', 'dummy_date', 'passed', 'dummy_date', None, None, None, None, None)
+        with self.patch_sample_data1, self.get_patch_info(md5_ready),\
              self.patch_send_action as mocked_send_action:
+            mocked_send_action.return_value = Mock(json=Mock(return_value={'state': 'qc_passed'}))
             self.gel_data_delivery.check_md5sum()
-            print(mocked_send_action.mock_calls)
+
+            self.gel_data_delivery.deliver_db.cursor.execute('select * from delivery;')
+            obs = self.gel_data_delivery.deliver_db.cursor.fetchall()
+            assert obs[6] == 'passed'  # md5_status
+            assert obs[8] == 'passed'  # qc_status
