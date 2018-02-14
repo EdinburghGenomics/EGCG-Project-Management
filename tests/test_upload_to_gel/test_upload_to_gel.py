@@ -229,6 +229,6 @@ class TestGelDataDelivery(TestProjectManagement):
             self.gel_data_delivery.check_md5sum()
 
             self.gel_data_delivery.deliver_db.cursor.execute('select * from delivery;')
-            obs = self.gel_data_delivery.deliver_db.cursor.fetchall()
+            obs = self.gel_data_delivery.deliver_db.cursor.fetchall()[0]
             assert obs[6] == 'passed'  # md5_status
             assert obs[8] == 'passed'  # qc_status
