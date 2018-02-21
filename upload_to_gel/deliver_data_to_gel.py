@@ -17,22 +17,24 @@ FAILURE_KW = 'failed'
 
 
 class DeliveryDB:
+    schema = '''CREATE TABLE IF NOT EXISTS delivery(
+       id INTEGER PRIMARY KEY,
+       sample_id TEXT,
+       external_sample_id TEXT,
+       creation_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+       upload_state TEXT DEFAULT NULL,
+       upload_confirm_date DATETIME DEFAULT NULL,
+       md5_state TEXT DEFAULT NULL,
+       md5_confirm_date DATETIME DEFAULT NULL,
+       qc_state TEXT DEFAULT NULL,
+       qc_confirm_date DATETIME DEFAULT NULL,
+       failure_reason TEXT DEFAULT NULL
+    );'''
+
     def __init__(self):
         self.delivery_db = sqlite3.connect(cfg.query('gel_upload', 'delivery_db'))
         self.cursor = self.delivery_db.cursor()
-        self.cursor.execute('''CREATE TABLE IF NOT EXISTS delivery(
-           id INTEGER PRIMARY KEY,
-           sample_id TEXT,
-           external_sample_id TEXT,
-           creation_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-           upload_state TEXT DEFAULT NULL,
-           upload_confirm_date DATETIME DEFAULT NULL,
-           md5_state TEXT DEFAULT NULL,
-           md5_confirm_date DATETIME DEFAULT NULL,
-           qc_state TEXT DEFAULT NULL,
-           qc_confirm_date DATETIME DEFAULT NULL,
-           failure_reason TEXT DEFAULT NULL
-        );''')
+        self.cursor.execute(self.schema)
 
     @staticmethod
     def _delivery_number_to_id(delivery_number):
@@ -48,24 +50,12 @@ class DeliveryDB:
         self.delivery_db.commit()
         return self._delivery_number_to_id(self.cursor.lastrowid)
 
-    def get_info_from(self, delivery_id):
-        self.cursor.execute('SELECT * from delivery WHERE id=?', (self._delivery_id_to_number(delivery_id),))
+    def get_info_from(self, delivery_id, *fields):
+        assert all(f in self.schema for f in fields)
+        selection = ', '.join(fields) if fields else '*'
+        query = 'SELECT ' + selection + ' FROM delivery WHERE id=?'
+        self.cursor.execute(query, (self._delivery_id_to_number(delivery_id),))
         return self.cursor.fetchone()
-
-    def get_sample_from(self, delivery_id):
-        return self.get_info_from(delivery_id)[1]
-
-    def get_creation_date_from(self, delivery_id):
-        return self.get_info_from(delivery_id)[3]
-
-    def get_upload_confirmation_from(self, delivery_id):
-        return self.get_info_from(delivery_id)[4:6]
-
-    def get_md5_confirmation_from(self, delivery_id):
-        return self.get_info_from(delivery_id)[6:8]
-
-    def get_qc_confirmation_from(self, delivery_id):
-        return self.get_info_from(delivery_id)[8:10]
 
     def get_most_recent_delivery_id(self, sample_id):
         q = 'SELECT id from delivery WHERE sample_id=? ORDER BY creation_date DESC LIMIT 1;'
@@ -89,6 +79,15 @@ class DeliveryDB:
         q = 'UPDATE delivery SET qc_state = ?, qc_confirm_date = datetime("now") WHERE id = ?;'
         self.cursor.execute(q, (state, self._delivery_id_to_number(delivery_id)))
         self.delivery_db.commit()
+
+    def report_all(self):
+        self.cursor.execute('SELECT * FROM delivery')
+        keys = ('id', 'sample_id', 'external_sample_id', 'creation_date', 'upload_state', 'upload_confirm_date',
+                'md5_state', 'md5_confirm_date', 'qc_state', 'qc_confirm_date', 'failure_reason')
+
+        print('\t'.join(keys))
+        for delivery in self.cursor.fetchall():
+            print('\t'.join(str(f) for f in delivery))
 
     def __del__(self):
         self.delivery_db.close()
@@ -248,16 +247,19 @@ class GelDataDelivery(AppLogger):
             self.info('Run rsync')
         self.cleanup()
 
-    def check_md5sum(self):
-        info = self.deliver_db.get_info_from(self.delivery_id)
-        _id, sample_id, external_sample_id, creation_date, upload_state, upload_confirm_date, md5_state, md5_confirm_date, qc_state, qc_confirm_date, failure_reason = info
+    def check_delivery_data(self):
+        info = self.deliver_db.get_info_from(
+            self.delivery_id,
+            'upload_state', 'md5_state', 'md5_confirm_date', 'qc_state', 'qc_confirm_date'
+        )
+        upload_state, md5_state, md5_confirm_date, qc_state, qc_confirm_date = info
         if upload_state == SUCCESS_KW and not all((md5_confirm_date, qc_confirm_date)):
             sample = send_action_to_rest_api(action='get', delivery_id=self.delivery_id).json()
             param, status = sample['state'].split('_')  # md5_passed -> ('md5', 'passed')
             if param == 'md5':
                 self.deliver_db.set_md5_state(self.delivery_id, status)
             elif param == 'qc':
-                self.deliver_db.set_md5_state(self.delivery_id, SUCCESS_KW)
+                self.deliver_db.set_md5_state(self.delivery_id, SUCCESS_KW)  # if qc has passed, md5 must have passed
                 self.deliver_db.set_qc_state(self.delivery_id, status)
 
             self.info('Delivery %s sample %s %s check: %s', self.delivery_id, self.sample_id, param, status)
@@ -272,25 +274,19 @@ class GelDataDelivery(AppLogger):
             self.error('Delivery %s sample %s md5 check failed - was checked before on %s', self.delivery_id, self.sample_id, md5_confirm_date)
 
 
-def check_all_md5sums(work_dir):
+def check_all_deliveries(work_dir):
     delivery_db = DeliveryDB()
     delivery_db.cursor.execute('SELECT sample_id from delivery WHERE upload_state=? AND md5_state IS NULL', (SUCCESS_KW,))
     samples = delivery_db.cursor.fetchall()
     if samples:
         for sample_id, in samples:
             dd = GelDataDelivery(work_dir, sample_id)
-            dd.check_md5sum()
+            dd.check_delivery_data()
 
 
 def report_all():
     delivery_db = DeliveryDB()
-    delivery_db.cursor.execute('SELECT * FROM delivery')
-    keys = ('id', 'sample_id', 'external_sample_id', 'creation_date', 'upload_state', 'upload_confirm_date',
-            'md5_state', 'md5_confirm_date', 'qc_state', 'qc_confirm_date', 'failure_reason')
-
-    print('\t'.join(keys))
-    for s in delivery_db.cursor.fetchall():
-        print('\t'.join(s))
+    delivery_db.report_all()
 
 
 def send_action_to_rest_api(action, **kwargs):

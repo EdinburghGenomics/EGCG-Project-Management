@@ -61,7 +61,17 @@ class TestDeliveryDB(TestProjectManagement):
     def test_create_delivery(self):
         _id = self.deliverydb.create_delivery('sample1', 'external_sample1')
         assert _id == 'ED00000001'
-        assert self.deliverydb.get_sample_from(_id) == 'sample1'
+        assert self.deliverydb.get_info_from(_id, 'sample_id') == ('sample1',)
+
+    def test_get_info_from(self):
+        _id = self.deliverydb.create_delivery('a_sample', 'an_external_sample')
+        self.deliverydb.set_upload_state(_id, 'success')
+        self.deliverydb.set_md5_state(_id, 'success')
+        self.deliverydb.set_qc_state(_id, 'failed')
+        self.deliverydb.delivery_db.commit()
+
+        obs = self.deliverydb.get_info_from(_id, 'sample_id', 'upload_state', 'md5_state', 'qc_state')
+        assert obs == ('a_sample', 'success', 'success', 'failed')
 
     def test_get_most_recent_delivery_id(self):
         id1 = self.deliverydb.create_delivery('sample1', 'external_sample1')
@@ -73,25 +83,22 @@ class TestDeliveryDB(TestProjectManagement):
         assert self.deliverydb.get_most_recent_delivery_id('sample1') == id2
         assert self.deliverydb.get_most_recent_delivery_id('sample3') == id4
 
-    def test_set_upload_state(self):
+    def _test_set_state(self, set_func, *fields):
         did = self.deliverydb.create_delivery('sample1', 'external_sample1')
-        state, date = self.deliverydb.get_upload_confirmation_from(did)
-        assert state is None
-        assert date is None
-        self.deliverydb.set_upload_state(did, 'pass')
-        state, date = self.deliverydb.get_upload_confirmation_from(did)
+        assert self.deliverydb.get_info_from(did, *fields) == (None, None)
+        set_func(did, 'pass')
+        state, date = self.deliverydb.get_info_from(did, *fields)
         assert state == 'pass'
-        assert date is not None
+        assert date
+
+    def test_set_upload_state(self):
+        self._test_set_state(self.deliverydb.set_upload_state, 'upload_state', 'upload_confirm_date')
 
     def test_set_md5_state(self):
-        did = self.deliverydb.create_delivery('sample1', 'external_sample1')
-        state, date = self.deliverydb.get_md5_confirmation_from(did)
-        assert state is None
-        assert date is None
-        self.deliverydb.set_md5_state(did, 'pass')
-        state, date = self.deliverydb.get_md5_confirmation_from(did)
-        assert state == 'pass'
-        assert date is not None
+        self._test_set_state(self.deliverydb.set_md5_state, 'md5_state', 'md5_confirm_date')
+
+    def test_set_qc_state(self):
+        self._test_set_state(self.deliverydb.set_qc_state, 'qc_state', 'qc_confirm_date')
 
 
 class TestGelDataDelivery(TestProjectManagement):
@@ -112,10 +119,6 @@ class TestGelDataDelivery(TestProjectManagement):
     )
     patch_create_delivery = patch.object(DeliveryDB, 'create_delivery', return_value='ED00000005')
     patch_send_action = patch('upload_to_gel.deliver_data_to_gel.send_action_to_rest_api')
-
-    @staticmethod
-    def get_patch_info(info):
-        return patch.object(DeliveryDB, 'get_info_from', return_value=info)
 
     def __init__(self, *args, **kwargs):
         super(TestProjectManagement, self).__init__(*args, **kwargs)
@@ -221,14 +224,17 @@ class TestGelDataDelivery(TestProjectManagement):
             mocked_send_action.assert_any_call(action='create', delivery_id='ED01', sample_id='123456789_ext_sample1')
             mocked_send_action.assert_called_with(action='delivered', delivery_id='ED01', sample_id='123456789_ext_sample1')
 
-    def test_check_md5sum(self):
-        md5_ready = (1, 'sample1', 'user_sample1', 'dummy_date', 'passed', 'dummy_date', None, None, None, None, None)
-        with self.patch_sample_data1, self.get_patch_info(md5_ready),\
-             self.patch_send_action as mocked_send_action:
+    def test_check_delivery(self):
+        _id = self.gel_data_delivery.deliver_db.create_delivery('sample1', '123456789_ext_sample1')
+        self.gel_data_delivery.deliver_db.set_upload_state(_id, 'success')
+        self.gel_data_delivery.deliver_db.set_md5_state(_id, 'passed')
+        self.gel_data_delivery.deliver_db.set_qc_state(_id, 'passed')
+
+        with self.patch_sample_data1, self.patch_send_action as mocked_send_action:
             mocked_send_action.return_value = Mock(json=Mock(return_value={'state': 'qc_passed'}))
-            self.gel_data_delivery.check_md5sum()
+            self.gel_data_delivery.check_delivery_data()
 
             self.gel_data_delivery.deliver_db.cursor.execute('select * from delivery;')
-            obs = self.gel_data_delivery.deliver_db.cursor.fetchall()[0]
+            obs = self.gel_data_delivery.deliver_db.cursor.fetchone()
             assert obs[6] == 'passed'  # md5_status
             assert obs[8] == 'passed'  # qc_status

@@ -6,7 +6,7 @@ from egcg_core.app_logging import logging_default as log_cfg
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import load_config
-from upload_to_gel.deliver_data_to_gel import GelDataDelivery, check_all_md5sums, report
+from upload_to_gel.deliver_data_to_gel import GelDataDelivery, check_all_deliveries, report_all
 
 
 def main():
@@ -20,7 +20,7 @@ def main():
     p.add_argument('--force_new_delivery', action='store_true')
     p.add_argument('--no_cleanup', action='store_true')
     p.add_argument('--check_all_md5sums', action='store_true')
-    p.add_argument('--report')
+    p.add_argument('--report', action='store_true')
 
     args = p.parse_args()
     load_config()
@@ -30,9 +30,9 @@ def main():
         log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout))
 
     if args.check_all_md5sums:
-        check_all_md5sums(args.work_dir)
+        check_all_deliveries(args.work_dir)
     elif args.report:
-        report()
+        report_all()
     else:
         gel_delivery = GelDataDelivery(args.work_dir, sample_id=args.sample_id, user_sample_id=args.user_sample_id,
                                        no_cleanup=args.no_cleanup, dry_run=args.dry_run, force_new_delivery=args.force_new_delivery)
