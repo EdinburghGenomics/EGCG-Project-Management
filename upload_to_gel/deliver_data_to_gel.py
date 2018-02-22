@@ -94,12 +94,15 @@ class DeliveryDB:
 
 
 class GelDataDelivery(AppLogger):
-    def __init__(self, work_dir, sample_id, user_sample_id=None, dry_run=False, no_cleanup=False, force_new_delivery=False):
+    def __init__(self, sample_id, user_sample_id=None, work_dir=None, dry_run=False, no_cleanup=False, force_new_delivery=False):
         self.sample_id = sample_id or self.resolve_sample_id(user_sample_id)
         self.dry_run = dry_run
         self.work_dir = work_dir
         self.no_cleanup = no_cleanup
         self.force_new_delivery = force_new_delivery
+
+        if not self.work_dir:
+            self.warning('Work dir not set - data delivery not available')
 
     @staticmethod
     def resolve_sample_id(user_sample_id):

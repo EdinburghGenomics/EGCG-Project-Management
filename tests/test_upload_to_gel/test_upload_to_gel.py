@@ -140,14 +140,14 @@ class TestGelDataDelivery(TestProjectManagement):
                 md5(f)
 
         self.gel_data_delivery_dry = GelDataDelivery(
-            self.staging_dir,
             'sample1',
+            work_dir=self.staging_dir,
             dry_run=True,
             no_cleanup=True
         )
         self.gel_data_delivery = GelDataDelivery(
-            self.staging_dir,
             'sample1',
+            work_dir=self.staging_dir,
             dry_run=False,
             no_cleanup=True
         )

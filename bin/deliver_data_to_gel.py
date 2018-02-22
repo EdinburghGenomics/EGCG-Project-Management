@@ -13,13 +13,13 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('--dry_run', action='store_true')
     p.add_argument('--debug', action='store_true')
-    p.add_argument('--work_dir', type=str, required=True)
+    p.add_argument('--work_dir', type=str)
     group = p.add_mutually_exclusive_group()
     group.add_argument('--sample_id', type=str)
     group.add_argument('--user_sample_id', type=str)
     p.add_argument('--force_new_delivery', action='store_true')
     p.add_argument('--no_cleanup', action='store_true')
-    p.add_argument('--check_all_md5sums', action='store_true')
+    p.add_argument('--check_all_deliveries', action='store_true')
     p.add_argument('--report', action='store_true')
 
     args = p.parse_args()
@@ -29,12 +29,12 @@ def main():
         log_cfg.set_log_level(logging.DEBUG)
         log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout))
 
-    if args.check_all_md5sums:
-        check_all_deliveries(args.work_dir)
+    if args.check_all_deliveries:
+        check_all_deliveries()
     elif args.report:
         report_all()
     else:
-        gel_delivery = GelDataDelivery(args.work_dir, sample_id=args.sample_id, user_sample_id=args.user_sample_id,
+        gel_delivery = GelDataDelivery(args.sample_id, user_sample_id=args.user_sample_id, work_dir=args.work_dir,
                                        no_cleanup=args.no_cleanup, dry_run=args.dry_run, force_new_delivery=args.force_new_delivery)
         gel_delivery.deliver_data()
 
