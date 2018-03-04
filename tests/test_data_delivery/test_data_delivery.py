@@ -1,7 +1,7 @@
 import hashlib
 import os
 from email.mime.multipart import MIMEMultipart
-from unittest.mock import patch, Mock
+from unittest.mock import patch, Mock, PropertyMock
 import shutil
 import datetime
 from egcg_core.exceptions import EGCGError
@@ -338,10 +338,12 @@ class TestDataDelivery(TestProjectManagement):
             mocked_route.assert_called_with(['deliverable_sample', 'deliverable_sample2'])
 
     def test_get_email_data(self):
-        with patch('egcg_core.clarity.get_queue_uri', return_value='http://testclarity.com/queue/999'):
+        with patch('egcg_core.clarity.get_queue_uri', return_value='http://testclarity.com/queue/999'), \
+             patch.object(DataDelivery, 'today', new_callable=PropertyMock(return_value='2017-12-15')):
+
             exp = {
                 'num_samples': 2,
-                'release_batch': '2017-11-29',
+                'release_batch': '2017-12-15',
                 'delivery_queue': 'http://testclarity.com/queue/999',
                 'project_id': 'test_project'
             }

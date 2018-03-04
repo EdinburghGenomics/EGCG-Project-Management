@@ -406,7 +406,8 @@ class TestProjectReport(TestProjectManagement):
             'project_name': 'a_project_name',
             'gatk_version': 'v1.3',
             'samtools_version': 0.3,
-            'genome_version': 'GRCh38 (with alt, decoy and HLA sequences)'
+            'genome_version': 'GRCh38 (with alt, decoy and HLA sequences)',
+            'species_submitted': 'Thingius thingy'
         }
 
 
