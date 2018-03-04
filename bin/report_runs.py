@@ -103,7 +103,7 @@ def report_runs(run_ids):
             proc_status = 'Not processing'
             if sdata and sdata.get('aggregated', {}) and sdata.get('aggregated', {}).get('most_recent_proc', {}):
                 proc_status = sdata.get('aggregated', {}).get('most_recent_proc', {}).get('status', 'Not processing')
-            if not sdata:
+            if not sdata or not sdata.get('aggregated').get('clean_pc_q30'):
                 list_repeat.add(sample_id + ': No data')
                 samples_fail.append({'id': sample_id, 'reason': 'No data'})
             elif sdata.get('aggregated').get('clean_pc_q30') < 75:
