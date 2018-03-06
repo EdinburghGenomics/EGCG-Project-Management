@@ -101,9 +101,6 @@ class GelDataDelivery(AppLogger):
         self.no_cleanup = no_cleanup
         self.force_new_delivery = force_new_delivery
 
-        if not self.work_dir:
-            self.warning('Work dir not set - data delivery not available')
-
     @staticmethod
     def resolve_sample_id(user_sample_id):
         samples = clarity.connection().get_samples(udf={'User Sample Name': user_sample_id})
@@ -277,13 +274,13 @@ class GelDataDelivery(AppLogger):
             self.error('Delivery %s sample %s md5 check failed - was checked before on %s', self.delivery_id, self.sample_id, md5_confirm_date)
 
 
-def check_all_deliveries(work_dir):
+def check_all_deliveries():
     delivery_db = DeliveryDB()
-    delivery_db.cursor.execute('SELECT sample_id from delivery WHERE upload_state=? AND md5_state IS NULL', (SUCCESS_KW,))
+    delivery_db.cursor.execute('SELECT sample_id from delivery WHERE upload_state=? AND qc_state IS NULL', (SUCCESS_KW,))
     samples = delivery_db.cursor.fetchall()
     if samples:
         for sample_id, in samples:
-            dd = GelDataDelivery(work_dir, sample_id)
+            dd = GelDataDelivery(sample_id)
             dd.check_delivery_data()
 
 

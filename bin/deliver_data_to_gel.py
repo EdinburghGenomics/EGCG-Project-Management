@@ -1,6 +1,5 @@
 import os
 import sys
-import logging
 import argparse
 from egcg_core.app_logging import logging_default as log_cfg
 
@@ -24,10 +23,10 @@ def main():
 
     args = p.parse_args()
     load_config()
+    log_cfg.add_stdout_handler()
 
     if args.debug:
-        log_cfg.set_log_level(logging.DEBUG)
-        log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout))
+        log_cfg.set_log_level(10)
 
     if args.check_all_deliveries:
         check_all_deliveries()
