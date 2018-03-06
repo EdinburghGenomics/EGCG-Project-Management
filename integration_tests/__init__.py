@@ -147,6 +147,9 @@ def main():
     if args.test:
         tests = [t for t in tests if t in args.test]
 
+    top_level = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sys.path.append(top_level)
+
     start_time = now()
     s = StringIO()
     with redirect_stdout(s):
@@ -155,7 +158,13 @@ def main():
 
     test_output = util.str_join(
         'Pipeline end-to-end test finished',
-        'Run on commit %s' % execute('git', 'log', "--format=%h on%d, made on %aD", '-1'),
+        'Run on commit %s' % execute(
+            'git',
+            '--git-dir=%s' % os.path.join(top_level, '.git'),
+            'log',
+            "--format=%h on%d, made on %aD",
+            '-1'
+        ),
         'Start time: %s, finish time: %s' % (start_time, end_time),
         'Pytest output:',
         s.getvalue(),
