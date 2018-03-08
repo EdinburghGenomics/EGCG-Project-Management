@@ -483,7 +483,7 @@ class DataDelivery(AppLogger):
         }
 
 
-def main():
+def main(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument('--dry_run', action='store_true')
     p.add_argument('--debug', action='store_true')
@@ -493,7 +493,7 @@ def main():
     p.add_argument('--mark_only', action='store_true')
     p.add_argument('--project_id', type=str)
     p.add_argument('--sample_id', type=str)
-    args = p.parse_args()
+    args = p.parse_args(argv)
 
     load_config()
     log_cfg.set_log_level(logging.INFO)
