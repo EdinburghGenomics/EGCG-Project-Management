@@ -87,7 +87,8 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
 
     res['review_errors'] = list(set([(s.get('project_id'), s.get('review_comments')) for s in rest_samples if s.get('reviewed') == 'fail']))
 
-    for k in ['nb_run', 'avg_yield', 'avg_q30', 'run_pc_pass', 'run_pc_useable', 'nb_sample_processed',  'nb_reviewed', 'sample_pc_pass','sample_pc_useable']:
+    for k in ['nb_run', 'avg_yield', 'avg_q30', 'run_pc_pass', 'run_pc_useable', 'nb_sample_processed',
+              'nb_reviewed', 'sample_pc_pass','sample_pc_useable', 'review_errors']:
         print('%s: %s' % (k, res[k]))
 
 
