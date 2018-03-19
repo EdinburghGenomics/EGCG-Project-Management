@@ -1,18 +1,17 @@
-import re
-import os
 import csv
-import yaml
+import datetime
+import os
+
 import matplotlib
-matplotlib.use('Agg')
 import pandas as pd
-import matplotlib.patches as mpatches
+import yaml
+
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.collections as mpcollections
-import numpy as np
-from dateutil import parser
 from os import path, listdir
 from jinja2 import Environment, FileSystemLoader
-from egcg_core.util import find_file
+from egcg_core.util import find_file, query_dict
 from egcg_core.clarity import connection
 from egcg_core.app_logging import logging_default as log_cfg
 from config import cfg
@@ -33,21 +32,22 @@ species_alias = {
     'Human': 'Human'
 }
 
+
 class ProjectReport:
     _lims_samples_for_project = None
     _database_samples_for_project = None
     _project = None
 
     workflow_alias = {
-        'TruSeq Nano DNA Sample Prep': 'truseq_nano',
-        'TruSeq PCR-Free DNA Sample Prep': 'truseq_pcrfree',
-        'TruSeq PCR-Free Sample Prep': 'truseq_pcrfree',
-        'TruSeq DNA PCR-Free Sample Prep': 'truseq_pcrfree'
+        'TruSeq Nano DNA Sample Prep': 'TruSeq Nano',
+        'TruSeq PCR-Free DNA Sample Prep': 'TruSeq PCR-Free',
+        'TruSeq PCR-Free Sample Prep': 'TruSeq PCR-Free',
+        'TruSeq DNA PCR-Free Sample Prep': 'TruSeq PCR-Free'
     }
 
     sample_qc_alias = {
-        'truseq_nano': 'sample_qc_nano',
-        'truseq_pcrfree': 'sample_qc_pcrfree'
+        'TruSeq Nano': 'sample_qc_nano',
+        'TruSeq PCR-free': 'sample_qc_pcrfree'
     }
 
     def __init__(self, project_name, working_dir=None):
@@ -70,7 +70,7 @@ class ProjectReport:
         return self._project
 
     def sample_status(self, sample_id):
-        return  get_document('lims/status/sample_status', match={"sample_id": sample_id})
+        return get_document('lims/status/sample_status', match={"sample_id": sample_id})
 
     @property
     def samples_for_project_lims(self):
@@ -81,7 +81,8 @@ class ProjectReport:
     @property
     def samples_for_project_restapi(self):
         if self._database_samples_for_project is None:
-            self._database_samples_for_project = get_documents('aggregate/samples', match={"project_id": self.project_name, 'delivered': 'yes'}, paginate=False)
+            self._database_samples_for_project = get_documents('samples', where={"project_id": self.project_name,
+                                                                                 'delivered': 'yes'}, all_pages=True)
             if not self._database_samples_for_project:
                 raise EGCGError('No samples found for project %s' % (self.project_name))
         return self._database_samples_for_project
@@ -96,11 +97,6 @@ class ProjectReport:
             return samples[0]
         raise ValueError('%s samples found for %s' % (len(samples), sample_name))
 
-    def get_all_sample_names(self, modify_names=False):
-        if modify_names:
-            return [re.sub(r'[: ]', '_', s.name) for s in self.samples_for_project_lims]
-        return [s.name for s in self.samples_for_project_lims]
-
     def get_fluidx_barcode(self, sample_name):
         return self.get_lims_sample(sample_name).udf.get('2D Barcode')
 
@@ -108,7 +104,7 @@ class ProjectReport:
         return self.get_lims_sample(sample_name).udf.get('Analysis Type')
 
     def get_library_workflow_from_sample(self, sample_name):
-        return self.get_lims_sample(sample_name).udf.get('Prep Workflow')
+        return self.workflow_alias.get(self.get_lims_sample(sample_name).udf.get('Prep Workflow'))
 
     def get_species_from_sample(self, sample_name):
         s = self.get_lims_sample(sample_name).udf.get('Species')
@@ -137,21 +133,14 @@ class ProjectReport:
             species.add(self.get_species_from_sample(sample))
         return species
 
-    def get_species_found(self, sample):
-        sample_contamination = sample.get('species_contamination', {}).get('contaminant_unique_mapped')
-        if sample_contamination:
-            species_found = [s for s in sample_contamination if sample_contamination[s] > 500]
-            return species_found
-        return None
-
-    def get_library_workflow(self, samples):
-        library_workflow = set()
+    def get_library_workflows(self, samples):
+        library_workflows = set()
         for sample in samples:
-            library_workflow.add(self.get_library_workflow_from_sample(sample))
-        if len(library_workflow) != 1:
-            raise ValueError('%s workflows used for this project: %s' % (len(library_workflow), library_workflow))
-        library_workflow = library_workflow.pop()
-        return library_workflow
+            library_workflows.add(self.get_library_workflow_from_sample(sample))
+        unknown_libraries = library_workflows.difference(set(['TruSeq Nano', 'TruSeq PCR-Free']))
+        if len(unknown_libraries):
+            raise ValueError('%s unknown library preparation: %s' % (len(unknown_libraries), unknown_libraries))
+        return sorted(library_workflows)
 
     def get_analysis_type(self, samples):
         analysis_types = set()
@@ -163,19 +152,16 @@ class ProjectReport:
 
     def project_size_in_terabytes(self):
         project_size = self.get_folder_size(self.project_delivery)
-        return (project_size/1000000000000.0)
+        return project_size / 1099511627776.0
 
     def parse_date(self, date):
         if not date:
-            return 'None'
-        d = parser.parse(date)
-        datelist = [d.year, d.month, d.day]
-        return '-'.join([str(i) for i in datelist])
-
+            return 'NA'
+        return datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y-%m-%d')
 
     @staticmethod
     def calculate_mean(values):
-        return (sum(values)/max(len(values), 1))
+        return (sum(values) / max(len(values), 1))
 
     @property
     def project_title(self):
@@ -220,7 +206,7 @@ class ProjectReport:
 
     def get_project_info(self):
         species_submitted = set()
-        library_workflow = self.get_library_workflow(self.sample_name_delivered)
+        library_workflows = self.get_library_workflows(self.sample_name_delivered)
         for sample in self.sample_name_delivered:
             species = self.get_species_from_sample(sample)
             species_submitted.add(species)
@@ -234,7 +220,7 @@ class ProjectReport:
             ('Number of samples delivered', len(self.samples_for_project_restapi)),
             ('Date samples received', 'Detailed in appendix I'),
             ('Project size', '%.2f terabytes' % self.project_size_in_terabytes()),
-            ('Laboratory protocol', library_workflow),
+            ('Laboratory protocol', ', '.join(library_workflows)),
             ('Submitted species', ', '.join(list(species_submitted))),
             ('Genome version', self.params['genome_version'])
         )
@@ -250,26 +236,6 @@ class ProjectReport:
         sample_fields = [s.get(field) for s in samples if s.get(field)]
         return sample_fields
 
-    def gather_project_data(self):
-        samples = self.samples_for_project_restapi
-        # FIXME: Add support for dor (.) notation
-        project_sample_data = {
-            'clean_yield':               {'key': 'clean_yield_in_gb', 'subfields': None},
-            'coverage_per_sample':       {'key': 'coverage', 'subfields': ['mean']},
-            'pc_duplicate_reads':        {'key': 'pc_duplicate_reads', 'subfields': None},
-            'evenness':                  {'key': 'evenness', 'subfields': None},
-            'freemix':                   {'key': 'sample_contamination', 'subfields': 'freemix'},
-            'pc_mapped_reads':           {'key': 'pc_mapped_reads','subfields': None},
-            'clean_pc_q30':              {'key': 'clean_pc_q30','subfields': None},
-            'mean_bases_covered_at_15X': {'key': 'coverage', 'subfields': ['bases_at_coverage', 'bases_at_15X']}
-        }
-
-        for field in project_sample_data:
-            project_sample_data[field]['values'] = self.get_list_of_sample_fields(samples,
-                                                                                  project_sample_data[field]['key'],
-                                                                                  subfields=project_sample_data[field]['subfields'])
-        return project_sample_data
-
     @staticmethod
     def min_mean_max(list_values):
         if list_values:
@@ -282,13 +248,20 @@ class ProjectReport:
             return 'min: 0, mean: 0, max: 0'
 
     def calculate_project_statistsics(self):
-        p = self.gather_project_data()
+        samples = self.samples_for_project_restapi
+        sample_data_mapping = {
+            'Yield per sample (Gb)': 'aggregated.clean_yield_in_gb',
+            'Coverage per sample': 'coverage.mean',
+            '% Duplicate reads': 'aggregated.pc_duplicate_reads',
+            '% Reads mapped': 'aggregated.pc_mapped_reads',
+            '% Q30': 'aggregated.clean_pc_q30',
+        }
+        headers = ['Yield per sample (Gb)', '% Q30', 'Coverage per sample', '% Reads mapped', '% Duplicate reads']
         project_stats = []
-        project_stats.append(('Yield per sample (Gb)', self.min_mean_max(p['clean_yield']['values'])))
-        project_stats.append(('% Q30', self.min_mean_max(p['clean_pc_q30']['values'])))
-        project_stats.append(('Coverage per sample', self.min_mean_max(p['coverage_per_sample']['values'])))
-        project_stats.append(('% Reads mapped', self.min_mean_max(p['pc_mapped_reads']['values'])))
-        project_stats.append(('% Duplicate reads', self.min_mean_max(p['pc_duplicate_reads']['values'])))
+        for field in headers:
+            project_stats.append((field, self.min_mean_max(
+                [query_dict(sample, sample_data_mapping[field]) for sample in samples]
+            )))
         return project_stats
 
     def store_sample_info(self):
@@ -327,40 +300,13 @@ class ProjectReport:
             if not req in req_to_metrics:
                 req_to_metrics[req] = {'samples': [], 'clean_yield': [], 'coverage': []}
             all_yield_metrics = [sample.get('sample_id'),
-                                 sample.get('clean_yield_in_gb'),
+                                 sample.get('aggregated').get('clean_yield_in_gb'),
                                  sample.get('coverage').get('mean')]
             if not None in all_yield_metrics:
                 req_to_metrics[req]['samples'].append(all_yield_metrics[0])
                 req_to_metrics[req]['clean_yield'].append(all_yield_metrics[1])
                 req_to_metrics[req]['coverage'].append(all_yield_metrics[2])
         return req_to_metrics
-
-    def get_sample_yield_metrics(self):
-        yield_metrics = {'samples': [], 'clean_yield': [], 'clean_yield_Q30': []}
-        for sample in self.samples_for_project_restapi:
-
-            all_yield_metrics = [sample.get('sample_id'),
-                                 sample.get('clean_yield_in_gb'),
-                                 sample.get('clean_yield_q30')]
-            if not None in all_yield_metrics:
-                yield_metrics['samples'].append(all_yield_metrics[0])
-                yield_metrics['clean_yield'].append(all_yield_metrics[1])
-                yield_metrics['clean_yield_Q30'].append(all_yield_metrics[2])
-        return yield_metrics
-
-    def get_pc_statistics(self):
-        pc_statistics = {'pc_duplicate_reads': [], 'pc_properly_mapped_reads': [], 'pc_pass_filter': [], 'samples': []}
-        for sample in self.samples_for_project_restapi:
-            all_pc_statistics = [sample.get('pc_duplicate_reads'),
-                                 sample.get('pc_properly_mapped_reads'),
-                                 sample.get('pc_pass_filter'),
-                                 sample.get('sample_id')]
-            if not None in all_pc_statistics:
-                pc_statistics['pc_duplicate_reads'].append(all_pc_statistics[0])
-                pc_statistics['pc_properly_mapped_reads'].append(all_pc_statistics[1])
-                pc_statistics['pc_pass_filter'].append(all_pc_statistics[2])
-                pc_statistics['samples'].append(all_pc_statistics[3])
-        return pc_statistics
 
     def yield_vs_coverage_plot(self):
         req_to_metrics = self.get_sample_yield_coverage_metrics()
@@ -400,7 +346,7 @@ class ProjectReport:
             ax.add_collection(c3)
             ax.add_collection(c4)
 
-            plot_outfile = path.join(self.working_dir, 'yield%s_cov%s_plot.png' %(req_yield, req_cov))
+            plot_outfile = path.join(self.working_dir, 'yield%s_cov%s_plot.png' % (req_yield, req_cov))
             plt.savefig(plot_outfile, bbox_inches='tight', pad_inches=0.2)
             list_plots.append({
                 'nb_sample': len(df),
@@ -410,60 +356,18 @@ class ProjectReport:
             })
         self.params['yield_cov_chart'] = list_plots
 
-    def yield_plot(self, sample_labels=False):
-        yield_plot_outfile = path.join(self.working_dir, 'yield_plot.png')
-        sample_yields = self.get_sample_yield_metrics()
-        df = pd.DataFrame(sample_yields)
-        indices = np.arange(len(df))
-        plt.figure(figsize=(10, 5))
-        if sample_labels:
-            plt.xticks([i for i in range(len(df))], list((df['samples'])), rotation=-80)
-        else:
-            plt.xticks([])
-        plt.xlim([-1, max(indices) + 1])
-        plt.bar(indices, df['clean_yield'], width=0.8, align='center', color='gainsboro')
-        plt.bar(indices, df['clean_yield_Q30'], width=0.2, align='center', color='lightskyblue')
-        plt.ylabel('Gigabases')
-        blue_patch = mpatches.Patch(color='gainsboro', label='Yield (Gb)')
-        green_patch = mpatches.Patch(color='lightskyblue', label='Yield Q30 (Gb)')
-        lgd = plt.legend(handles=[blue_patch, green_patch], loc='upper center', bbox_to_anchor=(0.5, 1.25))
-        plt.savefig(yield_plot_outfile, bbox_extra_artists=(lgd,), bbox_inches='tight', pad_inches=0.2)
-        yield_plot_outfile = 'file://' + os.path.abspath(yield_plot_outfile)
-        self.params['yield_chart'] = yield_plot_outfile
-
-    def qc_plot(self, sample_labels=False):
-        qc_plot_outfile = path.join(self.working_dir, 'qc_plot.png')
-        pc_statistics = self.get_pc_statistics()
-        df = pd.DataFrame(pc_statistics)
-        indices = np.arange(len(df))
-        plt.figure(figsize=(10, 5))
-        if sample_labels:
-            plt.xticks([i for i in range(len(df))], list((df['samples'])), rotation=-80)
-        else:
-            plt.xticks([])
-        plt.xlim([-1, max(indices) + 1])
-        plt.bar(indices, df['pc_mapped_reads'], width=1, align='center', color='gainsboro')
-        plt.bar(indices, df['pc_duplicate_reads'], width=0.4, align='center', color='mediumaquamarine')
-        blue_patch = mpatches.Patch(color='gainsboro', label='% Paired Reads Aligned to Reference Genome')
-        green_patch = mpatches.Patch(color='mediumaquamarine', label='% Duplicate Reads')
-        lgd = plt.legend(handles=[blue_patch, green_patch], loc='upper center', bbox_to_anchor=(0.5, 1.25))
-        plt.ylabel('% of Reads')
-        plt.savefig(qc_plot_outfile, bbox_extra_artists=(lgd,), bbox_inches='tight', pad_inches=0.2)
-        qc_plot_outfile = 'file://' + os.path.abspath(qc_plot_outfile)
-        self.params['mapping_duplicates_chart'] = qc_plot_outfile
-
     def kits_and_equipment(self):
         table_content = {'headings': ['Process', 'Critical equipment', 'Kits'],
                          'rows': [
-                        ('Sample QC', 'Fragment analyzer, Hamilton robot', 'Kit 1, Kit 2, Kit 3, Kit 4'),
-                        ('Library prep', 'Hamilton Star, '
-                                         'Covaris LE220, '
-                                         'Gemini Spectramax XP, '
-                                         'Hybex incubators, '
-                                         'BioRad C1000/S1000 thermal cycler', 'Kit 1, Kit 2, Kit 3, Kit 4'),
-                        ('Library QC', 'Caliper GX Touch, Roche Lightcycler', 'Kit 1, Kit 2, Kit 3, Kit 4'),
-                        ('Sequencing', 'cBot2, HiSeqX', 'Kit 1, Kit 2, Kit 3, Kit 4')
-                        ]}
+                             ('Sample QC', 'Fragment analyzer, Hamilton robot', 'Kit 1, Kit 2, Kit 3, Kit 4'),
+                             ('Library prep', 'Hamilton Star, '
+                                              'Covaris LE220, '
+                                              'Gemini Spectramax XP, '
+                                              'Hybex incubators, '
+                                              'BioRad C1000/S1000 thermal cycler', 'Kit 1, Kit 2, Kit 3, Kit 4'),
+                             ('Library QC', 'Caliper GX Touch, Roche Lightcycler', 'Kit 1, Kit 2, Kit 3, Kit 4'),
+                             ('Sequencing', 'cBot2, HiSeqX', 'Kit 1, Kit 2, Kit 3, Kit 4')
+                         ]}
         return table_content
 
     def duplicate_marking(self):
@@ -475,31 +379,64 @@ class ProjectReport:
     def method_fields(self):
         fields = {'sample_qc': {'title': 'Sample QC',
                                 'headings': ['Method', 'QC', 'Critical equipment', 'Pass criteria'],
-                                'rows': [('Sample picogreen', 'gDNA quantified against Lambda DNA standards', 'Hamilton robot', '> 1000ng'),
-                                         ('Fragment analyzer QC', 'Quality of gDNA determined', 'Fragment analyzer', 'Quality score > 5'),
+                                'rows': [('Sample picogreen', 'gDNA quantified against Lambda DNA standards',
+                                          'Hamilton robot', '> 1000ng'),
+                                         ('Fragment analyzer QC', 'Quality of gDNA determined', 'Fragment analyzer',
+                                          'Quality score > 5'),
                                          ('gDNA QC Review Process', 'N/A', 'N/A', 'N/A')]},
                   'library_prep': {'title': 'Library preparation',
                                    'headings': ['Method', 'Purpose', 'Critical equipment'],
-                                   'rows': [('Sequencing plate preparation', 'Samples normalised to fall within 5-40ng/ul', 'Hamilton robot'),
-                                            ('Nano DNA', 'Libraries prepared using Illumina SeqLab %s' % (self.params['library_workflow']), 'Hamilton, Covaris LE220, Gemini Spectramax XP, Hybex incubators, BioRad C1000/S1000 thermal cycler')]},
+                                   'rows': [('Sequencing plate preparation',
+                                             'Samples normalised to fall within 5-40ng/ul', 'Hamilton robot'),
+                                            ('Nano DNA', 'Libraries prepared using Illumina SeqLab %s' % (
+                                            self.params['library_workflow']),
+                                             'Hamilton, Covaris LE220, Gemini Spectramax XP, Hybex incubators, BioRad C1000/S1000 thermal cycler')]},
                   'library_qc': {'title': 'Library QC',
                                  'headings': ['Method', 'QC', 'Critical equipment', 'Pass criteria'],
-                                 'rows': [('Library QC as part of Nano DNA', 'Insert size evaluated', 'Caliper GX Touch', 'Fragment sizes fall between 530bp and 730bp'),
-                                          ('Library QC as part of Nano DNA', 'Library concentration calculated', 'Roche Lightcycler', 'Concentration between 5.5nM and 40nM')]},
+                                 'rows': [(
+                                          'Library QC as part of Nano DNA', 'Insert size evaluated', 'Caliper GX Touch',
+                                          'Fragment sizes fall between 530bp and 730bp'),
+                                          ('Library QC as part of Nano DNA', 'Library concentration calculated',
+                                           'Roche Lightcycler', 'Concentration between 5.5nM and 40nM')]},
                   'sequencing': {'title': 'Sequencing',
                                  'headings': ['Method', 'Steps', 'Critical equipment'],
-                                 'rows': [('Clustering and sequencing of libraries as part of %s' % (self.params['library_workflow']), 'Clustering', 'cBot2'),
-                                          ('Clustering and Sequencing of libraries as part of %s' % (self.params['library_workflow']), 'Sequencing', 'HiSeqX')]},
+                                 'rows': [('Clustering and sequencing of libraries as part of %s' % (
+                                 self.params['library_workflow']), 'Clustering', 'cBot2'),
+                                          ('Clustering and Sequencing of libraries as part of %s' % (
+                                          self.params['library_workflow']), 'Sequencing', 'HiSeqX')]},
                   'bioinformatics': {'title': 'Bioinformatics analysis',
                                      'headings': ['Method', 'Software', 'Version'],
                                      'rows': [('Demultiplexing', 'bcl2fastq', self.params['bcl2fastq_version']),
-                                      ('Alignment', 'bwa mem', self.params['bwa_version']),
-                                      ('Duplicates marking',) + self.duplicate_marking(),
-                                      ('Indel realignment', 'GATK IndelRealigner', self.params['gatk_version']),
-                                      ('Base recalibration', 'GATK BaseRecalibrator', self.params['gatk_version']),
-                                      ('Genotype likelihood calculation', 'GATK HaplotypeCaller', self.params['gatk_version'])]}
+                                              ('Alignment', 'bwa mem', self.params['bwa_version']),
+                                              ('Duplicates marking',) + self.duplicate_marking(),
+                                              ('Indel realignment', 'GATK IndelRealigner', self.params['gatk_version']),
+                                              ('Base recalibration', 'GATK BaseRecalibrator',
+                                               self.params['gatk_version']),
+                                              ('Genotype likelihood calculation', 'GATK HaplotypeCaller',
+                                               self.params['gatk_version'])]}
                   }
         return fields
+
+    def get_authorization(self):
+        processes_from_projects = self.lims.get_processes(type='Data Release Trigger EG 1.0 ST',
+                                                          projectname=self.project_name)
+        release_data = []
+        for i, process in enumerate(processes_from_projects):
+            sample_names = [a.samples[0].name for a in process.all_inputs(resolve=True)]
+            version = 'v' + str(i + 1)
+            if process.udf.get('Is this the final data release for the project?', 'No') == 'Yes':
+                version += '-final'
+            release_data.append({
+                'samples': sample_names,
+                'version': version,
+                'name': 'Javier Santoyo',
+                'role': 'Facility Manager',
+                'date': process.date_run,
+                'id': process.id,
+                'NCs': process.udf.get('Non-Conformances', 'NA')
+
+            })
+        return release_data
 
     def get_html_template(self):
         template = {'template_base': 'report_base.html',
@@ -508,7 +445,7 @@ class ProjectReport:
 
         species = self.get_species(self.sample_name_delivered)
         analysis_type = self.get_analysis_type(self.sample_name_delivered)
-        library_workflow = self.get_library_workflow(self.sample_name_delivered)
+        library_workflows = self.get_library_workflows(self.sample_name_delivered)
         if len(species) == 1 and species.pop() == 'Human':
             bioinfo_template = ['bioinformatics_analysis_bcbio']
             formats_template = ['fastq', 'bam', 'vcf']
@@ -520,13 +457,7 @@ class ProjectReport:
             formats_template = ['fastq']
         template['bioinformatics_template'] = bioinfo_template
         template['formats_template'] = formats_template
-
-        self.params['library_workflow'] = library_workflow
-        workflow_alias = self.workflow_alias.get(library_workflow)
-        if not workflow_alias:
-            raise EGCGError('No workflow found for project %s' % self.project_name)
-        qc_alias = self.sample_qc_alias.get(workflow_alias)
-        template['laboratory_template'] = [qc_alias, 'sample_qc_table',  workflow_alias, 'library_prep_table', 'library_qc', 'library_qc_table','sequencing', 'sequencing_table']
+        template['laboratory_template'] = library_workflows + ['sequencing']
         return template
 
     def generate_report(self, output_format):
@@ -540,34 +471,31 @@ class ProjectReport:
         elif HTML:
             report_render.copy(pages).write_pdf(project_file)
 
-    def get_csv_data(self):
-        header = ['Internal ID',
-                    'External ID',
-                    'DNA QC (>1000 ng)',
-                    'Date received',
-                    'Species',
-                    'Workflow',
-                    'Yield quoted (Gb)',
-                    'Yield provided (Gb)',
-                    '% Q30 > 75%',
-                    'Quoted coverage',
-                    'Provided coverage'
-                    ]
+    def get_csv_data(self, authorisations):
+        header = [
+            'Internal ID', 'External ID', 'Date reviewed', 'DNA QC (>1000 ng)', 'Date received',
+            'Species', 'Workflow', 'Yield quoted (Gb)', 'Yield provided (Gb)', '% Q30 > 75%',
+            'Quoted coverage', 'Provided coverage'
+        ]
 
+        def find_sample_release_date_in_auth(sample):
+            return [auth.get('date') for auth in authorisations if sample in auth.get('samples')]
 
         rows = []
         for sample in self.samples_for_project_restapi:
+            date_reviewed = find_sample_release_date_in_auth(sample.get('sample_id'))
             internal_sample_name = self.get_fluidx_barcode(sample.get('sample_id')) or sample.get('sample_id')
             row = [
                 internal_sample_name,
                 sample.get('user_sample_id', 'None'),
-                round(self.get_sample_total_dna(sample.get('sample_id')),1),
+                ', '.join(date_reviewed),
+                round(self.get_sample_total_dna(sample.get('sample_id')), 1),
                 self.parse_date(self.sample_status(sample.get('sample_id')).get('started_date')),
                 sample.get('species_name'),
                 self.get_library_workflow_from_sample(sample.get('sample_id')),
                 self.get_required_yield(sample.get('sample_id')),
-                round(sample.get('clean_yield_in_gb', 'None'), 1),
-                round(sample.get('clean_pc_q30', 'None'), 1),
+                round(sample.get('aggregated').get('clean_yield_in_gb'), 1),
+                round(sample.get('aggregated').get('clean_pc_q30'), 1),
                 self.get_quoted_coverage(sample.get('sample_id')),
                 round(sample.get('coverage', {}).get('mean', 'None'), 1)
             ]
@@ -575,9 +503,9 @@ class ProjectReport:
             rows.append(row)
         return (header, rows)
 
-    def write_csv_file(self):
+    def write_csv_file(self, authorisations):
         csv_file = path.join(self.project_delivery, 'project_data.csv')
-        headers, rows = self.get_csv_data()
+        headers, rows = self.get_csv_data(authorisations)
         with open(csv_file, 'w') as outfile:
             writer = csv.writer(outfile, delimiter='\t')
             writer.writerow(headers)
@@ -586,16 +514,9 @@ class ProjectReport:
         return csv_file
 
     def get_html_content(self):
-        sample_labels = False
-        if not self.get_all_sample_names():
-            raise EGCGError('No samples found for project %s ' % (self.project_name))
-        if len(self.get_all_sample_names()) < 35:
-            sample_labels = True
-        #self.yield_plot(sample_labels=sample_labels)
-        #self.qc_plot(sample_labels=sample_labels)
+
         self.yield_vs_coverage_plot()
 
-        #self.params['csv_path'] = self.write_csv_file()
         self.params['csv_path'] = 'summary_metrics.csv'
         template_dir = path.join(path.dirname(path.abspath(__file__)), 'templates')
         env = Environment(loader=FileSystemLoader(template_dir))
@@ -603,15 +524,18 @@ class ProjectReport:
         template1 = env.get_template(project_templates.get('template_base'))
         template2 = env.get_template('csv_base.html')
         self.store_sample_info()
+        authorisations = self.get_authorization()
         report = template1.render(
+            authorisations=authorisations,
             project_info=self.get_project_info(),
             project_stats=self.calculate_project_statistsics(),
             project_templates=project_templates,
             params=self.params
         )
 
-        csv_table_headers, csv_table_rows  = self.get_csv_data()
+        csv_table_headers, csv_table_rows = self.get_csv_data(authorisations)
         appendices = template2.render(
+            authorisations=authorisations,
             report_csv_headers=csv_table_headers,
             report_csv_rows=csv_table_rows,
             csv_path=self.params['csv_path'],

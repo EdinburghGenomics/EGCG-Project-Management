@@ -22,12 +22,14 @@
                     content: "Appendix page "counter(page) " of " counter(pages);
                 }
                 @bottom-left {
-                    content: "EGC-BTP-1 rev. 1";
+                    content: "EGC-BTP-1 rev. 2";
                 }
 
                 @bottom-right {
-                    content: "Project ID: {{ project_id }}";
+                    {% set last = authorisations|last %}
+                    content: "{{ project_id }} {{ last.version }}";
                 }
+
             }
         </style>
         <meta charset="UTF-8">
