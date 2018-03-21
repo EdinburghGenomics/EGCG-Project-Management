@@ -47,7 +47,7 @@ class TestProjectReport(IntegrationTest):
         patch('project_report.ProjectReport.sample_status', return_value={'started_date': '2018-02-08'})
     )
 
-    run_element_template = {'run_id': 'a_run', 'barcode': 'ATGC', 'library_id': 'a_library'}
+    run_element_template = {'run_id': 'a_run', 'barcode': 'ATGC', 'library_id': 'a_library', 'useable': 'yes'}
     sample_template = {
         'coverage': {'mean': 37, 'evenness': 15, 'bases_at_coverage': {'bases_at_15X': 300}},
         'required_yield_q30': 1.0,
