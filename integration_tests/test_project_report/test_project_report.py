@@ -117,9 +117,11 @@ class TestProjectReport(IntegrationTest):
     @classmethod
     def setUpClass(cls):
         cfg.content = {
-            'sample': {
-                'delivery_source': cls.delivery_source,
-                'delivery_dest': cls.delivery_dest
+            'delivery':{
+                'source': cls.delivery_source,
+                'dest': cls.delivery_dest,
+                'signature_name': 'He-Man',
+                'signature_role': 'Prince'
             }
         }
 
@@ -212,10 +214,10 @@ class TestProjectReport(IntegrationTest):
     def test_reports(self):
         test_success = True
         exp_md5s = {
-            'htn999': '51fff672373cdea740abb722a4825321',
-            'nhtn999': 'c132ae34518f848551cf0b73facd29a6',
-            'hpf999': '83b3fa26d6cad6f3792e1a1df6cedfd6',
-            'nhpf999': 'd1b3c970acaaa1257799a7d26efde5a4'
+            'htn999': '0a6be8e264c5a576f38c47ed61506ca9',
+            'nhtn999': 'ce9d5f3de7afefe2029e58b2cf1f19e7',
+            'hpf999': 'd807329abebae10d04dd27ffea83cc6b',
+            'nhpf999': '8ec3398d0594c1d6be7da9843e011eaf'
         }
         for k, v in exp_md5s.items():
             client.main(['-p', k, '-o', 'html', '-w', work_dir])

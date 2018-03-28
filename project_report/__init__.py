@@ -53,8 +53,8 @@ class ProjectReport:
     def __init__(self, project_name, working_dir=None):
         self.project_name = project_name
         self.working_dir = working_dir or os.getcwd()
-        self.project_source = path.join(cfg.query('sample', 'delivery_source'), project_name)
-        self.project_delivery = path.join(cfg.query('sample', 'delivery_dest'), project_name)
+        self.project_source = path.join(cfg.query('delivery', 'source'), project_name)
+        self.project_delivery = path.join(cfg.query('delivery', 'dest'), project_name)
         self.lims = connection()
         self.params = {
             'project_name': project_name,
@@ -161,7 +161,7 @@ class ProjectReport:
 
     @staticmethod
     def calculate_mean(values):
-        return (sum(values) / max(len(values), 1))
+        return sum(values) / max(len(values), 1)
 
     @property
     def project_title(self):
@@ -195,7 +195,7 @@ class ProjectReport:
         with open(summary_yaml, 'r') as open_file:
             full_yaml = yaml.safe_load(open_file)
         sample_yaml = full_yaml['samples'][0]
-        return (path.basename(path.dirname(sample_yaml['dirs']['galaxy'])), sample_yaml['genome_build'])
+        return path.basename(path.dirname(sample_yaml['dirs']['galaxy'])), sample_yaml['genome_build']
 
     def update_from_program_version_yaml(self, prog_vers_yaml):
         with open(prog_vers_yaml, 'r') as open_file:
@@ -297,12 +297,12 @@ class ProjectReport:
         for sample in self.samples_for_project_restapi:
 
             req = (self.get_required_yield(sample.get('sample_id')), self.get_quoted_coverage(sample.get('sample_id')))
-            if not req in req_to_metrics:
+            if req not in req_to_metrics:
                 req_to_metrics[req] = {'samples': [], 'clean_yield': [], 'coverage': []}
             all_yield_metrics = [sample.get('sample_id'),
                                  sample.get('aggregated').get('clean_yield_in_gb'),
                                  sample.get('coverage').get('mean')]
-            if not None in all_yield_metrics:
+            if None not in all_yield_metrics:
                 req_to_metrics[req]['samples'].append(all_yield_metrics[0])
                 req_to_metrics[req]['clean_yield'].append(all_yield_metrics[1])
                 req_to_metrics[req]['coverage'].append(all_yield_metrics[2])
@@ -355,20 +355,6 @@ class ProjectReport:
                 'file': 'file://' + os.path.abspath(plot_outfile)
             })
         self.params['yield_cov_chart'] = list_plots
-
-    def kits_and_equipment(self):
-        table_content = {'headings': ['Process', 'Critical equipment', 'Kits'],
-                         'rows': [
-                             ('Sample QC', 'Fragment analyzer, Hamilton robot', 'Kit 1, Kit 2, Kit 3, Kit 4'),
-                             ('Library prep', 'Hamilton Star, '
-                                              'Covaris LE220, '
-                                              'Gemini Spectramax XP, '
-                                              'Hybex incubators, '
-                                              'BioRad C1000/S1000 thermal cycler', 'Kit 1, Kit 2, Kit 3, Kit 4'),
-                             ('Library QC', 'Caliper GX Touch, Roche Lightcycler', 'Kit 1, Kit 2, Kit 3, Kit 4'),
-                             ('Sequencing', 'cBot2, HiSeqX', 'Kit 1, Kit 2, Kit 3, Kit 4')
-                         ]}
-        return table_content
 
     def duplicate_marking(self):
         if 'biobambam_sortmapdup_version' in self.params:
@@ -429,12 +415,11 @@ class ProjectReport:
             release_data.append({
                 'samples': sample_names,
                 'version': version,
-                'name': 'Javier Santoyo',
-                'role': 'Facility Manager',
+                'name': cfg.query('delivery', 'signature_name'),
+                'role': cfg.query('delivery', 'signature_role'),
                 'date': process.date_run,
                 'id': process.id,
-                'NCs': process.udf.get('Non-Conformances', 'NA')
-
+                'NCs': process.udf.get('Non-Conformances', '')
             })
         return release_data
 
@@ -501,7 +486,7 @@ class ProjectReport:
             ]
 
             rows.append(row)
-        return (header, rows)
+        return header, rows
 
     def write_csv_file(self, authorisations):
         csv_file = path.join(self.project_delivery, 'project_data.csv')
@@ -540,7 +525,6 @@ class ProjectReport:
             report_csv_rows=csv_table_rows,
             csv_path=self.params['csv_path'],
             project_id=self.params['project_name'],
-            method_fields=self.kits_and_equipment()
         )
         combined_report_html = (report + appendices)
         report_html = HTML(string=report)
