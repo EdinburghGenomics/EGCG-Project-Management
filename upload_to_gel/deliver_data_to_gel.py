@@ -132,6 +132,7 @@ class GelDataDelivery(AppLogger):
     def delivery_id(self):
         if self.dry_run:
             return 'ED00TEST'
+
         did = self.deliver_db.get_most_recent_delivery_id(self.sample_id)
         if not did or self.force_new_delivery:
             did = self.deliver_db.create_delivery(self.sample_id, self.external_id)
@@ -168,9 +169,7 @@ class GelDataDelivery(AppLogger):
         return self.sample_data[ELEMENT_SAMPLE_EXTERNAL_ID]
 
     def cleanup(self):
-        if self.no_cleanup:
-            return
-        if os.path.exists(self.staging_dir):
+        if os.path.exists(self.staging_dir) and not self.no_cleanup:
             shutil.rmtree(self.staging_dir)
 
     def link_fastq_files(self, fastq_path):
@@ -216,35 +215,44 @@ class GelDataDelivery(AppLogger):
             return False
 
     def deliver_data(self):
-        # external sample_id is what GEL used as a sample barcode
+        # external sample_id is what GEL uses as a sample barcode
         delivery_id_path = os.path.join(self.staging_dir, self.delivery_id)
         sample_path = os.path.join(delivery_id_path, self.sample_barcode)
         fastq_path = os.path.join(sample_path, 'fastq')
+
+        upload_state, = self.deliver_db.get_info_from(self.delivery_id, 'upload_state')
+        if upload_state == SUCCESS_KW and not self.force_new_delivery:
+            self.info('Already uploaded successfully: will do nothing without --force_new_delivery')
+            return
+
+        if self.dry_run:
+            self.info(
+                'Dry run: will do delivery %s for sample %s, barcode %s',
+                self.delivery_id, self.sample_id, self.sample_barcode
+            )
+            return
 
         os.makedirs(fastq_path, exist_ok=True)
         self.link_fastq_files(fastq_path)
         self.create_md5sum_txt(sample_path)
 
-        if not self.dry_run:
-            if not self.delivery_id_exists():
-                send_action_to_rest_api(action='create', delivery_id=self.delivery_id, sample_id=self.sample_barcode)
-            exit_code = self.try_rsync(delivery_id_path)
-            self.info('Rsync exit code is %s', exit_code)
-            if exit_code == 0:
-                self.deliver_db.set_upload_state(self.delivery_id, SUCCESS_KW)
-                send_action_to_rest_api(action='delivered', delivery_id=self.delivery_id, sample_id=self.sample_barcode)
-            else:
-                self.deliver_db.set_upload_state(self.delivery_id, FAILURE_KW)
-                send_action_to_rest_api(
-                    action='upload_failed',
-                    delivery_id=self.delivery_id,
-                    sample_id=self.sample_barcode,
-                    failure_reason='rsync returned %s exit code' % exit_code
-                )
+        if not self.delivery_id_exists():
+            send_action_to_rest_api(action='create', delivery_id=self.delivery_id, sample_id=self.sample_barcode)
+
+        exit_code = self.try_rsync(delivery_id_path)
+        self.info('Rsync exit code: %s', exit_code)
+        if exit_code == 0:
+            self.deliver_db.set_upload_state(self.delivery_id, SUCCESS_KW)
+            send_action_to_rest_api(action='delivered', delivery_id=self.delivery_id, sample_id=self.sample_barcode)
         else:
-            self.info('Create delivery id %s from sample_id=%s', self.delivery_id, self.sample_id)
-            self.info('Create delivery platform sample_barcode=%s', self.sample_barcode)
-            self.info('Run rsync')
+            self.deliver_db.set_upload_state(self.delivery_id, FAILURE_KW)
+            send_action_to_rest_api(
+                action='upload_failed',
+                delivery_id=self.delivery_id,
+                sample_id=self.sample_barcode,
+                failure_reason='rsync returned %s exit code' % exit_code
+            )
+
         self.cleanup()
 
     def check_delivery_data(self):
