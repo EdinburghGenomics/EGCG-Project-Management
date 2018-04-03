@@ -26,6 +26,11 @@ email_template_repeats = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'etc', 'list_repeat.html'
 )
 
+
+def today():
+    return date.today().isoformat()
+
+
 def run_status_data(run_id):
     if not cache['run_status_data']:
         data = rest_communication.get_documents('lims/status/run_status')
@@ -69,6 +74,7 @@ def get_run_success(run_id):
             reasons.update(
                 lane_review_comment.get(lane).pop()[len('failed due to '):].split(', ')
             )
+    reasons = sorted(reasons)
     message = '%s: %s lanes failed ' % (run_id, count_failure)
     run_info['count_fail'] = count_failure
     if count_failure > 0:
@@ -120,13 +126,13 @@ def report_runs(run_ids):
             print('%s: No repeat' % run_id)
         runs_repeats.append({'name': run_id, 'count_repeat': len(samples_fail), 'sample_list': samples_fail})
 
-    today = date.today()
+    _today = today()
 
     params = {}
     params.update(cfg['run_report']['email_notification'])
     params['runs'] = runs_info
     send_html_email(
-        subject='Run report %s' % today.isoformat(),
+        subject='Run report %s' % _today,
         email_template=email_template_report,
         **params
     )
@@ -135,7 +141,7 @@ def report_runs(run_ids):
     params.update(cfg['run_report']['email_notification'])
     params['runs'] = runs_repeats
     send_html_email(
-        subject='List of repeat %s' % today.isoformat(),
+        subject='List of repeat %s' % _today,
         email_template=email_template_repeats,
         **params
     )

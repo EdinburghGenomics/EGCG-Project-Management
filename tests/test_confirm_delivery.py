@@ -207,12 +207,13 @@ class TestConfirmDelivery(TestProjectManagement):
     @patch('egcg_core.clarity.connection')
     @patch('egcg_core.clarity.get_workflow_stage')
     @patch('egcg_core.clarity.get_list_of_samples')
-    def test_confirm_download_in_lims(self, mocked_get_list_of_samples, mocked_get_workflow_stage,
-                                      mocked_lims_connection):
+    def test_confirm_download_in_lims(self, mocked_get_list_of_samples, mocked_get_workflow_stage, mocked_lims_connection):
         mocked_get_list_of_samples.return_value = [Mock(artifact=Mock(spec=Artifact))]
-        mocked_get_workflow_stage.return_value = Mock(step=Mock(spec=ProtocolStep, id='s1', permittedcontainers=list()))
+        mocked_get_workflow_stage.return_value = Mock(step=Mock(spec=ProtocolStep, id='s1', permitted_containers=[]))
         self.c.confirmed_samples.append('sample1')
         self.c.confirm_download_in_lims()
         mocked_get_list_of_samples.assert_called_with(sample_names=['sample1'])
-        mocked_get_workflow_stage.assert_called_with(stage_name='Download Confirmation EG 1.0 ST',
-                                                     workflow_name='PostSeqLab EG 1.0 WF')
+        mocked_get_workflow_stage.assert_called_with(
+            stage_name='Download Confirmation EG 1.0 ST',
+            workflow_name='PostSeqLab EG 1.0 WF'
+        )
