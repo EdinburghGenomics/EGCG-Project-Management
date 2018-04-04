@@ -64,7 +64,7 @@ def test_get_run_success(mocked_print):
 
     assert report_runs.get_run_success('a_run') == {
         'name': 'a_run',
-        'count_fail': 2,
+        'failed_lanes': 2,
         'details': 'things, thungs'
     }
 
@@ -81,7 +81,7 @@ def test_get_run_success(mocked_print):
 
 
 @patch('bin.report_runs.send_html_email')
-@patch('bin.report_runs.get_run_success', return_value={'name': 'successful_run', 'count_fail': 0, 'details': []})
+@patch('bin.report_runs.get_run_success', return_value={'name': 'successful_run', 'failed_lanes': 0, 'details': []})
 @patch('bin.report_runs.today', return_value='today')
 def test_report_runs(mocked_today, mocked_run_success, mocked_email):
     report_runs.cfg.content = {'run_report': {'email_notification': {}}}
@@ -114,22 +114,22 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
         subject='Run report today',
         email_template=report_runs.email_template_report,
         runs=[
-            {'name': 'successful_run', 'count_fail': 0, 'details': []},
-            {'name': 'errored_run', 'count_fail': 8, 'details': 'RunErrored'}
+            {'name': 'successful_run', 'failed_lanes': 0, 'details': []},
+            {'name': 'errored_run', 'failed_lanes': 8, 'details': 'RunErrored'}
         ]
     )
 
     exp_failing_samples = [
-        {'id': 'no_data', 'reason': 'No data'},
-        {'id': 'poor_quality', 'reason': 'Low quality'},
-        {'id': 'poor_yield_and_coverage', 'reason': 'Not enough data'}
+        {'id': 'no_data', 'reason': 'No data: not processing'},
+        {'id': 'poor_quality', 'reason': 'Low quality: not processing'},
+        {'id': 'poor_yield_and_coverage', 'reason': 'Not enough data: not processing'}
     ]
 
     mocked_email.assert_any_call(
-        subject='List of repeat today',
+        subject='Sequencing repeats today',
         email_template=report_runs.email_template_repeats,
         runs=[
-            {'name': 'a_run', 'count_repeat': 3, 'sample_list': exp_failing_samples},
-            {'name': 'errored_run', 'count_repeat': 3, 'sample_list': exp_failing_samples}
+            {'name': 'a_run', 'repeat_count': 3, 'repeats': exp_failing_samples},
+            {'name': 'errored_run', 'repeat_count': 3, 'repeats': exp_failing_samples}
         ]
     )

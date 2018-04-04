@@ -20,7 +20,7 @@
             {% for run in runs %}
                 <tr>
                     <td style="border: 1px solid black;">{{run.name}}</td>
-                    <td style="border: 1px solid black; text-align: right;">{{run.count_fail}}</td>
+                    <td style="border: 1px solid black; text-align: right;">{{run.failed_lanes}}</td>
                     <td style="border: 1px solid black;">{{run.details}}</td>
                 </tr>
             {% endfor %}
