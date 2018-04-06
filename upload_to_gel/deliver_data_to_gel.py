@@ -82,12 +82,12 @@ class DeliveryDB:
 
     def report_all(self):
         self.cursor.execute('SELECT * FROM delivery')
-        keys = ('id', 'sample_id', 'external_sample_id', 'creation_date', 'upload_state', 'upload_confirm_date',
+        keys = ('delivery_id', 'sample_id', 'external_sample_id', 'creation_date', 'upload_state', 'upload_confirm_date',
                 'md5_state', 'md5_confirm_date', 'qc_state', 'qc_confirm_date', 'failure_reason')
 
         print('\t'.join(keys))
         for delivery in self.cursor.fetchall():
-            print('\t'.join(str(f) for f in delivery))
+            print('\t'.join([self._delivery_number_to_id(delivery[0])] + [str(f) for f in delivery[1:]]))
 
     def __del__(self):
         self.delivery_db.close()
