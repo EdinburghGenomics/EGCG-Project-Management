@@ -64,6 +64,8 @@ class TestDeliveryDB(TestProjectManagement):
         assert self.deliverydb.get_info_from(_id, 'sample_id') == ('sample1',)
 
     def test_get_info_from(self):
+        obs = self.deliverydb.get_info_from('ED0', 'sample_id')
+        assert obs is None
         _id = self.deliverydb.create_delivery('a_sample', 'an_external_sample')
         self.deliverydb.set_upload_state(_id, 'success')
         self.deliverydb.set_md5_state(_id, 'success')
@@ -194,13 +196,58 @@ class TestGelDataDelivery(TestProjectManagement):
         with self.patch_create_delivery, self.patch_sample_data1:
             assert self.gel_data_delivery.delivery_id == 'ED00000005'
 
-    def test_deliver_data_dry(self):
-        with self.patch_sample_data1, self.patch_fluidxbarcode1, \
-             patch('upload_to_gel.deliver_data_to_gel.GelDataDelivery.info') as mock_info:
+    def _check_already_uploaded(self):
+        with patch.object(GelDataDelivery, 'info') as mocked_info:
             self.gel_data_delivery_dry.deliver_data()
-            mock_info.assert_any_call('Create delivery id %s from sample_id=%s', 'ED00TEST', 'sample1')
-            mock_info.assert_any_call('Create delivery platform sample_barcode=%s', '123456789_ext_sample1')
-            mock_info.assert_called_with('Run rsync')
+            assert mocked_info.call_count == 1
+            mocked_info.assert_called_with('Already uploaded successfully: will do nothing without --force_new_delivery')
+
+    def _check_dry_run(self):
+        with patch.object(GelDataDelivery, 'info') as mocked_info:
+            self.gel_data_delivery_dry.deliver_data()
+            assert mocked_info.call_count == 1
+            mocked_info.assert_called_with(
+                'Dry run: will do delivery %s for sample %s, barcode %s',
+                'ED00TEST', 'sample1', '123456789_ext_sample1'
+            )
+
+    @patch.object(DeliveryDB, 'get_info_from', return_value=('passed',))
+    def test_deliver_data_dry(self, mocked_get_info):
+        with self.patch_sample_data1, self.patch_fluidxbarcode1:
+            self._check_already_uploaded()
+            mocked_get_info.return_value = ('failed',)
+            self._check_dry_run()
+
+    def test_force(self):
+        with self.patch_sample_data1, self.patch_fluidxbarcode1, \
+             patch.object(DeliveryDB, 'get_info_from', return_value=('passed',)):
+            self._check_already_uploaded()
+            self.gel_data_delivery_dry.force_new_delivery = True
+            self._check_dry_run()
+
+    @patch('egcg_core.executor.local_execute', return_value=Mock(join=Mock(return_value=0)))
+    @patch.object(DeliveryDB, 'get_info_from', return_value=('failed',))
+    @patch.object(GelDataDelivery, 'info')
+    def test_deliver_data(self, mocked_info, mocked_get_info, mocked_execute):
+        with self.patch_sample_data1, self.patch_fluidxbarcode1, \
+             patch.object(GelDataDelivery, 'delivery_id', PropertyMock(return_value='ED01')), \
+             self.patch_send_action as mocked_send_action, \
+                patch.object(GelDataDelivery, 'delivery_id_exists', return_value=False):
+            self.gel_data_delivery.deliver_data()
+            source = os.path.join(self.gel_data_delivery.staging_dir, self.gel_data_delivery.delivery_id)
+
+            rsync_cmd = ('rsync -rv -L --timeout=300 --append --partial --chmod ug+rwx,o-rwx --perms ',
+                         '-e "ssh -o StrictHostKeyChecking=no -o TCPKeepAlive=yes -o ServerAliveInterval=100 ',
+                         '-o KeepAlive=yes -o BatchMode=yes -o LogLevel=Error -i path/to/id_rsa.pub -p 22" ',
+                         '{source} user@gelupload.com:/destination/'.format(source=source))
+
+            mocked_execute.assert_any_call(''.join(rsync_cmd))
+            mocked_execute().join.assert_called_with()
+            assert os.listdir(source) == [self.gel_data_delivery.external_id]
+            assert os.listdir(source + '/' + self.gel_data_delivery.external_id) == ['fastq', 'md5sum.txt']
+            mocked_send_action.assert_any_call(action='create', delivery_id='ED01', sample_id='123456789_ext_sample1')
+            mocked_send_action.assert_called_with(action='delivered', delivery_id='ED01',
+                                                  sample_id='123456789_ext_sample1')
 
     def _test_deliver_data(self, execute_return, delivered_state):
         with self.patch_sample_data1, self.patch_fluidxbarcode1, \
