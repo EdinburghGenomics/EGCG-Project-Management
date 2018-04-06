@@ -11,12 +11,14 @@ from os.path import basename, join, dirname
 from cached_property import cached_property
 from egcg_core import executor, rest_communication, clarity
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
+from egcg_core.clarity import connection
 from egcg_core.config import cfg
 from egcg_core.constants import ELEMENT_NB_READS_CLEANED, ELEMENT_RUN_NAME, ELEMENT_PROJECT_ID, ELEMENT_LANE, \
     ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_RUN_ELEMENT_ID, ELEMENT_USEABLE
 from egcg_core.exceptions import EGCGError
 from egcg_core.notifications.email import send_html_email
-from egcg_core.util import find_fastqs
+from egcg_core.util import find_fastqs, query_dict
+from pyclarity_lims.entities import Process
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from project_report import ProjectReport
@@ -44,6 +46,7 @@ email_template = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'etc', 'delivery_email_template.html'
 )
 
+
 def _execute(*commands, **kwargs):
     exit_status = executor.execute(*commands, **kwargs).join()
     if exit_status != 0:
@@ -55,51 +58,56 @@ def _now():
 
 
 class DataDelivery(AppLogger):
-    def __init__(self, dry_run, work_dir, no_cleanup=False, email=True):
-        self.all_commands_for_cluster = []
-        self.postponed_register = []
+    def __init__(self, dry_run, work_dir, process_id, no_cleanup=False, email=True):
+        self.process_id = process_id
         self.dry_run = dry_run
-        self.all_samples_values = []
-        self.sample2species = {}
-        self.sample2analysis_type = {}
         self.work_dir = work_dir
-        self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + _now())
         self.no_cleanup = no_cleanup
         self.email = email
+        self.all_commands_for_cluster = []
+        self.postponed_register = []
+        self.all_samples_dict = []
+        self.sample2species = {}
+        self.sample2analysis_type = {}
+        self.samples2list_files = defaultdict(list)
+        self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + _now())
         self.delivery_dest = cfg.query('delivery', 'dest')
         self.delivery_source = cfg.query('delivery', 'source')
-        self.samples2list_files = defaultdict(list)
 
     @cached_property
     def today(self):
-        return  datetime.date.today().isoformat()
+        return datetime.date.today().isoformat()
 
-    def get_deliverable_projects_samples(self, project_id=None, sample_id=None):
+    @staticmethod
+    def parse_date(date):
+        if not date:
+            return 'NA'
+        return datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y-%m-%d')
+
+    @staticmethod
+    def library_alias(library_type):
+        return {'nano': 'TruSeq Nano', 'pcrfree': 'TruSeq PCR-Free'}.get(library_type, 'NA')
+
+    @cached_property
+    def get_deliverable_samples(self):
+        """Retrieve the names of samples that went through the authorisation step. Then get the data associated."""
+        p = Process(connection(), id=self.process_id)
+        if p.type.name != 'Authorised process name':
+            raise ValueError('Process %s is not of the type Authorised process name')
+        sample_names = [a.samples[0].name for a in p.all_inputs(resolve=True)]
         project_to_samples = defaultdict(list)
-        # Get sample that have been review from REST API but not marked as delivered
-        where_clause = {"useable": "yes"}
-        if project_id:
-            where_clause["project_id"] = project_id
-        if sample_id:
-            where_clause["sample_id"] = sample_id
-        # These samples are useable but could have been delivered already so need to check
-        samples = rest_communication.get_documents(
-            'samples',
-            all_pages=True,
-            quiet=True,
-            embedded={"analysis_driver_procs": 1, "run_elements": 1},
-            where=where_clause
-        )
+
+        samples = [
+            {
+                'data': rest_communication.get_document('samples', where={'sample_id': sample}),
+                'udfs': rest_communication.get_document('lims/samples', match={'sample_id': sample}),
+                'status': rest_communication.get_document('lims/status/sample_status', match={'sample_id': sample})
+            }
+            for sample in sample_names
+        ]
         for sample in samples:
-            processes = sample.get('analysis_driver_procs', [{}])
-            processes.sort(
-                key=lambda x: datetime.datetime.strptime(x.get('_created', '01_01_1970_00:00:00'),
-                                                         '%d_%m_%Y_%H:%M:%S'))
-            if not processes[-1].get('status', 'new') == 'finished':
-                raise EGCGError("Reviewed sample %s not marked as finished" % sample.get('sample_id'))
-            if sample.get('delivered', 'no') == 'no':
-                project_to_samples[sample.get('project_id')].append(sample)
-                self.all_samples_values.append(sample)
+            project_to_samples[sample.get('data').get('project_id')].append(sample.get('data'))
+            self.all_samples_dict[sample.get('data').get('sample_id')] = sample
         return project_to_samples
 
     def stage_data(self, sample):
@@ -197,50 +205,31 @@ class DataDelivery(AppLogger):
             self.register_file(*tuple_val)
 
     def summarise_metrics_per_sample(self, project_id, delivery_folder):
-        headers = ['Project', 'Sample Id', 'User sample id', 'Read pair sequenced', 'Yield', 'Yield Q30',
-                   'Nb reads in bam', 'mapping rate', 'properly mapped reads rate', 'duplicate rate',
-                   'Mean coverage', 'Delivery folder']
-        headers_not_human = ['Project', 'Sample Id', 'User sample id', 'Read pair sequenced', 'Yield', 'Yield Q30',
-                             'Delivery folder']
+        headers = ['Project', 'Sample Id', 'Species', 'Library type', 'User sample id', 'Number of Read pair',
+                   'Target Yield', 'Yield', 'Yield Q30', '%Q30', 'Mapped reads rate', 'Duplicate rate',
+                   'Target Coverage', 'Mean coverage', 'Delivery folder']
         lines = []
-        for sample in self.all_samples_values:
-            # TODO: Aggregation is done here until we can do the filtering on the REST API
-            if sample.get('project_id') == project_id:
-                res = [sample.get('project_id'), sample.get('sample_id'), sample.get('user_sample_id')]
-                clean_reads = sum([int(e.get('clean_reads', '0')) for e in sample.get('run_elements') if
-                                   e.get('useable') == 'yes'])
-                clean_bases_r1 = sum([int(e.get('clean_bases_r1', '0')) for e in sample.get('run_elements') if
-                                      e.get('useable') == 'yes'])
-                clean_bases_r2 = sum([int(e.get('clean_bases_r2', '0')) for e in sample.get('run_elements') if
-                                      e.get('useable') == 'yes'])
-                clean_q30_bases_r1 = sum(int(e.get('clean_q30_bases_r1', '0')) for e in sample.get('run_elements') if
-                                         e.get('useable') == 'yes')
-                clean_q30_bases_r2 = sum(int(e.get('clean_q30_bases_r2', '0')) for e in sample.get('run_elements') if
-                                         e.get('useable') == 'yes')
-                res.append(str(clean_reads))
-                res.append(str((clean_bases_r1 + clean_bases_r2) / 1000000000))
-                res.append(str((clean_q30_bases_r1 + clean_q30_bases_r2) / 1000000000))
-                if self.get_sample_species(sample.get('sample_id')) == 'Homo sapiens' or \
-                   self.get_analysis_type(sample.get('sample_id')) in ['Variant Calling', 'Variant Calling gatk'] :
-                    tr = sample.get('bam_file_reads', 0)
-                    mr = sample.get('mapped_reads', 0)
-                    dr = sample.get('duplicate_reads', 0)
-                    pmr = sample.get('properly_mapped_reads', 0)
-                    if not tr:
-                        raise EGCGError('Sample %s has no total number of reads' % sample.get('sample_id'))
-                    res.append(str(tr))
-                    res.append(str(float(mr) / float(tr) * 100))
-                    res.append(str(float(pmr) / float(tr) * 100))
-                    res.append(str(float(dr) / float(tr) * 100))
-                    mean_cov = sample.get('coverage', {}).get('mean')
-
-                    # legacy code to get the coverage info for old samples
-                    if not mean_cov:
-                        mean_cov = sample.get('median_coverage', 0)
-                    res.append(str(mean_cov))
-                else:
-                    headers = headers_not_human
-                res.append(os.path.basename(delivery_folder))
+        for sample_id, sample_data in self.all_samples_dict.items():
+            if sample_data.get('project_id') == project_id:
+                res = [
+                    query_dict(sample_data, 'data.project_id'),
+                    sample_id,
+                    query_dict(sample_data, 'data.user_sample_id'),
+                    query_dict(sample_data, 'data.species_name'),
+                    self.library_alias(query_dict(sample_data, 'status.library_type')),
+                    self.parse_date(query_dict(sample_data, 'status.started_date')),
+                    query_dict(sample_data, 'udfs.Total DNA(ng)'),
+                    query_dict(sample_data, 'data.aggregated.clean_reads'),
+                    query_dict(sample_data, 'data.required_yield'),
+                    query_dict(sample_data, 'data.aggregated.yield_in_gb'),
+                    query_dict(sample_data, 'data.aggregated.yield_q30_in_gb'),
+                    query_dict(sample_data, 'data.aggregated.pc_q30'),
+                    query_dict(sample_data, 'data.aggregated.pc_mapped_reads'),
+                    query_dict(sample_data, 'data.aggregated.pc_duplicate_reads'),
+                    query_dict(sample_data, 'data.required_coverage'),
+                    query_dict(sample_data, 'data.coverage.mean'),
+                    os.path.basename(delivery_folder)
+                ]
                 lines.append('\t'.join(res))
         return headers, lines
 
@@ -383,8 +372,8 @@ class DataDelivery(AppLogger):
             shutil.rmtree(self.staging_dir)
             self.debug('Cleaned up staging dir %s', self.staging_dir)
 
-    def deliver_data(self, project_id=None, sample_id=None):
-        project_to_samples = self.get_deliverable_projects_samples(project_id, sample_id)
+    def deliver_data(self):
+        project_to_samples = self.get_deliverable_samples()
         project_to_delivery_folder = {}
         sample2stagedirectory = {}
         for project in project_to_samples:
@@ -490,7 +479,6 @@ def main(argv=None):
     p.add_argument('--no_cleanup', action='store_true')
     p.add_argument('--noemail', dest='email', action='store_false')
     p.add_argument('--work_dir', type=str, required=True)
-    p.add_argument('--mark_only', action='store_true')
     p.add_argument('--project_id', type=str)
     p.add_argument('--sample_id', type=str)
     args = p.parse_args(argv)
@@ -503,11 +491,9 @@ def main(argv=None):
         log_cfg.set_log_level(logging.DEBUG)
 
     cfg.merge(cfg['sample'])
-    dd = DataDelivery(args.dry_run, args.work_dir, no_cleanup=args.no_cleanup, email=args.email)
-    if args.mark_only:
-        dd.mark_only(project_id=args.project_id, sample_id=args.sample_id)
-    else:
-        dd.deliver_data(project_id=args.project_id, sample_id=args.sample_id)
+    dd = DataDelivery(args.dry_run, args.work_dir, no_cleanup=args.no_cleanup,
+                      email=args.email, process_id=args.process_id)
+    dd.deliver_data()
 
 
 if __name__ == '__main__':
