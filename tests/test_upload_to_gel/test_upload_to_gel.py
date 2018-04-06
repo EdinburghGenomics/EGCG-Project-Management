@@ -225,30 +225,6 @@ class TestGelDataDelivery(TestProjectManagement):
             self.gel_data_delivery_dry.force_new_delivery = True
             self._check_dry_run()
 
-    @patch('egcg_core.executor.local_execute', return_value=Mock(join=Mock(return_value=0)))
-    @patch.object(DeliveryDB, 'get_info_from', return_value=('failed',))
-    @patch.object(GelDataDelivery, 'info')
-    def test_deliver_data(self, mocked_info, mocked_get_info, mocked_execute):
-        with self.patch_sample_data1, self.patch_fluidxbarcode1, \
-             patch.object(GelDataDelivery, 'delivery_id', PropertyMock(return_value='ED01')), \
-             self.patch_send_action as mocked_send_action, \
-                patch.object(GelDataDelivery, 'delivery_id_exists', return_value=False):
-            self.gel_data_delivery.deliver_data()
-            source = os.path.join(self.gel_data_delivery.staging_dir, self.gel_data_delivery.delivery_id)
-
-            rsync_cmd = ('rsync -rv -L --timeout=300 --append --partial --chmod ug+rwx,o-rwx --perms ',
-                         '-e "ssh -o StrictHostKeyChecking=no -o TCPKeepAlive=yes -o ServerAliveInterval=100 ',
-                         '-o KeepAlive=yes -o BatchMode=yes -o LogLevel=Error -i path/to/id_rsa.pub -p 22" ',
-                         '{source} user@gelupload.com:/destination/'.format(source=source))
-
-            mocked_execute.assert_any_call(''.join(rsync_cmd))
-            mocked_execute().join.assert_called_with()
-            assert os.listdir(source) == [self.gel_data_delivery.external_id]
-            assert os.listdir(source + '/' + self.gel_data_delivery.external_id) == ['fastq', 'md5sum.txt']
-            mocked_send_action.assert_any_call(action='create', delivery_id='ED01', sample_id='123456789_ext_sample1')
-            mocked_send_action.assert_called_with(action='delivered', delivery_id='ED01',
-                                                  sample_id='123456789_ext_sample1')
-
     def _test_deliver_data(self, execute_return, delivered_state):
         with self.patch_sample_data1, self.patch_fluidxbarcode1, \
              self.patch_send_action as mocked_send_action, \
@@ -293,7 +269,6 @@ class TestGelDataDelivery(TestProjectManagement):
                     failure_reason='rsync returned %s exit code' % execute_return
                 )
                 assert mock_execute.call_count == 3
-
 
     def test_deliver_data_success(self):
         self._test_deliver_data(execute_return=0, delivered_state='passed')
