@@ -2,6 +2,13 @@ import hashlib
 import os
 from os.path import join, abspath, dirname
 from unittest import TestCase
+from unittest.mock import Mock
+
+
+class NamedMock(Mock):
+    def __init__(self, name, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.name = name
 
 
 class TestProjectManagement(TestCase):

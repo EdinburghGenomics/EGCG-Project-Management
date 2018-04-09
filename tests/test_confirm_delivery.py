@@ -53,7 +53,8 @@ class TestDeliveredSample(TestProjectManagement):
             self.mkdir(d)
 
         self.file_to_create = [
-            join(delivery_dir, 'project1', 'date_delivery', 'sample1', 'sample1.bam')
+            join(delivery_dir, 'project1', 'date_delivery', 'sample1', 'sample1.bam'),
+            join(delivery_dir, 'project1', 'date_delivery', 'sample1', 'sample1.g.vcf.gz')
         ]
         for f in self.file_to_create:
             self.touch(f)
@@ -71,13 +72,11 @@ class TestDeliveredSample(TestProjectManagement):
 
     @patch('bin.confirm_delivery.patch_entry')
     def test_upload_list_file_delivered(self, patched_get_patch_entry):
-        self.sample.delivery_dir = join(self.assets_path, 'data_delivery', 'source')
         list_files = [
-            join(self.assets_path, 'data_delivery', 'source', 'test_project', 'deliverable_sample', 'user_s_id.bam'),
-            join(self.assets_path, 'data_delivery', 'source', 'test_project', 'deliverable_sample',
-                 'user_s_id.g.vcf.gz'),
+            join(self.assets_path, 'data_delivery', 'dest', 'project1', 'date_delivery', 'sample1', 'sample1.bam'),
+            join(self.assets_path, 'data_delivery', 'dest', 'project1', 'date_delivery', 'sample1',
+                 'sample1.g.vcf.gz'),
         ]
-
         self.sample.upload_list_file_delivered(list_files)
         patched_get_patch_entry.assert_called_with(
             'samples',
@@ -85,9 +84,9 @@ class TestDeliveredSample(TestProjectManagement):
             id_field='sample_id',
             update_lists=['files_delivered'],
             payload={'files_delivered': [
-                {'file_path': 'test_project/deliverable_sample/user_s_id.bam',
+                {'file_path': 'project1/date_delivery/sample1/sample1.bam',
                  'md5': 'd41d8cd98f00b204e9800998ecf8427e', 'size': 0},
-                {'file_path': 'test_project/deliverable_sample/user_s_id.g.vcf.gz',
+                {'file_path': 'project1/date_delivery/sample1/sample1.g.vcf.gz',
                  'md5': 'd41d8cd98f00b204e9800998ecf8427e', 'size': 0}
             ]}
         )
@@ -104,6 +103,8 @@ class TestDeliveredSample(TestProjectManagement):
         files_delivered = self.sample.list_file_delivered
         assert files_delivered == [
             {'file_path': 'project1/date_delivery/sample1/sample1.bam', 'md5': 'd41d8cd98f00b204e9800998ecf8427e',
+             'size': 0},
+            {'file_path': 'project1/date_delivery/sample1/sample1.g.vcf.gz', 'md5': 'd41d8cd98f00b204e9800998ecf8427e',
              'size': 0}
         ]
         patched_get_doc.assert_called_with('samples', where={'sample_id': 'sample1'})
@@ -114,6 +115,8 @@ class TestDeliveredSample(TestProjectManagement):
             update_lists=['files_delivered'],
             payload={'files_delivered': [
                 {'file_path': 'project1/date_delivery/sample1/sample1.bam', 'md5': 'd41d8cd98f00b204e9800998ecf8427e',
+                 'size': 0},
+                {'file_path': 'project1/date_delivery/sample1/sample1.g.vcf.gz', 'md5': 'd41d8cd98f00b204e9800998ecf8427e',
                  'size': 0}
             ]}
         )
