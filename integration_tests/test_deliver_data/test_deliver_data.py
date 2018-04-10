@@ -15,6 +15,7 @@ work_dir = os.path.dirname(__file__)
 
 fake_samples = {
     'split_human_sample': {
+        'authorised': True,
         'lims/samples': {
             'Delivery': 'split',
             'Total DNA(ng)': 2000
@@ -82,6 +83,7 @@ fake_samples = {
         ]
     },
     'merged_non_human_sample': {
+        'authorised': True,
         'lims/samples': {
             'Delivery': 'merged',
             'Total DNA(ng)': 2000
@@ -105,6 +107,7 @@ fake_samples = {
         ]
     },
     'fluidx_non_human_var_calling_sample': {
+        'authorised': True,
         'lims/samples': {
             '2D Barcode': 'a_fluidx_barcode',
             'Delivery': 'split',
@@ -146,7 +149,7 @@ class TestDelivery(IntegrationTest):
     processed_run_dir = os.path.join(work_dir, 'processed_runs')
     processed_projects_dir = os.path.join(work_dir, 'processed_projects')
     delivered_projects_dir = os.path.join(work_dir, 'delivered_projects')
-    artifacts = [Mock(samples=[NamedMock(name=sample)]) for sample in fake_samples]
+    artifacts = [Mock(samples=[NamedMock(name=sample)]) for sample in fake_samples if fake_samples[sample].get('authorised', False)]
     fake_process = Mock(
         type=NamedMock(name='Authorised process name'),
         all_inputs=Mock(return_value=artifacts)
