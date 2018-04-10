@@ -300,8 +300,8 @@ class ProjectReport:
             if req not in req_to_metrics:
                 req_to_metrics[req] = {'samples': [], 'clean_yield': [], 'coverage': []}
             all_yield_metrics = [sample.get('sample_id'),
-                                 sample.get('aggregated').get('clean_yield_in_gb'),
-                                 sample.get('coverage').get('mean')]
+                                 query_dict(sample, 'aggregated.clean_yield_in_gb'),
+                                 query_dict(sample, 'coverage.mean')]
             if None not in all_yield_metrics:
                 req_to_metrics[req]['samples'].append(all_yield_metrics[0])
                 req_to_metrics[req]['clean_yield'].append(all_yield_metrics[1])
@@ -479,10 +479,10 @@ class ProjectReport:
                 sample.get('species_name'),
                 self.get_library_workflow_from_sample(sample.get('sample_id')),
                 self.get_required_yield(sample.get('sample_id')),
-                round(sample.get('aggregated').get('clean_yield_in_gb'), 1),
-                round(sample.get('aggregated').get('clean_pc_q30'), 1),
+                round(query_dict(sample, 'aggregated.clean_yield_in_gb'), 1),
+                round(query_dict(sample, 'aggregated.clean_pc_q30'), 1),
                 self.get_quoted_coverage(sample.get('sample_id')),
-                round(sample.get('coverage', {}).get('mean', 'None'), 1)
+                round(query_dict(sample, 'coverage.mean'), 1)
             ]
 
             rows.append(row)
