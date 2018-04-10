@@ -29,15 +29,16 @@ default:
           - filename: tests/assets/test.log
             when: 'h'
             interval: 1
+    delivery:
+        signature_name: He-Man
+        signature_role: Prince
+        source: tests/assets/project_report/source
+        dest: tests/assets/project_report/dest
 
     clarity:
         baseuri: 'http://genologics.com:8080/'
         username: testuser
         password: password
-
-    sample:
-      delivery_source: tests/assets/project_report/source
-      delivery_dest: tests/assets/project_report/dest
 
     genome_downloader:
         base_dir: path/to/reference_data

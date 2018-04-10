@@ -1,13 +1,3 @@
-{% macro yield_chart(params) -%}
-    <h3>Yield</h3>
-    <img id="yield" class="charts" src="{{ params['yield_chart'] }}" />
-    <p class="justify_text">
-        Yield is calculated as the yield in gigabases (Gb) after adapters have been
-        trimmed during processing. The yield Q30 is the quantity of bases
-        which have a quality score of 30 or higher.
-    </p>
-{%- endmacro %}
-
 {% macro yield_cov_chart(params) -%}
     <h3>Yield and Coverage</h3>
         <p class="justify_text">
@@ -22,19 +12,6 @@
         </p>
     {% endfor %}
 
-{%- endmacro %}
-
-{% macro mapping_duplicates_chart(params) -%}
-    <h3>Read Mapping and Duplicates</h3>
-    <img id="mapdup" class="charts" src="{{ params['mapping_duplicates_chart'] }}" />
-    <p class="justify_text">
-        Optical and PCR duplicates can be generated during library preparation, clustering, or be due to
-        sample quality. The percentage of duplicates is calculated by comparing the number of duplicate reads
-        to the total read count. Duplicates are identified during read mapping to prevent the overestimation
-        of coverage, therefore, the percentage of paired reads aligned to the reference genome includes
-        non-duplicate reads only. A duplicate rate of < 30% is required for each sample, except in circumstances
-        where a very high yield achieves sufficient coverage of the genome despite a high duplicate rate.
-    </p>
 {%- endmacro %}
 
 {% macro fastq() -%}
@@ -68,8 +45,9 @@
     <p><a href="https://samtools.github.io/hts-specs/VCFv4.2.pdf">VCF specification</a></p>
 {%- endmacro %}
 
-{% macro sample_qc_nano(method_fields, params) -%}
-    <h3>Sample QC</h3>
+{% macro library_nano(method_fields, params) -%}
+    <h3>TruSeq Nano</h3>
+    <h4>Sample QC</h4>
     <p class="justify_text">
         Genomic DNA (gDNA) samples are evaluated for quantity using Quant-iT Picogreen reagent, Lambda Standard DNA
         and a Molecular Devices, Spectramax XPS Gemini plate reader.  The quality of the gDNA samples are evaluated
@@ -78,23 +56,7 @@
         gDNA samples are pre-normalised to fall within the 5-40ng/uL concentration range required for Illumina SeqLab
         TruSeq Nano library preparation method using the Hamilton MicroLab STAR.
     </p>
-{%- endmacro %}
-
-{% macro sample_qc_pcrfree(method_fields, params) -%}
-    <h3>Sample QC</h3>
-    <p class="justify_text">
-        Genomic DNA (gDNA) samples are evaluated for quantity using Quant-iT Picogreen reagent, Lambda Standard DNA
-        and a Molecular Devices, Spectramax XPS Gemini plate reader.  The quality of the gDNA samples are evaluated
-        using an AATI Fragment Analyzer and the Standard Sensitivity Genomic DNA Analysis Kit. Genomic DNA samples
-        found to have a total amount of >1000ng and a quality score >5 pass sample QC. Based on the quantification results,
-        gDNA samples are pre-normalised to fall within the 20-100ng/uL concentration range required for Illumina SeqLab
-        TruSeq PCR Free library preparation method using the Hamilton MicroLab STAR.
-    </p>
-{%- endmacro %}
-
-
-{% macro truseq_nano(method_fields, params) -%}
-    <h3>TruSeq Nano Library Preparation</h3>
+    <h4>Library Preparation</h4>
     <p class="justify_text">
         Next Generation sequencing libraries are prepared using an Illumina SeqLab specific TruSeq Nano High
         Throughput library preparation kit in conjunction with the Hamilton MicroLab STAR and Clarity LIMS X (4.2)
@@ -103,11 +65,27 @@
         focused-ultrasonicator. The inserts are blunt ended, A-tailed, size selected, TruSeq adapters are ligated
         onto the ends of each fragment before being PCR amplified.
     </p>
+    <h4>Library QC</h4>
+    <p class="justify_text">
+        The insert size for each library is evaluated using the Caliper GX Touch with a HT DNA 1k/12K/HI SENS LabChip
+        and HT DNA HI SENS Reagent Kit to ensure that the mean fragment sizes fall between 530bp and 950bp.
+        The concentration of each library is calculated using a Roche LightCycler 480 and a Kapa Illumina Library
+        Quantification kit and Standards to ensure that the concentration of each library is between 5.5nM and 40nM.
+    </p>
 {%- endmacro %}
 
-
-{% macro truseq_pcrfree(method_fields, params) -%}
-    <h3>TruSeq PCR-Free Library Preparation</h3>
+{% macro library_pcrfree(method_fields, params) -%}
+    <h3>TruSeq PCR-Free</h3>
+    <h4>Sample QC</h4>
+    <p class="justify_text">
+        Genomic DNA (gDNA) samples are evaluated for quantity using Quant-iT Picogreen reagent, Lambda Standard DNA
+        and a Molecular Devices, Spectramax XPS Gemini plate reader.  The quality of the gDNA samples are evaluated
+        using an AATI Fragment Analyzer and the Standard Sensitivity Genomic DNA Analysis Kit. Genomic DNA samples
+        found to have a total amount of >1000ng and a quality score >5 pass sample QC. Based on the quantification results,
+        gDNA samples are pre-normalised to fall within the 20-100ng/uL concentration range required for Illumina SeqLab
+        TruSeq PCR Free library preparation method using the Hamilton MicroLab STAR.
+    </p>
+    <h4>Library Preparation</h4>
     <p class="justify_text">
         Next Generation sequencing libraries are prepared using Illumina SeqLab specific TruSeq PCR-Free High Throughput library
         preparation kits in conjunction with the Hamilton MicroLab STAR and Clarity LIMS X Edition. The gDNA samples are
@@ -115,16 +93,12 @@
         to a 450bp mean insert size using a Covaris LE220 focused-ultrasonicator. The inserts are blunt ended,
         A-tailed, size selected and the TruSeq adapters are ligated onto the ends.
     </p>
-{%- endmacro %}
-
-
-{% macro library_qc(method_fields, params) -%}
-    <h3>Library QC</h3>
+    <h4>Library QC</h4>
     <p class="justify_text">
         The insert size for each library is evaluated using the Caliper GX Touch with a HT DNA 1k/12K/HI SENS LabChip
-        and HT DNA HI SENS Reagent Kit to ensure that the mean fragment sizes fall between 530bp and 730bp.
+        and HT DNA HI SENS Reagent Kit to ensure that the mean fragment sizes fall between 300bp and 800bp.
         The concentration of each library is calculated using a Roche LightCycler 480 and a Kapa Illumina Library
-        Quantification kit and Standards to ensure that the concentration of each library is between 5.5nM and 40nM.
+        Quantification kit and Standards to ensure that the concentration of each library is between 1.1nM and 8nM.
     </p>
 {%- endmacro %}
 

@@ -14,15 +14,18 @@ class FakeLims:
 
     def __init__(self, data):
         self.data = data
+        self._samples_per_project = {}
 
     def get_samples(self, projectname):
         project = self.data[projectname]
-        return [
-            NamedMock(
-                s['rest_data']['sample_id'],
-                udf=dict(self.sample_udf_template, **project['udfs'])
-            ) for s in project['samples']
-        ]
+        if projectname not in self._samples_per_project:
+            self._samples_per_project[projectname] = [
+                NamedMock(
+                    s['rest_data']['sample_id'],
+                    udf=dict(self.sample_udf_template, **project['sample_udfs'])
+                ) for s in project['samples']
+            ]
+        return self._samples_per_project[projectname]
 
     @staticmethod
     def get_projects(name):
@@ -38,16 +41,33 @@ class FakeLims:
             )
         ]
 
+    def get_processes(self, type, projectname):
+        if type == 'Data Release Trigger EG 1.0 ST':
+            nb_process = 2
+            samples = self.get_samples(projectname)
+            sample_sets = [samples[i::nb_process] for i in range(nb_process)]
+            return [
+                Mock(
+                    all_inputs=Mock(return_value=[Mock(samples=[sample]) for sample in sample_sets[i] if sample]),
+                    date_run='2018-01-10',
+                    id=i + 1,
+                    udf={
+                        'Is this the final data release for the project?': 'No',
+                        'Non-Conformances': ''
+                    }
+                ) for i in range(nb_process)
+            ]
+
 
 class TestProjectReport(IntegrationTest):
     delivery_source = os.path.join(work_dir, 'delivery_source')
     delivery_dest = os.path.join(work_dir, 'delivery_dest')
     patches = (
         patch('project_report.client.load_config'),
-        patch('project_report.ProjectReport.sample_status', return_value={'started_date': '2018-02-08'})
+        patch('project_report.ProjectReport.sample_status', return_value={'started_date': '2018-02-08T12:26:01.893000'})
     )
 
-    run_element_template = {'run_id': 'a_run', 'barcode': 'ATGC', 'library_id': 'a_library'}
+    run_element_template = {'run_id': 'a_run', 'barcode': 'ATGC', 'library_id': 'a_library', 'useable': 'yes'}
     sample_template = {
         'coverage': {'mean': 37, 'evenness': 15, 'bases_at_coverage': {'bases_at_15X': 300}},
         'required_yield_q30': 1.0,
@@ -58,7 +78,7 @@ class TestProjectReport(IntegrationTest):
     projects = {
         'htn999': {
             'samples': [],
-            'udfs': {
+            'sample_udfs': {
                 'Prep Workflow': 'TruSeq Nano DNA Sample Prep',
                 'Analysis Type': None,
                 'Species': 'Homo sapiens',
@@ -67,7 +87,7 @@ class TestProjectReport(IntegrationTest):
         },
         'nhtn999': {
             'samples': [],
-            'udfs': {
+            'sample_udfs': {
                 'Prep Workflow': 'TruSeq Nano DNA Sample Prep',
                 'Analysis Type': 'Variant Calling gatk',
                 'Species': 'Thingius thingy',
@@ -76,7 +96,7 @@ class TestProjectReport(IntegrationTest):
         },
         'hpf999': {
             'samples': [],
-            'udfs': {
+            'sample_udfs': {
                 'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep',
                 'Analysis Type': None,
                 'Species': 'Homo sapiens',
@@ -85,7 +105,7 @@ class TestProjectReport(IntegrationTest):
         },
         'nhpf999': {
             'samples': [],
-            'udfs': {
+            'sample_udfs': {
                 'Prep Workflow': 'TruSeq PCR-Free DNA Sample Prep',
                 'Analysis Type': None,
                 'Species': 'Thingius thingy',
@@ -97,9 +117,11 @@ class TestProjectReport(IntegrationTest):
     @classmethod
     def setUpClass(cls):
         cfg.content = {
-            'sample': {
-                'delivery_source': cls.delivery_source,
-                'delivery_dest': cls.delivery_dest
+            'delivery':{
+                'source': cls.delivery_source,
+                'dest': cls.delivery_dest,
+                'signature_name': 'He-Man',
+                'signature_role': 'Prince'
             }
         }
 
@@ -157,7 +179,7 @@ class TestProjectReport(IntegrationTest):
                 # TODO: refactor duplicate code from unit tests
                 sample_dir = os.path.join(self.delivery_source, project_id, s['rest_data']['sample_id'])
                 os.makedirs(sample_dir, exist_ok=True)
-                if data['udfs']['Species'] == 'Homo sapiens':
+                if data['sample_udfs']['Species'] == 'Homo sapiens':
                     with open(os.path.join(sample_dir, 'programs.txt'), 'w') as open_file:
                         open_file.write('bcbio,1.1\nbwa,1.2\ngatk,1.3\nsamblaster,1.4\n')
                     with open(os.path.join(sample_dir, 'project-summary.yaml'), 'w') as open_file:
@@ -192,10 +214,10 @@ class TestProjectReport(IntegrationTest):
     def test_reports(self):
         test_success = True
         exp_md5s = {
-            'htn999': '97a33dc5f258471ed01e75e0a08335a5',
-            'nhtn999': '7f9043cc4f92757efe26898c1e1612a3',
-            'hpf999': '13889fe466a57fe622449d6e5afe45a7',
-            'nhpf999': '3b4c97c3dc17732b392d6d8a0b73fae8'
+            'htn999': '0a6be8e264c5a576f38c47ed61506ca9',
+            'nhtn999': 'ce9d5f3de7afefe2029e58b2cf1f19e7',
+            'hpf999': 'd807329abebae10d04dd27ffea83cc6b',
+            'nhpf999': '8ec3398d0594c1d6be7da9843e011eaf'
         }
         for k, v in exp_md5s.items():
             client.main(['-p', k, '-o', 'html', '-w', work_dir])
