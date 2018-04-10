@@ -126,7 +126,6 @@ def _get_value(value_template, index):
 rest_responses = {'samples': {}, 'lims/samples': {}, 'lims/status/sample_status': {}, 'run_elements': {}}
 fake_processes = {}
 for process in sample_templates:
-    artifacts = [Mock(samples=[NamedMock(name='sample%s' % i)]) for i in range(1, 3)]
 
     artifacts = []
     for i in range(1, sample_templates[process].get('nb_sample', 2) + 1):
@@ -155,11 +154,14 @@ def fake_get_document(*args, **kwargs):
 
 
 patch_get_document = patch('egcg_core.rest_communication.get_document', side_effect=fake_get_document)
+patch_get_documents = patch('egcg_core.rest_communication.get_documents', side_effect=fake_get_document)
 
 patch_get_queue = patch('egcg_core.clarity.get_queue_uri', return_value='http://testclarity.com/queue/999')
 
+
 class FakeProcessPropertyMock(PropertyMock):
-    """ PropertyMock Specific to return fake processes
+    """
+    PropertyMock Specific to return fake processes
     """
     def __get__(self, obj, obj_type):
         return fake_processes.get(obj.process_id)
@@ -271,13 +273,13 @@ class TestDataDelivery(TestProjectManagement):
                 self.md5(f)
 
     def test_get_deliverable_projects_samples(self):
-        with patch_process, patch_get_document:
+        with patch_process, patch_get_document, patch_get_documents:
             project_to_samples = self.delivery_dry_merged.deliverable_samples
             assert list(project_to_samples) == ['project1']
             assert list([sample.get('sample_id') for samples in project_to_samples.values() for sample in samples]) == ['p1sample1', 'p1sample2']
 
     def test_summarise_metrics_per_sample(self):
-        with patch_process, patch_get_document:
+        with patch_process, patch_get_document, patch_get_documents:
             self.delivery_dry_merged.deliverable_samples
             expected_header = ['Project', 'Sample Id', 'Species', 'Library type', 'User sample id',
                                'Number of Read pair', 'Target Yield', 'Yield', 'Yield Q30', '%Q30', 'Mapped reads rate',
@@ -298,7 +300,7 @@ class TestDataDelivery(TestProjectManagement):
             assert lines == expected_lines
 
     def test_deliver_data_merged(self):
-        with patch_process, patch_get_document, patch_get_queue:
+        with patch_process, patch_get_document, patch_get_documents, patch_get_queue:
             # Remove one of the run_element from rest response so the remaining one gets used as merged
             re = rest_responses['run_elements']['p1sample1'].pop()
             self.delivery_dry_merged.deliver_data()
@@ -309,7 +311,7 @@ class TestDataDelivery(TestProjectManagement):
             rest_responses['run_elements']['p1sample1'].append(re)
 
     def test_deliver_data_merged_concat(self):
-        with patch_process, patch_get_document, patch_get_queue:
+        with patch_process, patch_get_document, patch_get_documents, patch_get_queue:
             self.delivery_dry_merged.deliver_data()
             assert os.listdir(self.delivery_dry_merged.staging_dir) == ['p1sample1', 'p1sample2']
             list_files = sorted(os.listdir(os.path.join(self.delivery_dry_merged.staging_dir, 'p1sample1')))
@@ -317,14 +319,14 @@ class TestDataDelivery(TestProjectManagement):
             assert len(self.delivery_dry_merged.all_commands_for_cluster) == 4
 
     def test_deliver_data_split(self):
-        with patch_process, patch_get_document, patch_get_queue:
+        with patch_process, patch_get_document, patch_get_documents, patch_get_queue:
             self.delivery_dry_split_fluidx.deliver_data()
             assert os.listdir(self.delivery_dry_split_fluidx.staging_dir) == ['Fluidx1', 'Fluidx2']
             list_files = sorted(os.listdir(os.path.join(self.delivery_dry_split_fluidx.staging_dir, 'Fluidx1')))
             assert sorted(list_files) == sorted(self.final_files_split)
 
     def test_deliver_data_merged_real(self):
-        with patch_process, patch_get_document, patch_get_queue,\
+        with patch_process, patch_get_document, patch_get_documents, patch_get_queue,\
              patch('bin.deliver_reviewed_data.DataDelivery.mark_samples_as_released'), \
              patch.object(DataDelivery, 'run_aggregate_commands', new=create_fake_fastq_fastqc_md5_from_commands), \
              patch.object(DataDelivery, 'register_postponed_files'):
@@ -348,7 +350,7 @@ class TestDataDelivery(TestProjectManagement):
             assert self.delivery_real_merged.samples2list_files['p1sample2'] == expected_list_files
 
     def test_deliver_data_split_real(self):
-        with patch_process, patch_get_document, patch_get_queue,\
+        with patch_process, patch_get_document, patch_get_documents, patch_get_queue,\
              patch.object(DataDelivery, 'run_aggregate_commands'),\
              patch('bin.deliver_reviewed_data.DataDelivery.mark_samples_as_released'):
             self.delivery_real_split_fluidx.deliver_data()
@@ -373,7 +375,7 @@ class TestDataDelivery(TestProjectManagement):
             assert self.delivery_real_split_fluidx.samples2list_files['p2sample1'] == expected_list_files
 
     def test_get_email_data(self):
-        with patch_process, patch_get_document, patch_get_queue,\
+        with patch_process, patch_get_document, patch_get_documents, patch_get_queue,\
              patch.object(DataDelivery, 'today', new_callable=PropertyMock(return_value='2017-12-15')):
             exp = {
                 'num_samples': 2,
@@ -384,7 +386,7 @@ class TestDataDelivery(TestProjectManagement):
             assert exp == self.delivery_dry_merged.get_email_data('test_project', ['sample1', 'sample2'])
 
     def test_emails_report(self):
-        with patch_process, patch_get_document, patch_get_queue,\
+        with patch_process, patch_get_document, patch_get_documents, patch_get_queue,\
              patch('egcg_core.notifications.email.EmailSender._try_send') as mock_send_email:
             self.delivery_dry_merged.email = True
             self.delivery_dry_merged.deliverable_samples

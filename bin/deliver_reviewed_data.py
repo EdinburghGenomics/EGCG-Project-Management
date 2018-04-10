@@ -104,7 +104,7 @@ class DataDelivery(AppLogger):
                 'data': rest_communication.get_document('samples', where={'sample_id': sample}),
                 'udfs': rest_communication.get_document('lims/samples', match={'sample_id': sample}),
                 'status': rest_communication.get_document('lims/status/sample_status', match={'sample_id': sample}),
-                'run_elements': rest_communication.get_document('run_elements', where={'sample_id': sample}),
+                'run_elements': rest_communication.get_documents('run_elements', where={'sample_id': sample}),
             }
             for sample in sample_names
         ]

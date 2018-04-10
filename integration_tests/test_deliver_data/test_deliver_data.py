@@ -2,8 +2,11 @@ import os
 import gzip
 import hashlib
 from shutil import rmtree
-from unittest.mock import Mock, patch
-from integration_tests import IntegrationTest, integration_cfg
+from unittest.mock import Mock, patch, PropertyMock
+
+import egcg_core
+
+from integration_tests import IntegrationTest, integration_cfg, NamedMock
 from egcg_core import rest_communication, util
 from egcg_core.config import cfg
 from bin import deliver_reviewed_data
@@ -12,72 +15,146 @@ work_dir = os.path.dirname(__file__)
 
 fake_samples = {
     'split_human_sample': {
-        'lims': Mock(udf={'Delivery': 'split'}),
-        'species': 'Homo sapiens',
+        'lims/samples': {
+            'Delivery': 'split',
+            'Total DNA(ng)': 2000
+        },
+        'lims/status/sample_status': {
+            'library_type': 'nano',
+            'started_date': '2017-08-02T11:25:14.659000'
+        },
         'output_files': deliver_reviewed_data.hs_list_files,
-        'api': {'bam_file_reads': 1, 'useable': 'yes'},
+        'api': {
+            'bam_file_reads': 1, 'useable': 'yes', 'species_name': 'Homo sapiens',
+            'required_yield': 120000000000, 'required_coverage': 30
+        },
         'run_elements': [
-            {'run_id': 'a_run', 'lane': 1, 'barcode': 'ATGC', 'useable': 'yes', 'clean_reads': 1},
+            {
+                'run_id': 'a_run', 'lane': 1, 'barcode': 'ATGC', 'useable': 'yes', 'clean_reads': 1,
+                'clean_bases_r1': 65500000000, 'clean_q30_bases_r1': 60500000000, 'clean_bases_r2': 65500000000,
+                'clean_q30_bases_r2': 60000000000
+            },
             {'lane': 1, 'barcode': 'CGTA', 'useable': 'no'}
         ]
     },
     'delivered_sample': {
-        'lims': Mock(),
-        'species': 'Homo sapiens',
+        'lims/samples': {
+            'Total DNA(ng)': 2000
+        },
+        'lims/status/sample_status': {
+            'library_type': 'nano',
+            'started_date': '2017-08-02T11:25:14.659000'
+        },
         'output_files': deliver_reviewed_data.hs_list_files,
-        'api': {'bam_file_reads': 1, 'useable': 'yes', 'delivered': 'yes'},
+        'api': {
+            'bam_file_reads': 1, 'useable': 'yes', 'delivered': 'yes', 'species_name': 'Homo sapiens',
+            'required_yield': 120000000000, 'required_coverage': 30, 'coverage': {'mean': 31}
+        },
         'run_elements': [
-            {'run_id': 'a_run', 'lane': 2, 'barcode': 'ATGC', 'useable': 'yes', 'clean_reads': 1},
+            {
+                'run_id': 'a_run', 'lane': 2, 'barcode': 'ATGC', 'useable': 'yes', 'clean_reads': 1,
+                'clean_bases_r1': 65500000000, 'clean_q30_bases_r1': 60500000000, 'clean_bases_r2': 65500000000,
+                'clean_q30_bases_r2': 60000000000
+            },
             {'lane': 2, 'barcode': 'CGTA', 'useable': 'no'}
         ]
     },
     'unusable_sample': {
-        'lims': Mock(),
-        'species': 'Homo sapiens',
+        'lims/samples': {
+            'Total DNA(ng)': 2000
+        },
+        'lims/status/sample_status': {
+            'library_type': 'nano',
+            'started_date': '2017-08-02T11:25:14.659000'
+        },
         'output_files': deliver_reviewed_data.hs_list_files,
-        'api': {'bam_file_reads': 1, 'useable': 'no'},
+        'api': {
+            'bam_file_reads': 1, 'useable': 'no', 'species_name': 'Homo sapiens',
+            'required_yield': 120000000000, 'required_coverage': 30, 'coverage': {'mean': 31}
+        },
         'run_elements': [
-            {'run_id': 'a_run', 'lane': 3, 'barcode': 'ATGC', 'useable': 'yes', 'clean_reads': 1},
+            {
+                'run_id': 'a_run', 'lane': 3, 'barcode': 'ATGC', 'useable': 'yes', 'clean_reads': 1,
+                'clean_bases_r1': 65500000000, 'clean_q30_bases_r1': 60500000000, 'clean_bases_r2': 65500000000,
+                'clean_q30_bases_r2': 60000000000
+            },
             {'lane': 3, 'barcode': 'CGTA', 'useable': 'no'}
         ]
     },
     'merged_non_human_sample': {
-        'lims': Mock(udf={'Delivery': 'merged'}),
-        'species': 'Thingius thingy',
+        'lims/samples': {
+            'Delivery': 'merged',
+            'Total DNA(ng)': 2000
+        },
+        'lims/status/sample_status': {
+            'library_type': 'nano',
+            'started_date': '2017-08-02T11:25:14.659000'
+        },
         'output_files': deliver_reviewed_data.other_list_files,
-        'api': {'bam_file_reads': 1, 'useable': 'yes'},
+        'api': {
+            'bam_file_reads': 1, 'useable': 'yes', 'species_name': 'Thingius thingy',
+            'required_yield': 120000000000, 'required_coverage': 30, 'coverage': {'mean': 31}
+        },
         'run_elements': [
-            {'run_id': 'a_run', 'lane': 4, 'barcode': 'ATGC', 'useable': 'yes', 'clean_reads': 1},
+            {
+                'run_id': 'a_run', 'lane': 4, 'barcode': 'ATGC', 'useable': 'yes', 'clean_reads': 1,
+                'clean_bases_r1': 65500000000, 'clean_q30_bases_r1': 60500000000, 'clean_bases_r2': 65500000000,
+                'clean_q30_bases_r2': 60000000000
+            },
             {'lane': 4, 'barcode': 'CGTA', 'useable': 'no'}
         ]
     },
     'fluidx_non_human_var_calling_sample': {
-        'lims': Mock(
-            udf={
-                'Delivery': 'split',
-                '2D Barcode': 'a_fluidx_barcode',
-                'Analysis Type': 'Variant Calling'
-            }
-        ),
-        'species': 'Thingius thingy',
+        'lims/samples': {
+            '2D Barcode': 'a_fluidx_barcode',
+            'Delivery': 'split',
+            'Total DNA(ng)': 2000,
+            'Analysis Type': 'Variant Calling'
+        },
+        'lims/status/sample_status': {
+            'library_type': 'nano',
+            'started_date': '2017-08-02T11:25:14.659000'
+        },
         'output_files': deliver_reviewed_data.variant_call_list_files,
-        'api': {'bam_file_reads': 1, 'useable': 'yes'},
+        'api': {
+            'bam_file_reads': 1, 'useable': 'yes', 'species_name': 'Thingius thingy',
+            'required_yield': 120000000000, 'required_coverage': 30, 'coverage': {'mean': 31}
+        },
         'run_elements': [
-            {'run_id': 'a_run', 'lane': 5, 'barcode': 'ATGC', 'useable': 'yes', 'clean_reads': 1},
+            {
+                'run_id': 'a_run', 'lane': 5, 'barcode': 'ATGC', 'useable': 'yes', 'clean_reads': 1,
+                'clean_bases_r1': 65500000000, 'clean_q30_bases_r1': 60500000000, 'clean_bases_r2': 65500000000,
+                'clean_q30_bases_r2': 60000000000
+            },
             {'lane': 5, 'barcode': 'CGTA', 'useable': 'no'}
         ]
     }
 }
+# Store the get_document function so it is still accessible after it's been patched
+get_doc = rest_communication.get_document
+
+
+def fake_get_document(*args, **kwargs):
+    if args[0] in ('samples', 'run_elements'):
+        return get_doc(*args, **kwargs)
+    else:
+        # for lims enpoint still need to get mocked results
+        return fake_samples.get(list(kwargs.values())[0].get('sample_id'), {}). get(args[0])
 
 
 class TestDelivery(IntegrationTest):
     processed_run_dir = os.path.join(work_dir, 'processed_runs')
     processed_projects_dir = os.path.join(work_dir, 'processed_projects')
     delivered_projects_dir = os.path.join(work_dir, 'delivered_projects')
+    artifacts = [Mock(samples=[NamedMock(name=sample)]) for sample in fake_samples]
+    fake_process = Mock(
+        type=NamedMock(name='Authorised process name'),
+        all_inputs=Mock(return_value=artifacts)
+    )
     patches = (
+        patch('bin.deliver_reviewed_data.rest_communication.get_document', side_effect=fake_get_document),
         patch('bin.deliver_reviewed_data.load_config'),
-        patch('bin.deliver_reviewed_data.clarity.get_sample', new=lambda s: fake_samples[s]['lims']),
-        patch('bin.deliver_reviewed_data.clarity.get_species_from_sample', new=lambda s: fake_samples[s]['species']),
+        patch('bin.deliver_reviewed_data.DataDelivery.process', new=PropertyMock(return_value=fake_process)),
         patch('bin.deliver_reviewed_data.clarity.get_queue_uri', return_value='a_queue_uri'),
         patch('bin.deliver_reviewed_data.clarity.route_samples_to_delivery_workflow'),
         patch('bin.deliver_reviewed_data.ProjectReport')  # TODO: run the project report once it can take mixed projects
@@ -154,7 +231,7 @@ class TestDelivery(IntegrationTest):
 
     @staticmethod
     def _run_main(args=None):
-        argv = ['--project_id', 'a_project', '--noemail', '--work_dir', work_dir]
+        argv = ['--process_id', 'a_process', '--noemail', '--work_dir', work_dir]
         if args:
             argv += args
 
@@ -220,15 +297,6 @@ class TestDelivery(IntegrationTest):
             print('Missing files: %s' % [f for f in exp_basenames if f not in obs])
             print('Unexpected_files: %s' % [f for f in obs if f not in exp_basenames])
             raise AssertionError
-
-    def test_mark_only(self):
-        self._check_files_pre_delivery()
-        self._check_api_pre_delivery()
-
-        self._run_main(['--mark_only'])
-
-        self._check_files_pre_delivery()  # no files have changed
-        self._check_api_post_delivery()
 
     def test_deliver(self):
         self._check_files_pre_delivery()
