@@ -297,7 +297,7 @@ class TestDataDelivery(TestProjectManagement):
                 delivery_folder='date_delivery'
             )
             assert header == expected_header
-            assert lines == expected_lines
+            assert sorted(lines) == sorted(expected_lines)
 
     def test_deliver_data_merged(self):
         with patch_process, patch_get_document, patch_get_documents, patch_get_queue:

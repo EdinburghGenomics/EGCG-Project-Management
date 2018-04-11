@@ -1,4 +1,5 @@
 import datetime
+import operator
 import os
 import shutil
 from os.path import join
@@ -101,24 +102,19 @@ class TestDeliveredSample(TestProjectManagement):
     @patch('bin.confirm_delivery.patch_entry')
     def test_list_file_delivered_no_data(self, patched_patch_entry, patched_get_doc):
         files_delivered = self.sample.list_file_delivered
-        assert files_delivered == [
+        assert sorted(files_delivered, key=operator.itemgetter('file_path')) ==  sorted([
             {'file_path': 'project1/date_delivery/sample1/sample1.bam', 'md5': 'd41d8cd98f00b204e9800998ecf8427e',
              'size': 0},
             {'file_path': 'project1/date_delivery/sample1/sample1.g.vcf.gz', 'md5': 'd41d8cd98f00b204e9800998ecf8427e',
              'size': 0}
-        ]
+        ], key=operator.itemgetter('file_path'))
         patched_get_doc.assert_called_with('samples', where={'sample_id': 'sample1'})
         patched_patch_entry.assert_called_with(
             'samples',
             element_id='sample1',
             id_field='sample_id',
             update_lists=['files_delivered'],
-            payload={'files_delivered': [
-                {'file_path': 'project1/date_delivery/sample1/sample1.bam', 'md5': 'd41d8cd98f00b204e9800998ecf8427e',
-                 'size': 0},
-                {'file_path': 'project1/date_delivery/sample1/sample1.g.vcf.gz', 'md5': 'd41d8cd98f00b204e9800998ecf8427e',
-                 'size': 0}
-            ]}
+            payload={'files_delivered': files_delivered}
         )
 
     @patch('bin.confirm_delivery.get_document', return_value=sample1)

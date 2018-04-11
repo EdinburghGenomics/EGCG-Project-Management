@@ -92,6 +92,21 @@ class DataDelivery(AppLogger):
     def process(self):
         return Process(connection(), id=self.process_id)
 
+    @staticmethod
+    def get_sample_data(sample_name):
+        return {
+            'data': rest_communication.get_document('samples', where={'sample_id': sample_name}),
+            'udfs': rest_communication.get_document('lims/samples', match={'sample_id': sample_name}),
+            'status': rest_communication.get_document('lims/status/sample_status', match={'sample_id': sample_name}),
+            'run_elements': rest_communication.get_documents('run_elements', where={'sample_id': sample_name}),
+        }
+
+    def already_delivered_samples(self, project_id):
+        return (
+            self.get_sample_data(sample.get('sample_id'))
+            for sample in rest_communication.get_documents('samples', where={'project_id': project_id, 'delivered': 'yes'})
+        )
+
     @cached_property
     def deliverable_samples(self):
         """Retrieve the names of samples that went through the authorisation step. Then get the data associated."""
@@ -99,15 +114,7 @@ class DataDelivery(AppLogger):
             raise ValueError('Process %s is not of the type Authorised process name')
         sample_names = [a.samples[0].name for a in self.process.all_inputs(resolve=True)]
         project_to_samples = defaultdict(list)
-        samples = [
-            {
-                'data': rest_communication.get_document('samples', where={'sample_id': sample}),
-                'udfs': rest_communication.get_document('lims/samples', match={'sample_id': sample}),
-                'status': rest_communication.get_document('lims/status/sample_status', match={'sample_id': sample}),
-                'run_elements': rest_communication.get_documents('run_elements', where={'sample_id': sample}),
-            }
-            for sample in sample_names
-        ]
+        samples = [self.get_sample_data(sample) for sample in sample_names]
         for sample in samples:
             project_to_samples[sample.get('data').get('project_id')].append(sample.get('data'))
             self.all_samples_dict[sample.get('data').get('sample_id')] = sample
