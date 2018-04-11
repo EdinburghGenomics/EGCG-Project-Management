@@ -1,4 +1,5 @@
 import collections
+import operator
 import os
 from email.mime.multipart import MIMEMultipart
 from unittest.mock import patch, Mock, PropertyMock
@@ -372,7 +373,9 @@ class TestDataDelivery(TestProjectManagement):
                     'md5': 'd41d8cd98f00b204e9800998ecf8427e'
                 } for f in list_file
                 ]
-            assert self.delivery_real_split_fluidx.samples2list_files['p2sample1'] == expected_list_files
+            assert sorted(
+                self.delivery_real_split_fluidx.samples2list_files['p2sample1'], key=operator.itemgetter('file_path')
+            ) == sorted(expected_list_files, key=operator.itemgetter('file_path'))
 
     def test_get_email_data(self):
         with patch_process, patch_get_document, patch_get_documents, patch_get_queue,\
