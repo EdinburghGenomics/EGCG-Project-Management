@@ -56,7 +56,7 @@
         <table class="table borderless">
             <tbody>
                 <tr>
-                    <td><img class="logo" src="http://s29.postimg.org/8qp6u1agn/EG_logo_final_version_colourwhite_cropped.png"/></td>
+                    <td><img class="logo" src="{{ eglogo }}"/></td>
                     <td>
                         Edinburgh Genomics Clinical<br>
                         The Roslin Institute <br>
@@ -139,8 +139,10 @@
     <div id="formal_statement">
         <h2>Deviations, Additions and Exclusions</h2>
             {% for authorisation in authorisations %}
-                <h4>Report {{ params['project_name'] }} {{ authorisation.version }}: {{ authorisation.date }}</h4>
-                {{ authorisation.NCs }}
+                {% if authorisation.NCs %}
+                    <h4>Report {{ params['project_name'] }} {{ authorisation.version }}: {{ authorisation.date }}</h4>
+                    {{ authorisation.NCs }}
+                {% endif %}
             {% endfor %}
 
         <h2>Declaration of Compliance</h2>

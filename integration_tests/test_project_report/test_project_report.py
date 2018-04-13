@@ -35,9 +35,14 @@ class FakeLims:
                     'Project Title': 'a_research_title_for_' + name,
                     'Enquiry Number': '1337',
                     'Quote No.': '1338',
-                    'Number of Quoted Samples': 8
+                    'Number of Quoted Samples': 8,
+                    'Shipment Address Line 1': 'Institute of Awesomeness',
+                    'Shipment Address Line 2': '213 high street',
+                    'Shipment Address Line 3': '-',
+                    'Shipment Address Line 4': '-',
+                    'Shipment Address Line 5': '-'
                 },
-                researcher=Mock(first_name='First', last_name='Last', email='first.last@email.com')
+                researcher=NamedMock(name='First Last', first_name='First', last_name='Last', email='first.last@email.com')
             )
         ]
 

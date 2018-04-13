@@ -64,6 +64,12 @@ class ProjectReport:
         self.font_config = FontConfiguration()
 
     @property
+    def eglogo_path(self):
+        return 'file://' + os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'etc', 'EG_logo_blackonwhite_300dpi.png'
+        )
+
+    @property
     def project(self):
         if self._project is None:
             self._project = self.lims.get_projects(name=self.project_name)[0]
@@ -177,7 +183,26 @@ class ProjectReport:
 
     @property
     def number_quoted_samples(self):
-        return self.project.udf.get('Number of Quoted Samples', '')
+        return self.project.udf.get('Number of Quoted Samples', '')\
+
+    @property
+    def customer_name(self):
+        name = ''
+        if self.project.researcher:
+            name = self.project.researcher.name
+        if not name:
+            name = self.project.udf.get('Shipment Contact Name')
+        return name
+
+    @property
+    def customer_address(self):
+        address_keys = ('Shipment Address Line 1', 'Shipment Address Line 2', 'Shipment Address Line 3',
+                        'Shipment Address Line 4', 'Shipment Address Line 5')
+        return '</br>'.join((
+            self.project.udf.get(k)
+            for k in address_keys
+            if self.project.udf.get(k) and self.project.udf.get(k) != '-'
+        ))
 
     def update_from_program_csv(self, program_csv):
         all_programs = {}
@@ -210,12 +235,13 @@ class ProjectReport:
         for sample in self.sample_name_delivered:
             species = self.get_species_from_sample(sample)
             species_submitted.add(species)
-
         project_info = (
             ('Project name', self.project_name),
             ('Project title', self.project_title),
             ('Enquiry no', self.enquiry_number),
             ('Quote no', self.quote_number),
+            ('Customer name', self.customer_name),
+            ('Customer address', self.customer_address),
             ('Number of samples', self.number_quoted_samples),
             ('Number of samples delivered', len(self.samples_for_project_restapi)),
             ('Date samples received', 'Detailed in appendix I'),
@@ -412,6 +438,9 @@ class ProjectReport:
             version = 'v' + str(i + 1)
             if process.udf.get('Is this the final data release for the project?', 'No') == 'Yes':
                 version += '-final'
+            NC = process.udf.get('Non-Conformances', '')
+            if NC.lower() in ['na', 'n/a']:
+                NC = ''
             release_data.append({
                 'samples': sample_names,
                 'version': version,
@@ -419,7 +448,7 @@ class ProjectReport:
                 'role': cfg.query('delivery', 'signature_role'),
                 'date': process.date_run,
                 'id': process.id,
-                'NCs': process.udf.get('Non-Conformances', '')
+                'NCs': NC
             })
         return release_data
 
@@ -511,6 +540,7 @@ class ProjectReport:
         self.store_sample_info()
         authorisations = self.get_authorization()
         report = template1.render(
+            eglogo=self.eglogo_path,
             authorisations=authorisations,
             project_info=self.get_project_info(),
             project_stats=self.calculate_project_statistsics(),
