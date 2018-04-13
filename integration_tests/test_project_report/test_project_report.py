@@ -219,10 +219,10 @@ class TestProjectReport(IntegrationTest):
     def test_reports(self):
         test_success = True
         exp_md5s = {
-            'htn999': '0a6be8e264c5a576f38c47ed61506ca9',
-            'nhtn999': 'ce9d5f3de7afefe2029e58b2cf1f19e7',
-            'hpf999': 'd807329abebae10d04dd27ffea83cc6b',
-            'nhpf999': '8ec3398d0594c1d6be7da9843e011eaf'
+            'htn999': '67cca9143c2c3fd35a148f730423f803',
+            'nhtn999': '25795c9658e52aee11b8a6044b6fbae2',
+            'hpf999': '9ffe11a329d03ac479114d9e2d9dd0be',
+            'nhpf999': '48edc4b2caeb8634db4917a224b8a373'
         }
         for k, v in exp_md5s.items():
             client.main(['-p', k, '-o', 'html', '-w', work_dir])
