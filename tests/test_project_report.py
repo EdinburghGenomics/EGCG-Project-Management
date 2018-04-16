@@ -160,8 +160,12 @@ fake_sample_status = {
 
 
 class FakeLims:
-    @staticmethod
-    def get_projects(name):
+    fake_lims_researcher = NamedMock(
+        name='First Last', first_name='First', last_name='Last', email='first.last@email.com',
+        lab=NamedMock(name='Awesome lab')
+    )
+
+    def get_projects(self, name):
         return [Mock(
             udf={
                 'Project Title': 'a_research_title_for_' + name,
@@ -174,7 +178,7 @@ class FakeLims:
                 'Shipment Address Line 4': '-',
                 'Shipment Address Line 5': '-'
             },
-            researcher=NamedMock(name='First Last', first_name='First', last_name='Last', email='first.last@email.com')
+            researcher=self.fake_lims_researcher
         )]
 
     @staticmethod
@@ -283,14 +287,24 @@ class TestProjectReport(TestProjectManagement):
             shutil.rmtree(os.path.join(self.source_dir, project))
         shutil.rmtree(self.working_dir)
 
+    def test_customer_name(self):
+        assert self.pr.customer_name == 'Awesome lab'
+
+        # Remove the lab from the researcher
+        self.pr.lims.fake_lims_researcher = NamedMock(name='Firstname Lastname', lab=None)
+        # Remove the cached project
+        self.pr._project = None
+        assert self.pr.customer_name == 'Firstname Lastname'
+
+
     @mocked_get_folder_size
     def test_get_project_info(self, mocked_folder_size):
         exp = (('Project name', 'a_project_name'),
                ('Project title', 'a_research_title_for_a_project_name'),
                ('Enquiry no', '1337'),
                ('Quote no', '1338'),
-               ('Customer name', 'First Last'),
-               ('Customer address', 'Institute of Awesomeness</br>213 high street'),
+               ('Customer name', 'Awesome lab'),
+               ('Customer address', ['Institute of Awesomeness', '213 high street']),
                ('Number of samples', len(fake_samples['a_project_name'])),
                ('Number of samples delivered', nb_samples),
                ('Date samples received', 'Detailed in appendix I'),

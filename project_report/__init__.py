@@ -189,20 +189,21 @@ class ProjectReport:
     def customer_name(self):
         name = ''
         if self.project.researcher:
-            name = self.project.researcher.name
-        if not name:
-            name = self.project.udf.get('Shipment Contact Name')
+            if self.project.researcher.lab:
+                name = self.project.researcher.lab.name
+            if not name:
+                name = self.project.researcher.name
         return name
 
     @property
-    def customer_address(self):
+    def customer_address_lines(self):
         address_keys = ('Shipment Address Line 1', 'Shipment Address Line 2', 'Shipment Address Line 3',
                         'Shipment Address Line 4', 'Shipment Address Line 5')
-        return '</br>'.join((
+        return [
             self.project.udf.get(k)
             for k in address_keys
             if self.project.udf.get(k) and self.project.udf.get(k) != '-'
-        ))
+        ]
 
     def update_from_program_csv(self, program_csv):
         all_programs = {}
@@ -241,7 +242,7 @@ class ProjectReport:
             ('Enquiry no', self.enquiry_number),
             ('Quote no', self.quote_number),
             ('Customer name', self.customer_name),
-            ('Customer address', self.customer_address),
+            ('Customer address', self.customer_address_lines),
             ('Number of samples', self.number_quoted_samples),
             ('Number of samples delivered', len(self.samples_for_project_restapi)),
             ('Date samples received', 'Detailed in appendix I'),

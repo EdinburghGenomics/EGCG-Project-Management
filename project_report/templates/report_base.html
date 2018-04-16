@@ -98,7 +98,13 @@
             {% for title, data in project_info %}
             <tr>
                 <th>{{ title }}</th>
-                <td>{{ data }}</td>
+                <td>
+                    {% if data is iterable and data is not string %}
+                        {{ data|join('<br>') }}
+                    {% else %}
+                        {{ data }}
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </table>
