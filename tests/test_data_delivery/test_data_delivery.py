@@ -273,6 +273,36 @@ class TestDataDelivery(TestProjectManagement):
                 self.touch(f)
                 self.md5(f)
 
+    def test_mark_samples_as_released(self):
+        delivered_date = datetime.datetime(2018, 1, 10)
+        with patch('bin.deliver_reviewed_data._now', return_value=delivered_date), \
+                patch('egcg_core.rest_communication.patch_entry') as mpatch, \
+                patch('egcg_core.clarity.route_samples_to_delivery_workflow') as mroute:
+            self.delivery_real_merged.samples2list_files = {
+                'p1sample1': [{'file_path': 'path to file1'}],
+                'p1sample2': [{'file_path': 'path to file2'}],
+            }
+            self.delivery_real_merged.mark_samples_as_released(['p1sample1', 'p1sample2'])
+            mpatch.assert_any_call(
+                'samples', element_id='p1sample1', id_field='sample_id',
+                payload={
+                    'delivered': 'yes',
+                    'files_delivered': [{'file_path': 'path to file1'}],
+                    'delivery_date':delivered_date
+                },
+                update_lists=['files_delivered']
+            )
+            mpatch.assert_called_with(
+                'samples', element_id='p1sample2', id_field='sample_id',
+                payload={
+                    'delivered': 'yes',
+                    'files_delivered': [{'file_path': 'path to file2'}],
+                    'delivery_date': delivered_date
+                },
+                update_lists=['files_delivered']
+            )
+            mroute.assert_called_with(['p1sample1', 'p1sample2'])
+
     def test_get_deliverable_projects_samples(self):
         with patch_process, patch_get_document, patch_get_documents:
             project_to_samples = self.delivery_dry_merged.deliverable_samples
