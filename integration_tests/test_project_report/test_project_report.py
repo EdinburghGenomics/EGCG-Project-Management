@@ -42,7 +42,8 @@ class FakeLims:
                     'Shipment Address Line 4': '-',
                     'Shipment Address Line 5': '-'
                 },
-                researcher=NamedMock(name='First Last', first_name='First', last_name='Last', email='first.last@email.com')
+                researcher=NamedMock(name='First Last', first_name='First', last_name='Last', email='first.last@email.com',
+                                     lab=NamedMock(name='Awesome lab'))
             )
         ]
 
@@ -219,10 +220,10 @@ class TestProjectReport(IntegrationTest):
     def test_reports(self):
         test_success = True
         exp_md5s = {
-            'htn999': '67cca9143c2c3fd35a148f730423f803',
-            'nhtn999': '25795c9658e52aee11b8a6044b6fbae2',
-            'hpf999': '9ffe11a329d03ac479114d9e2d9dd0be',
-            'nhpf999': '48edc4b2caeb8634db4917a224b8a373'
+            'htn999': 'dbf41471fa5fe2367daab6eb5876e151',
+            'nhtn999': 'b05e63e1e9929bfc4d7412cb6d73d99f',
+            'hpf999': 'c9cd8f802601e69730c7c38b9e5bc013',
+            'nhpf999': 'fa74f5eb9d1e8eba0b16ac23d38a5ab9'
         }
         for k, v in exp_md5s.items():
             client.main(['-p', k, '-o', 'html', '-w', work_dir])
