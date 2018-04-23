@@ -477,6 +477,14 @@ class DataDelivery(AppLogger):
         }
 
 
+def resolve_process_id(process_id):
+    # Take the end of the url if it is a url
+    process_id = process_id.split('/')[-1]
+    if not process_id.startswith('24-'):
+        process_id = '24-' + process_id
+    return process_id
+
+
 def main(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument('--dry_run', action='store_true')
@@ -495,8 +503,9 @@ def main(argv=None):
         log_cfg.set_log_level(logging.DEBUG)
 
     cfg.merge(cfg['sample'])
+    process_id = resolve_process_id(args.process_id)
     dd = DataDelivery(args.dry_run, args.work_dir, no_cleanup=args.no_cleanup,
-                      email=args.email, process_id=args.process_id)
+                      email=args.email, process_id=process_id)
     dd.deliver_data()
 
 

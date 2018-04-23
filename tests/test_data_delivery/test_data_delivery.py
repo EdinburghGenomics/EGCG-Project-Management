@@ -10,7 +10,7 @@ import itertools
 from egcg_core.config import cfg
 
 from tests import TestProjectManagement, NamedMock
-from bin.deliver_reviewed_data import DataDelivery, _execute, Release_LIMS_ste_name
+from bin.deliver_reviewed_data import DataDelivery, _execute, Release_LIMS_ste_name, resolve_process_id
 
 sample_templates = {
     'process_id1': {
@@ -491,3 +491,8 @@ class TestDataDelivery(TestProjectManagement):
             assert mock_send_email.call_count == 1
             assert type(mock_send_email.call_args_list[0][0][0]) == MIMEMultipart
 
+    def test_resolve_process_id(self):
+        assert resolve_process_id('http://test.com/path/to/step/20198') == '24-20198'
+        assert resolve_process_id('http://test.com/api/2/steps/24-20198') == '24-20198'
+        assert resolve_process_id('20198') == '24-20198'
+        assert resolve_process_id('24-20198') == '24-20198'
