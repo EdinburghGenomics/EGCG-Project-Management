@@ -16,6 +16,8 @@ from bin.deliver_reviewed_data import DataDelivery, _execute
 sample_templates = {
     'process_id1': {
         'name': 'p1sample%s',
+        'nb_sample': 4,
+        'already_delivered_samples': [3, 4],
         'samples': {
             'project_id': 'project1',
             'user_sample_id': 'p1_user_s_id%s',
@@ -131,7 +133,8 @@ for process in sample_templates:
     artifacts = []
     for i in range(1, sample_templates[process].get('nb_sample', 2) + 1):
         sample_id = sample_templates[process]['name'] % i
-        artifacts.append(Mock(samples=[NamedMock(name=sample_id)]))
+        if i not in sample_templates[process].get('already_delivered_samples', []):
+            artifacts.append(Mock(samples=[NamedMock(name=sample_id)]))
 
         for endpoint in ('samples', 'lims/samples', 'lims/status/sample_status'):
             rest_responses[endpoint][sample_id] = dict([
@@ -151,7 +154,11 @@ for process in sample_templates:
 
 
 def fake_get_document(*args, **kwargs):
-    return rest_responses.get(args[0], {}).get(list(kwargs.values())[0].get('sample_id'))
+    match = list(kwargs.values())[0]
+    if 'sample_id' in match:
+        return rest_responses.get(args[0], {}).get(match.get('sample_id'))
+    if 'project_id' in match:
+        return [rr for rr in rest_responses.get(args[0], {}).values() if rr['project_id'] == match.get('project_id')]
 
 
 patch_get_document = patch('egcg_core.rest_communication.get_document', side_effect=fake_get_document)
@@ -312,9 +319,10 @@ class TestDataDelivery(TestProjectManagement):
     def test_summarise_metrics_per_sample(self):
         with patch_process, patch_get_document, patch_get_documents:
             self.delivery_dry_merged.deliverable_samples
-            expected_header = ['Project', 'Sample Id', 'Species', 'Library type', 'User sample id',
-                               'Number of Read pair', 'Target Yield', 'Yield', 'Yield Q30', '%Q30', 'Mapped reads rate',
-                               'Duplicate rate', 'Target Coverage', 'Mean coverage', 'Delivery folder']
+            expected_header = ['Project', 'Sample Id', 'User sample id', 'Species', 'Library type','Received date',
+                               'DNA QC (ng)', 'Number of Read pair', 'Target Yield', 'Yield', 'Yield Q30', '%Q30',
+                               'Mapped reads rate', 'Duplicate rate', 'Target Coverage', 'Mean coverage',
+                               'Delivery folder']
 
             expected_lines = [
                 'project1\tp1sample1\tp1_user_s_id1\tHomo sapiens\tTruSeq PCR-Free\t2017-08-02\t2000\t39024000\t'
@@ -322,13 +330,67 @@ class TestDataDelivery(TestProjectManagement):
                 'project1\tp1sample2\tp1_user_s_id2\tHomo sapiens\tTruSeq PCR-Free\t2017-08-02\t2000\t39024000\t'
                 '120.0\t127\t102\t85.2\t99.1\t16.4\t30\t35\tdate_delivery'
             ]
-
             header, lines = self.delivery_dry_merged.summarise_metrics_per_sample(
                 project_id='project1',
                 delivery_folder='date_delivery'
             )
             assert header == expected_header
             assert sorted(lines) == sorted(expected_lines)
+
+    def test_overwrite_metrics_file(self):
+        os.makedirs(os.path.join(self.dest_dir, 'project1'), exist_ok=True)
+        metrics_lines = [
+            'Project\tSample Id\tUser sample id\tSpecies\tLibrary type\tReceived date\tDNA QC (ng)\t'
+            'Number of Read pair\tTarget Yield\tYield\tYield Q30\t%Q30\tMapped reads rate\tDuplicate rate\t'
+            'Target Coverage\tMean coverage\tDelivery folder',
+            'project1\tp1sample3\tp1_user_s_id1\tHomo sapiens\tTruSeq PCR-Free\t2017-08-02\t2000\t39024000\t'
+            '120.0\t127\t102\t85.2\t99.1\t16.4\t30\t35\tdate_delivery1',
+            'project1\tp1sample4\tp1_user_s_id2\tHomo sapiens\tTruSeq PCR-Free\t2017-08-02\t2000\t39024000\t'
+            '120.0\t127\t102\t85.2\t99.1\t16.4\t30\t35\tdate_delivery1'
+        ]
+        summary_file = os.path.join(self.dest_dir, 'project1', 'summary_metrics.csv')
+        with open(summary_file, 'w') as open_file:
+            open_file.write('\n'.join(metrics_lines))
+
+        with patch_process, patch_get_document, patch_get_documents:
+            self.delivery_dry_merged.deliverable_samples
+            self.delivery_dry_merged.write_metrics_file(
+                project='project1',
+                delivery_folder='date_delivery2'
+            )
+        with open(summary_file, 'r') as open_file:
+            lines = open_file.readlines()
+            assert len(lines) == 5
+            assert lines[1].endswith('date_delivery1\n')
+            assert lines[2].endswith('date_delivery1\n')
+            assert lines[3].endswith('date_delivery2\n')
+            assert lines[4].endswith('date_delivery2\n')
+
+    def test_overwrite_old_metrics_file(self):
+        os.makedirs(os.path.join(self.dest_dir, 'project1'), exist_ok=True)
+        metrics_lines = [
+            'Project\tSample Id\tUser sample id\tRead pair sequenced\tYield\tYield Q30\tNb reads in bam\t'
+            'mapping rate\tproperly mapped reads rate\tduplicate rate\tMean coverage\tDelivery folder',
+            'project1\tp1sample3\tp1_user_s_id1\t39024000\t127\t102\t39823000\t99.1\t92.3\t16.4\t35\tdate_delivery1',
+            'project1\tp1sample4\tp1_user_s_id2\t39024000\t127\t102\t39823000\t99.1\t92.3\t16.4\t35\tdate_delivery1'
+        ]
+        summary_file = os.path.join(self.dest_dir, 'project1', 'summary_metrics.csv')
+        with open(summary_file, 'w') as open_file:
+            open_file.write('\n'.join(metrics_lines))
+
+        with patch_process, patch_get_document, patch_get_documents:
+            self.delivery_dry_merged.deliverable_samples
+            self.delivery_dry_merged.write_metrics_file(
+                project='project1',
+                delivery_folder='date_delivery2'
+            )
+        with open(summary_file, 'r') as open_file:
+            lines = open_file.readlines()
+            assert len(lines) == 5
+            assert lines[1].endswith('date_delivery1\n')
+            assert lines[2].endswith('date_delivery1\n')
+            assert lines[3].endswith('date_delivery2\n')
+            assert lines[4].endswith('date_delivery2\n')
 
     def test_deliver_data_merged(self):
         with patch_process, patch_get_document, patch_get_documents, patch_get_queue:

@@ -1,4 +1,5 @@
 import argparse
+import csv
 import datetime
 import glob
 import logging
@@ -102,8 +103,8 @@ class DataDelivery(AppLogger):
         }
 
     def already_delivered_samples(self, project_id):
-        return (
-            self.get_sample_data(sample.get('sample_id'))
+        return dict(
+            (sample.get('sample_id'), self.get_sample_data(sample.get('sample_id')))
             for sample in rest_communication.get_documents('samples', where={'project_id': project_id, 'delivered': 'yes'})
         )
 
@@ -116,8 +117,8 @@ class DataDelivery(AppLogger):
         project_to_samples = defaultdict(list)
         samples = [self.get_sample_data(sample) for sample in sample_names]
         for sample in samples:
-            project_to_samples[sample.get('data').get('project_id')].append(sample.get('data'))
-            self.all_samples_dict[sample.get('data').get('sample_id')] = sample
+            project_to_samples[query_dict(sample, 'data.project_id')].append(sample.get('data'))
+            self.all_samples_dict[query_dict(sample, 'data.sample_id')] = sample
         return project_to_samples
 
     def stage_data(self, sample):
@@ -214,16 +215,10 @@ class DataDelivery(AppLogger):
         for tuple_val in self.postponed_register:
             self.register_file(*tuple_val)
 
-    def summarise_metrics_per_sample(self, project_id, delivery_folder):
-        headers = ['Project', 'Sample Id', 'Species', 'Library type', 'User sample id', 'Number of Read pair',
-                   'Target Yield', 'Yield', 'Yield Q30', '%Q30', 'Mapped reads rate', 'Duplicate rate',
-                   'Target Coverage', 'Mean coverage', 'Delivery folder']
-        lines = []
-        for sample_id, sample_data in self.all_samples_dict.items():
-            if query_dict(sample_data, 'data.project_id') == project_id:
-                res = [
+    def _sample_metrics(self, sample_data, delivery_folder):
+        return [
                     query_dict(sample_data, 'data.project_id'),
-                    sample_id,
+                    query_dict(sample_data, 'data.sample_id'),
                     query_dict(sample_data, 'data.user_sample_id'),
                     query_dict(sample_data, 'data.species_name'),
                     self.library_alias(query_dict(sample_data, 'status.library_type')),
@@ -240,6 +235,15 @@ class DataDelivery(AppLogger):
                     query_dict(sample_data, 'data.coverage.mean'),
                     os.path.basename(delivery_folder)
                 ]
+
+    def summarise_metrics_per_sample(self, project_id, delivery_folder):
+        headers = ['Project', 'Sample Id', 'User sample id', 'Species', 'Library type', 'Received date', 'DNA QC (ng)',
+                   'Number of Read pair', 'Target Yield', 'Yield', 'Yield Q30', '%Q30', 'Mapped reads rate',
+                   'Duplicate rate', 'Target Coverage', 'Mean coverage', 'Delivery folder']
+        lines = []
+        for sample_id, sample_data in self.all_samples_dict.items():
+            if query_dict(sample_data, 'data.project_id') == project_id:
+                res = self._sample_metrics(sample_data, delivery_folder)
                 lines.append('\t'.join(str(r) for r in res))
         return headers, lines
 
@@ -318,15 +322,23 @@ class DataDelivery(AppLogger):
         clarity.route_samples_to_delivery_workflow(samples)
 
     def write_metrics_file(self, project, delivery_folder):
-        header, lines = self.summarise_metrics_per_sample(project, delivery_folder)
+        lines = []
         summary_metrics_file = os.path.join(self.delivery_dest, project, 'summary_metrics.csv')
         if os.path.isfile(summary_metrics_file):
-            with open(summary_metrics_file, 'a') as open_file:
-                open_file.write('\n'.join(lines) + '\n')
-        else:
-            with open(summary_metrics_file, 'w') as open_file:
-                open_file.write('\t'.join(header) + '\n')
-                open_file.write('\n'.join(lines) + '\n')
+            # file already there so grab the sample ids and delivery folder and regenerate the rest
+            with open(summary_metrics_file, 'r') as open_file:
+                reader = csv.DictReader(open_file, delimiter='\t')
+                already_delivered_data = self.already_delivered_samples(project)
+                for l in reader:
+                    print(l.get('Delivery folder'))
+                    res = self._sample_metrics(already_delivered_data[l.get('Sample Id')], l.get('Delivery folder'))
+                    lines.append('\t'.join(str(r) for r in res))
+
+        header, new_lines = self.summarise_metrics_per_sample(project, delivery_folder)
+        lines += new_lines
+        with open(summary_metrics_file, 'w') as open_file:
+            open_file.write('\t'.join(header) + '\n')
+            open_file.write('\n'.join(lines) + '\n')
 
     def run_aggregate_commands(self):
         if self.all_commands_for_cluster:
