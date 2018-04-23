@@ -1,16 +1,15 @@
+import collections
+import datetime
 import glob
 import os
+import shutil
 from itertools import cycle
 from random import randint, random
 from unittest.mock import Mock, PropertyMock, patch
-import shutil
 
-import collections
-
-import datetime
+from egcg_core.config import cfg
 
 from project_report import ProjectReport
-from egcg_core.config import cfg
 from tests import TestProjectManagement, NamedMock
 
 cfg.load_config_file(TestProjectManagement.etc_config)
@@ -289,13 +288,11 @@ class TestProjectReport(TestProjectManagement):
 
     def test_customer_name(self):
         assert self.pr.customer_name == 'Awesome lab'
-
-        # Remove the lab from the researcher
-        self.pr.lims.fake_lims_researcher = NamedMock(name='Firstname Lastname', lab=None)
+        # Remove the lab name from the researcher
+        self.pr.lims.fake_lims_researcher = NamedMock(name='Firstname Lastname', lab=NamedMock(name=''))
         # Remove the cached project
         self.pr._project = None
         assert self.pr.customer_name == 'Firstname Lastname'
-
 
     @mocked_get_folder_size
     def test_get_project_info(self, mocked_folder_size):

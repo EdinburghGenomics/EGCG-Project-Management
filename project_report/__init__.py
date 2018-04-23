@@ -183,16 +183,13 @@ class ProjectReport:
 
     @property
     def number_quoted_samples(self):
-        return self.project.udf.get('Number of Quoted Samples', '')\
+        return self.project.udf.get('Number of Quoted Samples', '') \
 
     @property
     def customer_name(self):
-        name = ''
-        if self.project.researcher:
-            if self.project.researcher.lab:
-                name = self.project.researcher.lab.name
-            if not name:
-                name = self.project.researcher.name
+        name = self.project.researcher.lab.name
+        if not name:
+            name = self.project.researcher.name
         return name
 
     @property
@@ -402,21 +399,21 @@ class ProjectReport:
                                    'rows': [('Sequencing plate preparation',
                                              'Samples normalised to fall within 5-40ng/ul', 'Hamilton robot'),
                                             ('Nano DNA', 'Libraries prepared using Illumina SeqLab %s' % (
-                                            self.params['library_workflow']),
+                                                self.params['library_workflow']),
                                              'Hamilton, Covaris LE220, Gemini Spectramax XP, Hybex incubators, BioRad C1000/S1000 thermal cycler')]},
                   'library_qc': {'title': 'Library QC',
                                  'headings': ['Method', 'QC', 'Critical equipment', 'Pass criteria'],
                                  'rows': [(
-                                          'Library QC as part of Nano DNA', 'Insert size evaluated', 'Caliper GX Touch',
-                                          'Fragment sizes fall between 530bp and 730bp'),
-                                          ('Library QC as part of Nano DNA', 'Library concentration calculated',
-                                           'Roche Lightcycler', 'Concentration between 5.5nM and 40nM')]},
+                                     'Library QC as part of Nano DNA', 'Insert size evaluated', 'Caliper GX Touch',
+                                     'Fragment sizes fall between 530bp and 730bp'),
+                                     ('Library QC as part of Nano DNA', 'Library concentration calculated',
+                                      'Roche Lightcycler', 'Concentration between 5.5nM and 40nM')]},
                   'sequencing': {'title': 'Sequencing',
                                  'headings': ['Method', 'Steps', 'Critical equipment'],
                                  'rows': [('Clustering and sequencing of libraries as part of %s' % (
-                                 self.params['library_workflow']), 'Clustering', 'cBot2'),
+                                     self.params['library_workflow']), 'Clustering', 'cBot2'),
                                           ('Clustering and Sequencing of libraries as part of %s' % (
-                                          self.params['library_workflow']), 'Sequencing', 'HiSeqX')]},
+                                              self.params['library_workflow']), 'Sequencing', 'HiSeqX')]},
                   'bioinformatics': {'title': 'Bioinformatics analysis',
                                      'headings': ['Method', 'Software', 'Version'],
                                      'rows': [('Demultiplexing', 'bcl2fastq', self.params['bcl2fastq_version']),
