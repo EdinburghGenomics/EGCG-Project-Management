@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch, PropertyMock
 
 import egcg_core
 
+from bin.deliver_reviewed_data import Release_LIMS_ste_name
 from integration_tests import IntegrationTest, integration_cfg, NamedMock
 from egcg_core import rest_communication, util
 from egcg_core.config import cfg
@@ -151,7 +152,7 @@ class TestDelivery(IntegrationTest):
     delivered_projects_dir = os.path.join(work_dir, 'delivered_projects')
     artifacts = [Mock(samples=[NamedMock(name=sample)]) for sample in fake_samples if fake_samples[sample].get('authorised', False)]
     fake_process = Mock(
-        type=NamedMock(name='Authorised process name'),
+        type=NamedMock(name=Release_LIMS_ste_name),
         all_inputs=Mock(return_value=artifacts)
     )
     patches = (
