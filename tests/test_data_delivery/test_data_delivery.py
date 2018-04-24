@@ -10,7 +10,7 @@ import itertools
 from egcg_core.config import cfg
 
 from tests import TestProjectManagement, NamedMock
-from bin.deliver_reviewed_data import DataDelivery, _execute, Release_LIMS_ste_name, resolve_process_id
+from bin.deliver_reviewed_data import DataDelivery, _execute, Release_LIMS_step_name, resolve_process_id
 
 sample_templates = {
     'process_id1': {
@@ -147,7 +147,7 @@ for process in sample_templates:
             rest_responses['run_elements'][sample_id].append(re)
 
     fake_processes[process] = Mock(
-        type=NamedMock(name=Release_LIMS_ste_name),
+        type=NamedMock(name=Release_LIMS_step_name),
         all_inputs=Mock(return_value=artifacts)
     )
 

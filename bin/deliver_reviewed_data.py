@@ -47,7 +47,7 @@ email_template = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'etc', 'delivery_email_template.html'
 )
 
-Release_LIMS_ste_name = 'Data Release Trigger EG 1.0 ST'
+Release_LIMS_step_name = 'Data Release Trigger EG 1.0 ST'
 
 
 def _execute(*commands, **kwargs):
@@ -113,8 +113,8 @@ class DataDelivery(AppLogger):
     @cached_property
     def deliverable_samples(self):
         """Retrieve the names of samples that went through the authorisation step. Then get the data associated."""
-        if self.process.type.name != Release_LIMS_ste_name:
-            raise ValueError('Process %s is not of the type ' + Release_LIMS_ste_name)
+        if self.process.type.name != Release_LIMS_step_name:
+            raise ValueError('Process %s is not of the type ' + Release_LIMS_step_name)
         sample_names = [a.samples[0].name for a in self.process.all_inputs(resolve=True)]
         project_to_samples = defaultdict(list)
         samples = [self.get_sample_data(sample) for sample in sample_names]
