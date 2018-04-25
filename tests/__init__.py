@@ -10,6 +10,7 @@ class NamedMock(Mock):
         super().__init__(*args, **kwargs)
         self.name = name
 
+        
 class TestProjectManagement(TestCase):
     root_path = abspath(dirname(dirname(__file__)))
     etc_config = join(root_path, 'etc', 'example_project_management.yaml')

@@ -105,7 +105,7 @@ class DeliveryAPIClient(AppLogger):
         self.params['json'] = {'delivery_id': delivery_id}
         return self.do_http_call('put', self.get_url(delivery_id))
 
-    def get(self, delivery_id):
+    def get(self, delivery_id: object) -> object:
         """
         TODO method doc
         :param delivery_id:

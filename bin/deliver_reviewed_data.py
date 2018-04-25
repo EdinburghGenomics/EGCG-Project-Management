@@ -1,4 +1,5 @@
 import argparse
+import csv
 import datetime
 import glob
 import logging
@@ -11,12 +12,14 @@ from os.path import basename, join, dirname
 from cached_property import cached_property
 from egcg_core import executor, rest_communication, clarity
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
+from egcg_core.clarity import connection
 from egcg_core.config import cfg
 from egcg_core.constants import ELEMENT_NB_READS_CLEANED, ELEMENT_RUN_NAME, ELEMENT_PROJECT_ID, ELEMENT_LANE, \
     ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_RUN_ELEMENT_ID, ELEMENT_USEABLE
 from egcg_core.exceptions import EGCGError
 from egcg_core.notifications.email import send_html_email
-from egcg_core.util import find_fastqs
+from egcg_core.util import find_fastqs, query_dict
+from pyclarity_lims.entities import Process
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from project_report import ProjectReport
@@ -44,6 +47,9 @@ email_template = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'etc', 'delivery_email_template.html'
 )
 
+Release_LIMS_step_name = 'Data Release Trigger EG 1.0 ST'
+
+
 def _execute(*commands, **kwargs):
     exit_status = executor.execute(*commands, **kwargs).join()
     if exit_status != 0:
@@ -55,57 +61,72 @@ def _now():
 
 
 class DataDelivery(AppLogger):
-    def __init__(self, dry_run, work_dir, no_cleanup=False, email=True):
-        self.all_commands_for_cluster = []
-        self.postponed_register = []
+    def __init__(self, dry_run, work_dir, process_id, no_cleanup=False, email=True):
+        self.process_id = process_id
         self.dry_run = dry_run
-        self.all_samples_values = []
-        self.sample2species = {}
-        self.sample2analysis_type = {}
         self.work_dir = work_dir
-        self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + _now())
         self.no_cleanup = no_cleanup
         self.email = email
+        self.all_commands_for_cluster = []
+        self.postponed_register = []
+        self.all_samples_dict = {}
+        self.sample2species = {}
+        self.sample2analysis_type = {}
+        self.samples2list_files = defaultdict(list)
+        self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + _now())
         self.delivery_dest = cfg.query('delivery', 'dest')
         self.delivery_source = cfg.query('delivery', 'source')
-        self.samples2list_files = defaultdict(list)
 
     @cached_property
     def today(self):
-        return  datetime.date.today().isoformat()
+        return datetime.date.today().isoformat()
 
-    def get_deliverable_projects_samples(self, project_id=None, sample_id=None):
-        project_to_samples = defaultdict(list)
-        # Get sample that have been review from REST API but not marked as delivered
-        where_clause = {"useable": "yes"}
-        if project_id:
-            where_clause["project_id"] = project_id
-        if sample_id:
-            where_clause["sample_id"] = sample_id
-        # These samples are useable but could have been delivered already so need to check
-        samples = rest_communication.get_documents(
-            'samples',
-            all_pages=True,
-            quiet=True,
-            embedded={"analysis_driver_procs": 1, "run_elements": 1},
-            where=where_clause
+    @staticmethod
+    def parse_date(date):
+        if not date:
+            return 'NA'
+        return datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y-%m-%d')
+
+    @staticmethod
+    def library_alias(library_type):
+        return {'nano': 'TruSeq Nano', 'pcrfree': 'TruSeq PCR-Free'}.get(library_type, 'NA')
+
+    @cached_property
+    def process(self):
+        return Process(connection(), id=self.process_id)
+
+    @staticmethod
+    def get_sample_data(sample_name):
+        return {
+            'data': rest_communication.get_document('samples', where={'sample_id': sample_name}),
+            'udfs': rest_communication.get_document('lims/samples', match={'sample_id': sample_name}),
+            'status': rest_communication.get_document('lims/status/sample_status', match={'sample_id': sample_name}),
+            'run_elements': rest_communication.get_documents('run_elements', where={'sample_id': sample_name}),
+        }
+
+    def already_delivered_samples(self, project_id):
+        return dict(
+            (sample.get('sample_id'), self.get_sample_data(sample.get('sample_id')))
+            for sample in rest_communication.get_documents('samples', where={'project_id': project_id, 'delivered': 'yes'})
         )
+
+    @cached_property
+    def deliverable_samples(self):
+        """Retrieve the names of samples that went through the authorisation step. Then get the data associated."""
+        if self.process.type.name != Release_LIMS_step_name:
+            raise ValueError('Process %s is not of the type ' + Release_LIMS_step_name)
+        sample_names = [a.samples[0].name for a in self.process.all_inputs(resolve=True)]
+        project_to_samples = defaultdict(list)
+        samples = [self.get_sample_data(sample) for sample in sample_names]
         for sample in samples:
-            processes = sample.get('analysis_driver_procs', [{}])
-            processes.sort(
-                key=lambda x: datetime.datetime.strptime(x.get('_created', '01_01_1970_00:00:00'),
-                                                         '%d_%m_%Y_%H:%M:%S'))
-            if not processes[-1].get('status', 'new') == 'finished':
-                raise EGCGError("Reviewed sample %s not marked as finished" % sample.get('sample_id'))
-            if sample.get('delivered', 'no') == 'no':
-                project_to_samples[sample.get('project_id')].append(sample)
-                self.all_samples_values.append(sample)
+            project_to_samples[query_dict(sample, 'data.project_id')].append(sample.get('data'))
+            self.all_samples_dict[query_dict(sample, 'data.sample_id')] = sample
         return project_to_samples
 
     def stage_data(self, sample):
         # test sample has arrived in fuildX tube
         sample_id = sample.get(ELEMENT_SAMPLE_INTERNAL_ID)
-        fluidX_barcode = clarity.get_sample(sample_id).udf.get('2D Barcode')
+        fluidX_barcode = self.all_samples_dict[sample_id]['udfs'].get('2D Barcode')
 
         # Create staging_directory
         if fluidX_barcode:
@@ -123,8 +144,8 @@ class DataDelivery(AppLogger):
 
     def _stage_fastq_files(self, sample, sample_dir):
         sample_id = sample.get(ELEMENT_SAMPLE_INTERNAL_ID)
-        delivery_type = clarity.get_sample(sample_id).udf.get('Delivery', 'merged')
-        original_fastq_files = self._get_fastq_file_for_sample(sample)
+        delivery_type = self.all_samples_dict[sample_id]['udfs'].get('Delivery', 'merged')
+        original_fastq_files = self._get_fastq_file_for_sample(sample_id)
         external_sample_id = sample.get(ELEMENT_SAMPLE_EXTERNAL_ID)
 
         if delivery_type == 'merged':
@@ -196,52 +217,36 @@ class DataDelivery(AppLogger):
         for tuple_val in self.postponed_register:
             self.register_file(*tuple_val)
 
-    def summarise_metrics_per_sample(self, project_id, delivery_folder):
-        headers = ['Project', 'Sample Id', 'User sample id', 'Read pair sequenced', 'Yield', 'Yield Q30',
-                   'Nb reads in bam', 'mapping rate', 'properly mapped reads rate', 'duplicate rate',
-                   'Mean coverage', 'Delivery folder']
-        headers_not_human = ['Project', 'Sample Id', 'User sample id', 'Read pair sequenced', 'Yield', 'Yield Q30',
-                             'Delivery folder']
-        lines = []
-        for sample in self.all_samples_values:
-            # TODO: Aggregation is done here until we can do the filtering on the REST API
-            if sample.get('project_id') == project_id:
-                res = [sample.get('project_id'), sample.get('sample_id'), sample.get('user_sample_id')]
-                clean_reads = sum([int(e.get('clean_reads', '0')) for e in sample.get('run_elements') if
-                                   e.get('useable') == 'yes'])
-                clean_bases_r1 = sum([int(e.get('clean_bases_r1', '0')) for e in sample.get('run_elements') if
-                                      e.get('useable') == 'yes'])
-                clean_bases_r2 = sum([int(e.get('clean_bases_r2', '0')) for e in sample.get('run_elements') if
-                                      e.get('useable') == 'yes'])
-                clean_q30_bases_r1 = sum(int(e.get('clean_q30_bases_r1', '0')) for e in sample.get('run_elements') if
-                                         e.get('useable') == 'yes')
-                clean_q30_bases_r2 = sum(int(e.get('clean_q30_bases_r2', '0')) for e in sample.get('run_elements') if
-                                         e.get('useable') == 'yes')
-                res.append(str(clean_reads))
-                res.append(str((clean_bases_r1 + clean_bases_r2) / 1000000000))
-                res.append(str((clean_q30_bases_r1 + clean_q30_bases_r2) / 1000000000))
-                if self.get_sample_species(sample.get('sample_id')) == 'Homo sapiens' or \
-                   self.get_analysis_type(sample.get('sample_id')) in ['Variant Calling', 'Variant Calling gatk'] :
-                    tr = sample.get('bam_file_reads', 0)
-                    mr = sample.get('mapped_reads', 0)
-                    dr = sample.get('duplicate_reads', 0)
-                    pmr = sample.get('properly_mapped_reads', 0)
-                    if not tr:
-                        raise EGCGError('Sample %s has no total number of reads' % sample.get('sample_id'))
-                    res.append(str(tr))
-                    res.append(str(float(mr) / float(tr) * 100))
-                    res.append(str(float(pmr) / float(tr) * 100))
-                    res.append(str(float(dr) / float(tr) * 100))
-                    mean_cov = sample.get('coverage', {}).get('mean')
+    def _sample_metrics(self, sample_data, delivery_folder):
+        return [
+                    query_dict(sample_data, 'data.project_id'),
+                    query_dict(sample_data, 'data.sample_id'),
+                    query_dict(sample_data, 'data.user_sample_id'),
+                    query_dict(sample_data, 'data.species_name'),
+                    self.library_alias(query_dict(sample_data, 'status.library_type')),
+                    self.parse_date(query_dict(sample_data, 'status.started_date')),
+                    query_dict(sample_data, 'udfs.Total DNA(ng)'),
+                    query_dict(sample_data, 'data.aggregated.clean_reads'),
+                    query_dict(sample_data, 'data.required_yield') / 1000000000,
+                    query_dict(sample_data, 'data.aggregated.yield_in_gb'),
+                    query_dict(sample_data, 'data.aggregated.yield_q30_in_gb'),
+                    query_dict(sample_data, 'data.aggregated.pc_q30'),
+                    query_dict(sample_data, 'data.aggregated.pc_mapped_reads'),
+                    query_dict(sample_data, 'data.aggregated.pc_duplicate_reads'),
+                    query_dict(sample_data, 'data.required_coverage'),
+                    query_dict(sample_data, 'data.coverage.mean'),
+                    os.path.basename(delivery_folder)
+                ]
 
-                    # legacy code to get the coverage info for old samples
-                    if not mean_cov:
-                        mean_cov = sample.get('median_coverage', 0)
-                    res.append(str(mean_cov))
-                else:
-                    headers = headers_not_human
-                res.append(os.path.basename(delivery_folder))
-                lines.append('\t'.join(res))
+    def summarise_metrics_per_sample(self, project_id, delivery_folder):
+        headers = ['Project', 'Sample Id', 'User sample id', 'Species', 'Library type', 'Received date', 'DNA QC (ng)',
+                   'Number of Read pair', 'Target Yield', 'Yield', 'Yield Q30', '%Q30', 'Mapped reads rate',
+                   'Duplicate rate', 'Target Coverage', 'Mean coverage', 'Delivery folder']
+        lines = []
+        for sample_id, sample_data in self.all_samples_dict.items():
+            if query_dict(sample_data, 'data.project_id') == project_id:
+                res = self._sample_metrics(sample_data, delivery_folder)
+                lines.append('\t'.join(str(r) for r in res))
         return headers, lines
 
     @staticmethod
@@ -266,19 +271,14 @@ class DataDelivery(AppLogger):
         self.all_commands_for_cluster.append(command)
 
     def get_sample_species(self, sample_name):
-        if sample_name not in self.sample2species:
-            self.sample2species[sample_name] = clarity.get_species_from_sample(sample_name)
-        return self.sample2species.get(sample_name)
+        return self.all_samples_dict[sample_name]['data']['species_name']
 
     def get_analysis_type(self, sample_name):
-        if sample_name not in self.sample2analysis_type:
-            self.sample2analysis_type[sample_name] = clarity.get_sample(sample_name).udf.get('Analysis Type')
-        return self.sample2analysis_type.get(sample_name)
+        return self.all_samples_dict[sample_name]['udfs'].get('Analysis Type')
 
     def get_analysis_files(self, sample_name, external_sample_name):
         species = self.get_sample_species(sample_name)
         analysis_type = self.get_analysis_type(sample_name)
-        clarity.get_sample(sample_name).udf.get('Analysis Type')
         if species is None:
             raise EGCGError('No species information found in the LIMS for ' + sample_name)
         elif species == 'Homo sapiens':
@@ -292,22 +292,21 @@ class DataDelivery(AppLogger):
             final_list.append(f.format(ext_sample_id=external_sample_name))
         return final_list
 
-    @staticmethod
-    def _get_fastq_file_for_sample(sample):
+    def _get_fastq_file_for_sample(self, sample_id):
         fastqs_files = {}
         # TODO: make sure that the list of run elements is the same as the one that was QC.
-        for run_element in sample.get('run_elements'):
+        for run_element in self.all_samples_dict[sample_id]['run_elements']:
             if run_element.get(ELEMENT_USEABLE) == 'yes' and int(run_element.get(ELEMENT_NB_READS_CLEANED, 0)) > 0:
                 local_fastq_dir = os.path.join(cfg['input_dir'], run_element.get(ELEMENT_RUN_NAME))
                 fastqs = find_fastqs(local_fastq_dir, run_element.get(ELEMENT_PROJECT_ID),
-                                     sample.get(ELEMENT_SAMPLE_INTERNAL_ID), run_element.get(ELEMENT_LANE))
+                                     run_element.get(ELEMENT_SAMPLE_INTERNAL_ID), run_element.get(ELEMENT_LANE))
                 if fastqs:
                     fastqs_files[run_element.get(ELEMENT_RUN_ELEMENT_ID)] = tuple(sorted(fastqs))
                 else:
                     raise EGCGError(
                         'No Fastq files found for %s, %s, %s, %s' % (
                             local_fastq_dir, run_element.get(ELEMENT_PROJECT_ID),
-                            sample.get(ELEMENT_SAMPLE_INTERNAL_ID), run_element.get(ELEMENT_LANE)
+                            run_element.get(ELEMENT_SAMPLE_INTERNAL_ID), run_element.get(ELEMENT_LANE)
                         )
                     )
         return fastqs_files
@@ -324,28 +323,24 @@ class DataDelivery(AppLogger):
             )
         clarity.route_samples_to_delivery_workflow(samples)
 
-    def mark_only(self, project_id=None, sample_id=None):
-        project_to_samples = self.get_deliverable_projects_samples(project_id, sample_id)
-        all_samples = []
-        for project in project_to_samples:
-            samples = project_to_samples.get(project)
-            for sample_dict in samples:
-                all_samples.append(sample_dict.get(ELEMENT_SAMPLE_INTERNAL_ID))
-        if self.dry_run:
-            self.info('Will mark %s samples as delivered' % len(all_samples))
-        else:
-            self.mark_samples_as_released(all_samples)
-
     def write_metrics_file(self, project, delivery_folder):
-        header, lines = self.summarise_metrics_per_sample(project, delivery_folder)
+        lines = []
         summary_metrics_file = os.path.join(self.delivery_dest, project, 'summary_metrics.csv')
         if os.path.isfile(summary_metrics_file):
-            with open(summary_metrics_file, 'a') as open_file:
-                open_file.write('\n'.join(lines) + '\n')
-        else:
-            with open(summary_metrics_file, 'w') as open_file:
-                open_file.write('\t'.join(header) + '\n')
-                open_file.write('\n'.join(lines) + '\n')
+            # file already there so grab the sample ids and delivery folder and regenerate the rest
+            with open(summary_metrics_file, 'r') as open_file:
+                reader = csv.DictReader(open_file, delimiter='\t')
+                already_delivered_data = self.already_delivered_samples(project)
+                for l in reader:
+                    print(l.get('Delivery folder'))
+                    res = self._sample_metrics(already_delivered_data[l.get('Sample Id')], l.get('Delivery folder'))
+                    lines.append('\t'.join(str(r) for r in res))
+
+        header, new_lines = self.summarise_metrics_per_sample(project, delivery_folder)
+        lines += new_lines
+        with open(summary_metrics_file, 'w') as open_file:
+            open_file.write('\t'.join(header) + '\n')
+            open_file.write('\n'.join(lines) + '\n')
 
     def run_aggregate_commands(self):
         if self.all_commands_for_cluster:
@@ -383,12 +378,11 @@ class DataDelivery(AppLogger):
             shutil.rmtree(self.staging_dir)
             self.debug('Cleaned up staging dir %s', self.staging_dir)
 
-    def deliver_data(self, project_id=None, sample_id=None):
-        project_to_samples = self.get_deliverable_projects_samples(project_id, sample_id)
+    def deliver_data(self):
         project_to_delivery_folder = {}
         sample2stagedirectory = {}
-        for project in project_to_samples:
-            for sample in project_to_samples.get(project):
+        for project in self.deliverable_samples:
+            for sample in self.deliverable_samples.get(project):
                 stage_directory = self.stage_data(sample)
                 sample2stagedirectory[sample.get(ELEMENT_SAMPLE_INTERNAL_ID)] = stage_directory
 
@@ -396,9 +390,9 @@ class DataDelivery(AppLogger):
             print('Will Execute ')
             print('\n'.join(self.all_commands_for_cluster))
             print('Will move')
-            for project in project_to_samples:
+            for project in self.deliverable_samples:
                 batch_delivery_folder = os.path.join(self.delivery_dest, project, self.today)
-                for sample in project_to_samples.get(project):
+                for sample in self.deliverable_samples.get(project):
                     print('%s --> %s' % (sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)),
                                          batch_delivery_folder))
                 header, lines = self.summarise_metrics_per_sample(project, batch_delivery_folder)
@@ -408,13 +402,13 @@ class DataDelivery(AppLogger):
             # run the command on the cluster and register the output
             self.run_aggregate_commands()
             self.register_postponed_files()
-            for project in project_to_samples:
+            for project in self.deliverable_samples:
                 # Create the batch directory
                 batch_delivery_folder = os.path.join(self.delivery_dest, project, self.today)
                 os.makedirs(batch_delivery_folder, exist_ok=True)
                 # Move all the staged sample directory
                 project_to_delivery_folder[project] = batch_delivery_folder
-                for sample in project_to_samples.get(project):
+                for sample in self.deliverable_samples.get(project):
                     shutil.move(
                         sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)),
                         batch_delivery_folder
@@ -426,7 +420,7 @@ class DataDelivery(AppLogger):
 
         # Generate project report
         project_to_reports = {}
-        for project in project_to_samples:
+        for project in self.deliverable_samples:
             project_report = join(self.delivery_dest, project, 'project_%s_report.pdf' % project)
             try:
                 if not self.dry_run:
@@ -443,7 +437,7 @@ class DataDelivery(AppLogger):
                 project_to_reports[project] = project_report
 
         # Send email confirmation with attachments
-        self.emails_report(project_to_samples, project_to_reports)
+        self.emails_report(self.deliverable_samples, project_to_reports)
 
         self.cleanup()
 
@@ -483,6 +477,14 @@ class DataDelivery(AppLogger):
         }
 
 
+def resolve_process_id(process_id):
+    # Take the end of the url if it is a url
+    process_id = process_id.split('/')[-1]
+    if not process_id.startswith('24-'):
+        process_id = '24-' + process_id
+    return process_id
+
+
 def main(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument('--dry_run', action='store_true')
@@ -490,9 +492,7 @@ def main(argv=None):
     p.add_argument('--no_cleanup', action='store_true')
     p.add_argument('--noemail', dest='email', action='store_false')
     p.add_argument('--work_dir', type=str, required=True)
-    p.add_argument('--mark_only', action='store_true')
-    p.add_argument('--project_id', type=str)
-    p.add_argument('--sample_id', type=str)
+    p.add_argument('--process_id', type=str)
     args = p.parse_args(argv)
 
     load_config()
@@ -503,11 +503,10 @@ def main(argv=None):
         log_cfg.set_log_level(logging.DEBUG)
 
     cfg.merge(cfg['sample'])
-    dd = DataDelivery(args.dry_run, args.work_dir, no_cleanup=args.no_cleanup, email=args.email)
-    if args.mark_only:
-        dd.mark_only(project_id=args.project_id, sample_id=args.sample_id)
-    else:
-        dd.deliver_data(project_id=args.project_id, sample_id=args.sample_id)
+    process_id = resolve_process_id(args.process_id)
+    dd = DataDelivery(args.dry_run, args.work_dir, no_cleanup=args.no_cleanup,
+                      email=args.email, process_id=process_id)
+    dd.deliver_data()
 
 
 if __name__ == '__main__':
