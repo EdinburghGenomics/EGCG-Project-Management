@@ -1,17 +1,16 @@
+import collections
+import datetime
 import glob
 import os
+import shutil
 from itertools import cycle
 from random import randint, random
 from unittest.mock import Mock, PropertyMock, patch
-import shutil
 
-import collections
-
-import datetime
+from egcg_core.config import cfg
 
 from project_report import ProjectReport
-from egcg_core.config import cfg
-from tests import TestProjectManagement
+from tests import TestProjectManagement, NamedMock
 
 cfg.load_config_file(TestProjectManagement.etc_config)
 
@@ -122,12 +121,12 @@ for project in fake_sample_templates:
 d = datetime.datetime.strptime('2018-01-10', '%Y-%m-%d').date()
 
 fake_process_templates = {
-    'a_project_name': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NC25: Major issue'},
-    'hmix999': {'nb_processes': 4, 'date': d, 'finished': 'Yes', 'NC': 'NC25: Major issue'},
-    'nhtn999': {'nb_processes': 2, 'date': d, 'finished': 'Yes', 'NC': 'NC25: Major issue'},
-    'hpf999': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NC25: Major issue'},
-    'nhpf999': {'nb_processes': 1, 'date': d, 'finished': 'No', 'NC': 'NC25: Major issue'},
-    'uhtn999': {'nb_processes': 3, 'date': d, 'finished': 'Yes', 'NC': 'NC25: Major issue'}
+    'a_project_name': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NC12: Description of major issue'},
+    'hmix999': {'nb_processes': 4, 'date': d, 'finished': 'Yes', 'NC': cycle(['NA', 'NA', 'NC25: Description minor issue', 'NA'])},
+    'nhtn999': {'nb_processes': 2, 'date': d, 'finished': 'Yes', 'NC': cycle(['NA', 'NC25: Major issue'])},
+    'hpf999': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NA'},
+    'nhpf999': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NC85: All samples were bad quality.'},
+    'uhtn999': {'nb_processes': 1, 'date': d, 'finished': 'No', 'NC': 'NA'}
 }
 
 fake_processes = {}
@@ -135,7 +134,9 @@ fake_processes = {}
 for project in fake_process_templates:
     fake_processes[project] = []
     template = fake_process_templates[project]
-    sample_sets = [fake_samples.get(project)[i::template.get('nb_processes')] for i in
+    # Mimic undelivered sample when their library UDF is not set
+    sample_to_deliver = [s for s in fake_samples.get(project) if s.udf.get('Prep Workflow') is not None]
+    sample_sets = [sample_to_deliver[i::template.get('nb_processes')] for i in
                    range(template.get('nb_processes'))]
     for i, sample_set in enumerate(sample_sets):
         finished = 'No'
@@ -148,7 +149,7 @@ for project in fake_process_templates:
             id=i + 1,
             udf={
                 'Is this the final data release for the project?': finished,
-                'Non-Conformances': template.get('NC')
+                'Non-Conformances': _resolve_next(template.get('NC'))
             }
         ))
 
@@ -158,12 +159,25 @@ fake_sample_status = {
 
 
 class FakeLims:
-    @staticmethod
-    def get_projects(name):
+    fake_lims_researcher = NamedMock(
+        name='First Last', first_name='First', last_name='Last', email='first.last@email.com',
+        lab=NamedMock(name='Awesome lab')
+    )
+
+    def get_projects(self, name):
         return [Mock(
-            udf={'Project Title': 'a_research_title_for_' + name, 'Enquiry Number': '1337', 'Quote No.': '1338',
-                 'Number of Quoted Samples': nb_samples},
-            researcher=Mock(first_name='First', last_name='Last', email='first.last@email.com')
+            udf={
+                'Project Title': 'a_research_title_for_' + name,
+                'Enquiry Number': '1337',
+                'Quote No.': '1338',
+                'Number of Quoted Samples': nb_samples,
+                'Shipment Address Line 1': 'Institute of Awesomeness',
+                'Shipment Address Line 2': '213 high street',
+                'Shipment Address Line 3': '-',
+                'Shipment Address Line 4': '-',
+                'Shipment Address Line 5': '-'
+            },
+            researcher=self.fake_lims_researcher
         )]
 
     @staticmethod
@@ -272,12 +286,22 @@ class TestProjectReport(TestProjectManagement):
             shutil.rmtree(os.path.join(self.source_dir, project))
         shutil.rmtree(self.working_dir)
 
+    def test_customer_name(self):
+        assert self.pr.customer_name == 'Awesome lab'
+        # Remove the lab name from the researcher
+        self.pr.lims.fake_lims_researcher = NamedMock(name='Firstname Lastname', lab=NamedMock(name=''))
+        # Remove the cached project
+        self.pr._project = None
+        assert self.pr.customer_name == 'Firstname Lastname'
+
     @mocked_get_folder_size
     def test_get_project_info(self, mocked_folder_size):
         exp = (('Project name', 'a_project_name'),
                ('Project title', 'a_research_title_for_a_project_name'),
                ('Enquiry no', '1337'),
                ('Quote no', '1338'),
+               ('Customer name', 'Awesome lab'),
+               ('Customer address', ['Institute of Awesomeness', '213 high street']),
                ('Number of samples', len(fake_samples['a_project_name'])),
                ('Number of samples delivered', nb_samples),
                ('Date samples received', 'Detailed in appendix I'),

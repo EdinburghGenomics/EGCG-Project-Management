@@ -64,6 +64,12 @@ class ProjectReport:
         self.font_config = FontConfiguration()
 
     @property
+    def eglogo_path(self):
+        return 'file://' + os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'etc', 'EG_logo_blackonwhite_300dpi.png'
+        )
+
+    @property
     def project(self):
         if self._project is None:
             self._project = self.lims.get_projects(name=self.project_name)[0]
@@ -177,7 +183,24 @@ class ProjectReport:
 
     @property
     def number_quoted_samples(self):
-        return self.project.udf.get('Number of Quoted Samples', '')
+        return self.project.udf.get('Number of Quoted Samples', '') \
+
+    @property
+    def customer_name(self):
+        name = self.project.researcher.lab.name
+        if not name:
+            name = self.project.researcher.name
+        return name
+
+    @property
+    def customer_address_lines(self):
+        address_keys = ('Shipment Address Line 1', 'Shipment Address Line 2', 'Shipment Address Line 3',
+                        'Shipment Address Line 4', 'Shipment Address Line 5')
+        return [
+            self.project.udf.get(k)
+            for k in address_keys
+            if self.project.udf.get(k) and self.project.udf.get(k) != '-'
+        ]
 
     def update_from_program_csv(self, program_csv):
         all_programs = {}
@@ -210,12 +233,13 @@ class ProjectReport:
         for sample in self.sample_name_delivered:
             species = self.get_species_from_sample(sample)
             species_submitted.add(species)
-
         project_info = (
             ('Project name', self.project_name),
             ('Project title', self.project_title),
             ('Enquiry no', self.enquiry_number),
             ('Quote no', self.quote_number),
+            ('Customer name', self.customer_name),
+            ('Customer address', self.customer_address_lines),
             ('Number of samples', self.number_quoted_samples),
             ('Number of samples delivered', len(self.samples_for_project_restapi)),
             ('Date samples received', 'Detailed in appendix I'),
@@ -375,21 +399,21 @@ class ProjectReport:
                                    'rows': [('Sequencing plate preparation',
                                              'Samples normalised to fall within 5-40ng/ul', 'Hamilton robot'),
                                             ('Nano DNA', 'Libraries prepared using Illumina SeqLab %s' % (
-                                            self.params['library_workflow']),
+                                                self.params['library_workflow']),
                                              'Hamilton, Covaris LE220, Gemini Spectramax XP, Hybex incubators, BioRad C1000/S1000 thermal cycler')]},
                   'library_qc': {'title': 'Library QC',
                                  'headings': ['Method', 'QC', 'Critical equipment', 'Pass criteria'],
                                  'rows': [(
-                                          'Library QC as part of Nano DNA', 'Insert size evaluated', 'Caliper GX Touch',
-                                          'Fragment sizes fall between 530bp and 730bp'),
-                                          ('Library QC as part of Nano DNA', 'Library concentration calculated',
-                                           'Roche Lightcycler', 'Concentration between 5.5nM and 40nM')]},
+                                     'Library QC as part of Nano DNA', 'Insert size evaluated', 'Caliper GX Touch',
+                                     'Fragment sizes fall between 530bp and 730bp'),
+                                     ('Library QC as part of Nano DNA', 'Library concentration calculated',
+                                      'Roche Lightcycler', 'Concentration between 5.5nM and 40nM')]},
                   'sequencing': {'title': 'Sequencing',
                                  'headings': ['Method', 'Steps', 'Critical equipment'],
                                  'rows': [('Clustering and sequencing of libraries as part of %s' % (
-                                 self.params['library_workflow']), 'Clustering', 'cBot2'),
+                                     self.params['library_workflow']), 'Clustering', 'cBot2'),
                                           ('Clustering and Sequencing of libraries as part of %s' % (
-                                          self.params['library_workflow']), 'Sequencing', 'HiSeqX')]},
+                                              self.params['library_workflow']), 'Sequencing', 'HiSeqX')]},
                   'bioinformatics': {'title': 'Bioinformatics analysis',
                                      'headings': ['Method', 'Software', 'Version'],
                                      'rows': [('Demultiplexing', 'bcl2fastq', self.params['bcl2fastq_version']),
@@ -412,6 +436,9 @@ class ProjectReport:
             version = 'v' + str(i + 1)
             if process.udf.get('Is this the final data release for the project?', 'No') == 'Yes':
                 version += '-final'
+            NC = process.udf.get('Non-Conformances', '')
+            if NC.lower() in ['na', 'n/a']:
+                NC = ''
             release_data.append({
                 'samples': sample_names,
                 'version': version,
@@ -419,7 +446,7 @@ class ProjectReport:
                 'role': cfg.query('delivery', 'signature_role'),
                 'date': process.date_run,
                 'id': process.id,
-                'NCs': process.udf.get('Non-Conformances', '')
+                'NCs': NC
             })
         return release_data
 
@@ -511,6 +538,7 @@ class ProjectReport:
         self.store_sample_info()
         authorisations = self.get_authorization()
         report = template1.render(
+            eglogo=self.eglogo_path,
             authorisations=authorisations,
             project_info=self.get_project_info(),
             project_stats=self.calculate_project_statistsics(),
