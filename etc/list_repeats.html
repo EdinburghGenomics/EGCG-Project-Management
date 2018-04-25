@@ -20,9 +20,9 @@
             {% for run in runs %}
                 <tr>
                     <td style="border: 1px solid black;">{{run.name}}</td>
-                    <td style="border: 1px solid black; text-align: right;">{{run.count_repeat}}</td>
+                    <td style="border: 1px solid black; text-align: right;">{{run.repeat_count}}</td>
                     <td style="border: 1px solid black;">
-                        {% for sample in run.sample_list %}
+                        {% for sample in run.repeats %}
                             {{ sample.id }}: {{sample.reason}} <br>
                         {% endfor %}
                     </td>
