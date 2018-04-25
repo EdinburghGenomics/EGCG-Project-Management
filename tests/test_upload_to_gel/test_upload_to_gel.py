@@ -30,12 +30,9 @@ fluidx = {
     'sample3': 'FD3'
 }
 
+
 def fake_get_sample(self, sample_id):
     return samples[sample_id]
-
-
-def touch(f):
-    open(f, 'w').close()
 
 
 def md5(fname):
@@ -48,7 +45,6 @@ def md5(fname):
 
 
 class TestDeliveryDB(TestProjectManagement):
-
     def setUp(self):
         os.chdir(self.root_path)
         etc_config = os.path.join(self.root_path, 'etc', 'example_gel_data_delivery.yaml')
@@ -63,9 +59,21 @@ class TestDeliveryDB(TestProjectManagement):
         assert os.path.exists(self.db_file)
 
     def test_create_delivery(self):
-        id = self.deliverydb.create_delivery('sample1', 'external_sample1')
-        assert id == 'ED00000001'
-        assert self.deliverydb.get_sample_from(id) == 'sample1'
+        _id = self.deliverydb.create_delivery('sample1', 'external_sample1')
+        assert _id == 'ED00000001'
+        assert self.deliverydb.get_info_from(_id, 'sample_id') == ('sample1',)
+
+    def test_get_info_from(self):
+        obs = self.deliverydb.get_info_from('ED0', 'sample_id')
+        assert obs is None
+        _id = self.deliverydb.create_delivery('a_sample', 'an_external_sample')
+        self.deliverydb.set_upload_state(_id, 'success')
+        self.deliverydb.set_md5_state(_id, 'success')
+        self.deliverydb.set_qc_state(_id, 'failed')
+        self.deliverydb.delivery_db.commit()
+
+        obs = self.deliverydb.get_info_from(_id, 'sample_id', 'upload_state', 'md5_state', 'qc_state')
+        assert obs == ('a_sample', 'success', 'success', 'failed')
 
     def test_get_most_recent_delivery_id(self):
         id1 = self.deliverydb.create_delivery('sample1', 'external_sample1')
@@ -77,25 +85,22 @@ class TestDeliveryDB(TestProjectManagement):
         assert self.deliverydb.get_most_recent_delivery_id('sample1') == id2
         assert self.deliverydb.get_most_recent_delivery_id('sample3') == id4
 
-    def test_set_upload_state(self):
+    def _test_set_state(self, set_func, *fields):
         did = self.deliverydb.create_delivery('sample1', 'external_sample1')
-        state, date = self.deliverydb.get_upload_confirmation_from(did)
-        assert state is None
-        assert date is None
-        self.deliverydb.set_upload_state(did, 'pass')
-        state, date = self.deliverydb.get_upload_confirmation_from(did)
+        assert self.deliverydb.get_info_from(did, *fields) == (None, None)
+        set_func(did, 'pass')
+        state, date = self.deliverydb.get_info_from(did, *fields)
         assert state == 'pass'
-        assert date is not None
+        assert date
+
+    def test_set_upload_state(self):
+        self._test_set_state(self.deliverydb.set_upload_state, 'upload_state', 'upload_confirm_date')
 
     def test_set_md5_state(self):
-        did = self.deliverydb.create_delivery('sample1', 'external_sample1')
-        state, date = self.deliverydb.get_md5_confirmation_from(did)
-        assert state is None
-        assert date is None
-        self.deliverydb.set_md5_state(did, 'pass')
-        state, date = self.deliverydb.get_md5_confirmation_from(did)
-        assert state == 'pass'
-        assert date is not None
+        self._test_set_state(self.deliverydb.set_md5_state, 'md5_state', 'md5_confirm_date')
+
+    def test_set_qc_state(self):
+        self._test_set_state(self.deliverydb.set_qc_state, 'qc_state', 'qc_confirm_date')
 
 
 class TestGelDataDelivery(TestProjectManagement):
@@ -115,13 +120,7 @@ class TestGelDataDelivery(TestProjectManagement):
         new_callable=PropertyMock(return_value='FD2')
     )
     patch_create_delivery = patch.object(DeliveryDB, 'create_delivery', return_value='ED00000005')
-
     patch_send_action = patch('upload_to_gel.deliver_data_to_gel.send_action_to_rest_api')
-
-
-    @staticmethod
-    def get_patch_info(info):
-        return patch.object(DeliveryDB, 'get_info_from', return_value=info)
 
     def __init__(self, *args, **kwargs):
         super(TestProjectManagement, self).__init__(*args, **kwargs)
@@ -137,19 +136,20 @@ class TestGelDataDelivery(TestProjectManagement):
         for sample in ['sample1', 'sample2', 'sample3']:
             sample_dir = os.path.join(self.dest_proj1, fluidx.get(sample))
             os.makedirs(sample_dir, exist_ok=True)
-            for suffix in ['_R1.fastq.gz', '_R2.fastq.gz', ]:
-                f = os.path.join(sample_dir,samples.get(sample).get(ELEMENT_SAMPLE_EXTERNAL_ID) + suffix)
-                touch(f)
+            for suffix in ['_R1.fastq.gz', '_R2.fastq.gz']:
+                f = os.path.join(sample_dir, samples.get(sample).get(ELEMENT_SAMPLE_EXTERNAL_ID) + suffix)
+                open(f, 'w').close()
                 md5(f)
+
         self.gel_data_delivery_dry = GelDataDelivery(
-            self.staging_dir,
             'sample1',
+            work_dir=self.staging_dir,
             dry_run=True,
             no_cleanup=True
         )
         self.gel_data_delivery = GelDataDelivery(
-            self.staging_dir,
             'sample1',
+            work_dir=self.staging_dir,
             dry_run=False,
             no_cleanup=True
         )
@@ -196,21 +196,41 @@ class TestGelDataDelivery(TestProjectManagement):
         with self.patch_create_delivery, self.patch_sample_data1:
             assert self.gel_data_delivery.delivery_id == 'ED00000005'
 
-    def test_deliver_data_dry(self):
-        with self.patch_sample_data1, self.patch_fluidxbarcode1, \
-             patch('upload_to_gel.deliver_data_to_gel.GelDataDelivery.info') as mock_info:
+    def _check_already_uploaded(self):
+        with patch.object(GelDataDelivery, 'info') as mocked_info:
             self.gel_data_delivery_dry.deliver_data()
-            mock_info.assert_any_call('Create delivery id ED00TEST from sample_id=sample1')
-            mock_info.assert_any_call('Create delivery plateform sample_barcode=123456789_ext_sample1')
-            mock_info.assert_called_with('Run rsync')
+            assert mocked_info.call_count == 1
+            mocked_info.assert_called_with('Already uploaded successfully: will do nothing without --force_new_delivery')
 
-    def test_deliver_data(self):
+    def _check_dry_run(self):
+        with patch.object(GelDataDelivery, 'info') as mocked_info:
+            self.gel_data_delivery_dry.deliver_data()
+            assert mocked_info.call_count == 1
+            mocked_info.assert_called_with(
+                'Dry run: will do delivery %s for sample %s, barcode %s',
+                'ED00TEST', 'sample1', '123456789_ext_sample1'
+            )
+
+    @patch.object(DeliveryDB, 'get_info_from', return_value=('passed',))
+    def test_deliver_data_dry(self, mocked_get_info):
+        with self.patch_sample_data1, self.patch_fluidxbarcode1:
+            self._check_already_uploaded()
+            mocked_get_info.return_value = ('failed',)
+            self._check_dry_run()
+
+    def test_force(self):
         with self.patch_sample_data1, self.patch_fluidxbarcode1, \
-             patch.object(GelDataDelivery, 'delivery_id', PropertyMock(return_value='ED01')), \
+             patch.object(DeliveryDB, 'get_info_from', return_value=('passed',)):
+            self._check_already_uploaded()
+            self.gel_data_delivery_dry.force_new_delivery = True
+            self._check_dry_run()
+
+    def _test_deliver_data(self, execute_return, delivered_state):
+        with self.patch_sample_data1, self.patch_fluidxbarcode1, \
              self.patch_send_action as mocked_send_action, \
              patch('egcg_core.executor.local_execute') as mock_execute, \
-             patch.object(GelDataDelivery, 'delivery_id_exist', return_value=False):
-            mock_execute.return_value = Mock(join=Mock(return_value = 0))
+             patch.object(GelDataDelivery, 'delivery_id_exists', return_value=False):
+            mock_execute.return_value = Mock(join=Mock(return_value=execute_return))
             self.gel_data_delivery.deliver_data()
             source = os.path.join(self.gel_data_delivery.staging_dir, self.gel_data_delivery.delivery_id)
 
@@ -218,18 +238,83 @@ class TestGelDataDelivery(TestProjectManagement):
                          '-e "ssh -o StrictHostKeyChecking=no -o TCPKeepAlive=yes -o ServerAliveInterval=100 ',
                          '-o KeepAlive=yes -o BatchMode=yes -o LogLevel=Error -i path/to/id_rsa.pub -p 22" ',
                          '{source} user@gelupload.com:/destination/'.format(source=source))
-
             mock_execute.assert_any_call(''.join(rsync_cmd))
-            mock_execute().join.assert_called_with()
+
             assert os.listdir(source) == [self.gel_data_delivery.external_id]
             assert os.listdir(source + '/' + self.gel_data_delivery.external_id) == ['fastq', 'md5sum.txt']
-            mocked_send_action.assert_any_call(action='create', delivery_id='ED01', sample_id='123456789_ext_sample1')
-            mocked_send_action.assert_called_with(action='delivered', delivery_id='ED01', sample_id='123456789_ext_sample1')
 
+            # Check API creation
+            mocked_send_action.assert_any_call(
+                action='create',
+                delivery_id=self.gel_data_delivery.delivery_id,
+                sample_id='123456789_ext_sample1'
+            )
+            # Check database state
+            assert (delivered_state,) == self.gel_data_delivery.deliver_db.get_info_from(
+                self.gel_data_delivery.delivery_id, 'upload_state'
+            )
+            # Check API delivered state and how many time rsync was called
+            if delivered_state == 'passed':
+                mocked_send_action.assert_called_with(
+                    action='delivered',
+                    delivery_id=self.gel_data_delivery.delivery_id,
+                    sample_id='123456789_ext_sample1'
+                )
+                assert mock_execute.call_count == 1
+            elif delivered_state == 'failed':
+                mocked_send_action.assert_called_with(
+                    action='upload_failed',
+                    delivery_id=self.gel_data_delivery.delivery_id,
+                    sample_id='123456789_ext_sample1',
+                    failure_reason='rsync returned %s exit code' % execute_return
+                )
+                assert mock_execute.call_count == 3
 
-    def test_check_md5sum(self):
-        md5_ready = (1, 'sample1', 'user_sample1', 'dummy_date', 'passed', 'dummy_date', None, None)
-        with self.patch_create_delivery,  self.patch_sample_data1, self.get_patch_info(md5_ready),\
-             self.patch_send_action as mocked_send_action:
-            self.gel_data_delivery.check_md5sum()
-            print(mocked_send_action.mock_calls)
+    def test_deliver_data_success(self):
+        self._test_deliver_data(execute_return=0, delivered_state='passed')
+
+    def test_deliver_data_fail(self):
+        self._test_deliver_data(execute_return=10, delivered_state='failed')
+
+    def _test_check_delivery(self, api_return_state, expected_md5, expected_qc):
+        _id = self.gel_data_delivery.deliver_db.create_delivery('sample1', '123456789_ext_sample1')
+        self.gel_data_delivery.deliver_db.set_upload_state(_id, 'passed')
+
+        with self.patch_sample_data1, self.patch_send_action as mocked_send_action:
+            mocked_send_action.return_value = Mock(json=Mock(return_value={'state': api_return_state}))
+            self.gel_data_delivery.check_delivery_data()
+
+            self.gel_data_delivery.deliver_db.cursor.execute('select * from delivery;')
+            obs = self.gel_data_delivery.deliver_db.cursor.fetchone()
+            assert obs[6] == expected_md5  # md5_status
+            assert obs[8] == expected_qc  # qc_status
+
+    def test_check_delivery_passed(self):
+        self._test_check_delivery('qc_passed', 'passed', 'passed')
+
+    def test_check_delivery_md5_passed(self):
+        self._test_check_delivery('md5_passed', 'passed', None)
+
+    def test_check_delivery_md5_failed(self):
+        self._test_check_delivery('md5_failed', 'failed', None)
+
+    def test_check_delivery_qc_failed(self):
+        self._test_check_delivery('qc_failed', 'passed', 'failed')
+
+    def test_no_check_delivery(self):
+        _id = self.gel_data_delivery.deliver_db.create_delivery('sample1', '123456789_ext_sample1')
+        self.gel_data_delivery.deliver_db.set_upload_state(_id, 'passed')
+        self.gel_data_delivery.deliver_db.set_md5_state(_id, 'passed')
+        self.gel_data_delivery.deliver_db.set_qc_state(_id, 'passed')
+
+        with patch.object(GelDataDelivery, 'error') as mock_error:
+            self.gel_data_delivery.check_delivery_data()
+
+            self.gel_data_delivery.deliver_db.cursor.execute('select * from delivery;')
+            obs = self.gel_data_delivery.deliver_db.cursor.fetchone()
+            mock_error.assert_called_with(
+                'Delivery %s sample %s qc check failed - was checked before on %s',
+                'ED00000001',
+                'sample1',
+                obs[9]
+            )

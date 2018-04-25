@@ -1,18 +1,14 @@
-import glob
 import os
-import shutil
-
-import sqlite3
-
 import re
-from cached_property import cached_property
-from egcg_core import executor, clarity
-from egcg_core import rest_communication
-from egcg_core.app_logging import AppLogger
-from egcg_core.config import cfg
-from egcg_core.constants import ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_PROJECT_ID
+import glob
+import shutil
+import sqlite3
 from requests.exceptions import HTTPError
-
+from cached_property import cached_property
+from egcg_core import executor, clarity, rest_communication
+from egcg_core.config import cfg
+from egcg_core.app_logging import AppLogger
+from egcg_core.constants import ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_PROJECT_ID
 from upload_to_gel.client import DeliveryAPIClient
 
 
@@ -21,25 +17,31 @@ FAILURE_KW = 'failed'
 
 
 class DeliveryDB:
+    schema = '''CREATE TABLE IF NOT EXISTS delivery(
+       id INTEGER PRIMARY KEY,
+       sample_id TEXT,
+       external_sample_id TEXT,
+       creation_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+       upload_state TEXT DEFAULT NULL,
+       upload_confirm_date DATETIME DEFAULT NULL,
+       md5_state TEXT DEFAULT NULL,
+       md5_confirm_date DATETIME DEFAULT NULL,
+       qc_state TEXT DEFAULT NULL,
+       qc_confirm_date DATETIME DEFAULT NULL,
+       failure_reason TEXT DEFAULT NULL
+    );'''
 
     def __init__(self):
         self.delivery_db = sqlite3.connect(cfg.query('gel_upload', 'delivery_db'))
         self.cursor = self.delivery_db.cursor()
-        self.cursor.execute('''CREATE TABLE  IF NOT EXISTS delivery(
-           id INTEGER PRIMARY KEY,
-           sample_id TEXT,
-           external_sample_id TEXT,
-           creation_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-           upload_state TEXT DEFAULT NULL,
-           upload_confirm_date DATETIME DEFAULT NULL,
-           md5_state TEXT DEFAULT NULL,
-           md5_confirm_date DATETIME DEFAULT NULL
-        );''')
+        self.cursor.execute(self.schema)
 
-    def _delivery_number_to_id(self, delivery_number):
+    @staticmethod
+    def _delivery_number_to_id(delivery_number):
         return 'ED%08d' % delivery_number
 
-    def _delivery_id_to_number(self, delivery_id):
+    @staticmethod
+    def _delivery_id_to_number(delivery_id):
         return int(delivery_id[2:])
 
     def create_delivery(self, sample_id, external_sample_id):
@@ -48,21 +50,12 @@ class DeliveryDB:
         self.delivery_db.commit()
         return self._delivery_number_to_id(self.cursor.lastrowid)
 
-    def get_info_from(self, delivery_id):
-        self.cursor.execute('SELECT * from delivery WHERE id=?', (self._delivery_id_to_number(delivery_id),))
+    def get_info_from(self, delivery_id, *fields):
+        assert all(f in self.schema for f in fields)
+        selection = ', '.join(fields) if fields else '*'
+        query = 'SELECT ' + selection + ' FROM delivery WHERE id=?'
+        self.cursor.execute(query, (self._delivery_id_to_number(delivery_id),))
         return self.cursor.fetchone()
-
-    def get_sample_from(self, delivery_id):
-        return self.get_info_from(delivery_id)[1]
-
-    def get_creation_date_from(self, delivery_id):
-        return self.get_info_from(delivery_id)[3]
-
-    def get_upload_confirmation_from(self, delivery_id):
-        return self.get_info_from(delivery_id)[4:6]
-
-    def get_md5_confirmation_from(self, delivery_id):
-        return self.get_info_from(delivery_id)[6:8]
 
     def get_most_recent_delivery_id(self, sample_id):
         q = 'SELECT id from delivery WHERE sample_id=? ORDER BY creation_date DESC LIMIT 1;'
@@ -82,14 +75,27 @@ class DeliveryDB:
         self.cursor.execute(q, (state, self._delivery_id_to_number(delivery_id)))
         self.delivery_db.commit()
 
+    def set_qc_state(self, delivery_id, state):
+        q = 'UPDATE delivery SET qc_state = ?, qc_confirm_date = datetime("now") WHERE id = ?;'
+        self.cursor.execute(q, (state, self._delivery_id_to_number(delivery_id)))
+        self.delivery_db.commit()
+
+    def report_all(self):
+        self.cursor.execute('SELECT * FROM delivery')
+        keys = ('delivery_id', 'sample_id', 'external_sample_id', 'creation_date', 'upload_state', 'upload_confirm_date',
+                'md5_state', 'md5_confirm_date', 'qc_state', 'qc_confirm_date', 'failure_reason')
+
+        print('\t'.join(keys))
+        for delivery in self.cursor.fetchall():
+            print('\t'.join([self._delivery_number_to_id(delivery[0])] + [str(f) for f in delivery[1:]]))
+
     def __del__(self):
         self.delivery_db.close()
 
+
 class GelDataDelivery(AppLogger):
-    def __init__(self, work_dir, sample_id, user_sample_id=None, dry_run=False, no_cleanup=False, force_new_delivery=False):
-        self.sample_id = sample_id
-        if not self.sample_id:
-            self.sample_id = self.resolve_sample_id(user_sample_id)
+    def __init__(self, sample_id, user_sample_id=None, work_dir=None, dry_run=False, no_cleanup=False, force_new_delivery=False):
+        self.sample_id = sample_id or self.resolve_sample_id(user_sample_id)
         self.dry_run = dry_run
         self.work_dir = work_dir
         self.no_cleanup = no_cleanup
@@ -126,6 +132,7 @@ class GelDataDelivery(AppLogger):
     def delivery_id(self):
         if self.dry_run:
             return 'ED00TEST'
+
         did = self.deliver_db.get_most_recent_delivery_id(self.sample_id)
         if not did or self.force_new_delivery:
             did = self.deliver_db.create_delivery(self.sample_id, self.external_id)
@@ -135,7 +142,6 @@ class GelDataDelivery(AppLogger):
     def fluidx_barcode(self):
         lims_sample = clarity.get_sample(self.sample_id)
         return lims_sample.udf.get('2D Barcode')
-
 
     @cached_property
     def sample_delivery_folder(self):
@@ -155,44 +161,37 @@ class GelDataDelivery(AppLogger):
         eid = self.sample_data[ELEMENT_SAMPLE_EXTERNAL_ID]
         m = re.match('[0-9]{9}_[0-9A-Za-z]{7}_[0-9]{4}_[0-9A-Za-z]{10}', eid)
         if not m:
-            self.error('%s does not match the require regex', eid)
+            self.error('%s does not match the required regex', eid)
         return eid
 
     @property
     def external_id(self):
         return self.sample_data[ELEMENT_SAMPLE_EXTERNAL_ID]
 
-
     def cleanup(self):
-        if self.no_cleanup:
-            return
-        if os.path.exists(self.staging_dir):
+        if os.path.exists(self.staging_dir) and not self.no_cleanup:
             shutil.rmtree(self.staging_dir)
 
     def link_fastq_files(self, fastq_path):
-        source1 = os.path.join(self.sample_delivery_folder, self.external_id + '_R1.fastq.gz')
-        source2 = os.path.join(self.sample_delivery_folder, self.external_id + '_R2.fastq.gz')
-        if not os.path.isfile(source1):
-            raise FileNotFoundError(source1 + ' does not exists')
-        if not os.path.isfile(source2):
-            raise FileNotFoundError(source2 + ' does not exists')
-        os.symlink(source1, os.path.join(fastq_path, self.sample_barcode + '_R1.fastq.gz'))
-        os.symlink(source2, os.path.join(fastq_path, self.sample_barcode + '_R2.fastq.gz'))
+        for i in (1, 2):
+            source = os.path.join(self.sample_delivery_folder, self.external_id + '_R%s.fastq.gz' % i)
+            if not os.path.isfile(source):
+                raise FileNotFoundError(source + ' does not exists')
+            os.symlink(source, os.path.join(fastq_path, self.sample_barcode + '_R%s.fastq.gz' % i))
 
     def create_md5sum_txt(self, sample_path):
-        with open(os.path.join(self.sample_delivery_folder, self.external_id + '_R1.fastq.gz.md5')) as fh:
-            md5_1, fp = fh.readline().strip().split()
-        with open(os.path.join(self.sample_delivery_folder, self.external_id + '_R2.fastq.gz.md5')) as fh:
-            md5_2, fp = fh.readline().strip().split()
-        with open(os.path.join(sample_path,'md5sum.txt'), 'w') as fh:
-            fh.write('%s %s\n' % (md5_1, 'fastq/' + self.sample_barcode + '_R1.fastq.gz'))
-            fh.write('%s %s\n' % (md5_2, 'fastq/' + self.sample_barcode + '_R2.fastq.gz'))
+        with open(os.path.join(sample_path, 'md5sum.txt'), 'w') as fh:
+            for i in (1, 2):
+                with open(os.path.join(self.sample_delivery_folder, self.external_id + '_R%s.fastq.gz.md5' % i)) as f:
+                    md5, fp = f.readline().strip().split()
+                    fh.write('%s %s\n' % (md5, 'fastq/' + self.sample_barcode + '_R%s.fastq.gz' % i))
 
-    def rsync_to_destination(self, delivery_id_path):
+    @staticmethod
+    def rsync_to_destination(delivery_id_path):
         options = ['-rv', '-L', '--timeout=300', '--append', '--partial', '--chmod ug+rwx,o-rwx', '--perms']
         ssh_options = ['ssh', '-o StrictHostKeyChecking=no', '-o TCPKeepAlive=yes', '-o ServerAliveInterval=100',
                        '-o KeepAlive=yes', '-o BatchMode=yes', '-o LogLevel=Error',
-                       '-i %s'%cfg.query('gel_upload', 'ssh_key'), '-p 22']
+                       '-i %s' % cfg.query('gel_upload', 'ssh_key'), '-p 22']
         destination = '%s@%s:%s' % (cfg.query('gel_upload', 'username'), cfg.query('gel_upload', 'host'), cfg.query('gel_upload', 'dest'))
 
         cmd = ' '.join(['rsync',  ' '.join(options), '-e "%s"' % ' '.join(ssh_options), delivery_id_path, destination])
@@ -200,14 +199,15 @@ class GelDataDelivery(AppLogger):
 
     def try_rsync(self, delivery_id_path, max_nb_tries=3):
         tries = 1
-        while tries < max_nb_tries:
+        exit_code = 9
+        while tries <= max_nb_tries:
             exit_code = self.rsync_to_destination(delivery_id_path)
             if exit_code == 0:
                 return exit_code
             tries += 1
         return exit_code
 
-    def delivery_id_exist(self):
+    def delivery_id_exists(self):
         try:
             send_action_to_rest_api(action='get', delivery_id=self.delivery_id)
             return True
@@ -215,68 +215,90 @@ class GelDataDelivery(AppLogger):
             return False
 
     def deliver_data(self):
-        # external sample_id is what GEL used as a sample barcode
+        # external sample_id is what GEL uses as a sample barcode
         delivery_id_path = os.path.join(self.staging_dir, self.delivery_id)
         sample_path = os.path.join(delivery_id_path, self.sample_barcode)
         fastq_path = os.path.join(sample_path, 'fastq')
+
+        upload_state, = self.deliver_db.get_info_from(self.delivery_id, 'upload_state')
+        if upload_state == SUCCESS_KW and not self.force_new_delivery:
+            self.info('Already uploaded successfully: will do nothing without --force_new_delivery')
+            return
+
+        if self.dry_run:
+            self.info(
+                'Dry run: will do delivery %s for sample %s, barcode %s',
+                self.delivery_id, self.sample_id, self.sample_barcode
+            )
+            return
 
         os.makedirs(fastq_path, exist_ok=True)
         self.link_fastq_files(fastq_path)
         self.create_md5sum_txt(sample_path)
 
-        if not self.dry_run:
-            if not self.delivery_id_exist():
-                send_action_to_rest_api(action='create', delivery_id=self.delivery_id, sample_id=self.sample_barcode)
-            exit_code = self.try_rsync(delivery_id_path)
-            self.info('Rsync exit code is %s' % exit_code)
-            if exit_code == 0:
-                self.deliver_db.set_upload_state(self.delivery_id, SUCCESS_KW)
-                send_action_to_rest_api(action='delivered', delivery_id=self.delivery_id, sample_id=self.sample_barcode)
-            else:
-                self.deliver_db.set_upload_state(self.delivery_id, FAILURE_KW)
-                send_action_to_rest_api(
-                    action='upload_failed',
-                    delivery_id=self.delivery_id,
-                    sample_id=self.sample_barcode,
-                    failure_reason='rsync returned %s exit code' % (exit_code)
-                )
+        if not self.delivery_id_exists():
+            send_action_to_rest_api(action='create', delivery_id=self.delivery_id, sample_id=self.sample_barcode)
+
+        exit_code = self.try_rsync(delivery_id_path)
+        self.info('Rsync exit code: %s', exit_code)
+        if exit_code == 0:
+            self.deliver_db.set_upload_state(self.delivery_id, SUCCESS_KW)
+            send_action_to_rest_api(action='delivered', delivery_id=self.delivery_id, sample_id=self.sample_barcode)
         else:
-            self.info('Create delivery id %s from sample_id=%s' % (self.delivery_id, self.sample_id,))
-            self.info('Create delivery plateform sample_barcode=%s' % (self.sample_barcode,))
-            self.info('Run rsync')
+            self.deliver_db.set_upload_state(self.delivery_id, FAILURE_KW)
+            send_action_to_rest_api(
+                action='upload_failed',
+                delivery_id=self.delivery_id,
+                sample_id=self.sample_barcode,
+                failure_reason='rsync returned %s exit code' % exit_code
+            )
+
         self.cleanup()
 
-    def check_md5sum(self):
-        info = self.deliver_db.get_info_from(self.delivery_id)
-        id, sample_id, external_sample_id, creation_date, upload_state, upload_confirm_date, md5_state, md5_confirm_date = info
-        if upload_state == SUCCESS_KW and not md5_confirm_date:
-            req = send_action_to_rest_api(action='get', delivery_id= self.delivery_id)
-            sample_json = req.json()
-            if sample_json['state'] == "md5_passed":
-                self.deliver_db.set_md5_state(self.delivery_id, SUCCESS_KW)
-                self.info('Delivery %s sample %s: md5 check has been successful', self.delivery_id, self.sample_id)
-            elif sample_json['state'] == "md5_failed":
-                self.deliver_db.set_md5_state(self.delivery_id, FAILURE_KW)
-                self.info('Delivery %s sample %s: md5 check has failed', self.delivery_id, self.sample_id)
+    def check_delivery_data(self):
+        info = self.deliver_db.get_info_from(
+            self.delivery_id,
+            'upload_state', 'md5_state', 'md5_confirm_date', 'qc_state', 'qc_confirm_date'
+        )
+        upload_state, md5_state, md5_confirm_date, qc_state, qc_confirm_date = info
+        if upload_state == SUCCESS_KW and not all((md5_confirm_date, qc_confirm_date)):
+            sample = send_action_to_rest_api(action='get', delivery_id=self.delivery_id).json()
+            param, status = sample['state'].split('_')  # md5_passed -> ('md5', 'passed')
+            if param == 'md5':
+                self.deliver_db.set_md5_state(self.delivery_id, status)
+            elif param == 'qc':
+                self.deliver_db.set_md5_state(self.delivery_id, SUCCESS_KW)  # if qc has passed, md5 must have passed
+                self.deliver_db.set_qc_state(self.delivery_id, status)
+
+            self.info('Delivery %s sample %s %s check: %s', self.delivery_id, self.sample_id, param, status)
+
         elif not upload_state:
             self.error('Delivery %s sample %s: Has not been uploaded', self.delivery_id, self.sample_id)
         elif upload_state == FAILURE_KW:
-            self.error('Delivery %s sample %s: Uploaded has failed', self.delivery_id, self.sample_id)
+            self.error('Delivery %s sample %s: Upload failed', self.delivery_id, self.sample_id)
+        elif qc_state:
+            self.error('Delivery %s sample %s qc check failed - was checked before on %s', self.delivery_id, self.sample_id, qc_confirm_date)
         elif md5_state:
-            self.error('Delivery %s sample %s md5 check failed was checked before on ', self.delivery_id, self.sample_id, md5_confirm_date)
+            self.error('Delivery %s sample %s md5 check failed - was checked before on %s', self.delivery_id, self.sample_id, md5_confirm_date)
 
 
-def check_all_md5sums(work_dir):
+def check_all_deliveries():
     delivery_db = DeliveryDB()
-    delivery_db.cursor.execute('SELECT sample_id from delivery WHERE upload_state=? AND md5_state IS NULL', (SUCCESS_KW, ))
+    delivery_db.cursor.execute('SELECT sample_id from delivery WHERE upload_state=? AND qc_state IS NULL', (SUCCESS_KW,))
     samples = delivery_db.cursor.fetchall()
     if samples:
         for sample_id, in samples:
-            dd = GelDataDelivery(work_dir, sample_id)
-            dd.check_md5sum()
+            dd = GelDataDelivery(sample_id)
+            dd.check_delivery_data()
+
+
+def report_all():
+    delivery_db = DeliveryDB()
+    delivery_db.report_all()
+
 
 def send_action_to_rest_api(action, **kwargs):
-    api_param = cfg.query('gel_upload', 'rest_api')
+    api_param = cfg['gel_upload']['rest_api']
     # host, user, pswd from config
     api_param['action'] = action
     api_param.update(kwargs)
