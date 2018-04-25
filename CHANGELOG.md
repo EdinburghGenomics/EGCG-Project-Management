@@ -4,7 +4,7 @@ Changelog for EGCG-Project-Management
 0.7 (unreleased)
 ----------------
 
-- Nothing changed yet.
+- Modification of the project report to incorporate signature (new config entry)
 
 
 0.6 (2018-01-17)

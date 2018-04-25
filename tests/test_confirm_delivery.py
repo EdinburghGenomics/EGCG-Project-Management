@@ -1,4 +1,5 @@
 import datetime
+import operator
 import os
 import shutil
 from os.path import join
@@ -53,7 +54,8 @@ class TestDeliveredSample(TestProjectManagement):
             self.mkdir(d)
 
         self.file_to_create = [
-            join(delivery_dir, 'project1', 'date_delivery', 'sample1', 'sample1.bam')
+            join(delivery_dir, 'project1', 'date_delivery', 'sample1', 'sample1.bam'),
+            join(delivery_dir, 'project1', 'date_delivery', 'sample1', 'sample1.g.vcf.gz')
         ]
         for f in self.file_to_create:
             self.touch(f)
@@ -71,13 +73,11 @@ class TestDeliveredSample(TestProjectManagement):
 
     @patch('bin.confirm_delivery.patch_entry')
     def test_upload_list_file_delivered(self, patched_get_patch_entry):
-        self.sample.delivery_dir = join(self.assets_path, 'data_delivery', 'source')
         list_files = [
-            join(self.assets_path, 'data_delivery', 'source', 'test_project', 'deliverable_sample', 'user_s_id.bam'),
-            join(self.assets_path, 'data_delivery', 'source', 'test_project', 'deliverable_sample',
-                 'user_s_id.g.vcf.gz'),
+            join(self.assets_path, 'data_delivery', 'dest', 'project1', 'date_delivery', 'sample1', 'sample1.bam'),
+            join(self.assets_path, 'data_delivery', 'dest', 'project1', 'date_delivery', 'sample1',
+                 'sample1.g.vcf.gz'),
         ]
-
         self.sample.upload_list_file_delivered(list_files)
         patched_get_patch_entry.assert_called_with(
             'samples',
@@ -85,9 +85,9 @@ class TestDeliveredSample(TestProjectManagement):
             id_field='sample_id',
             update_lists=['files_delivered'],
             payload={'files_delivered': [
-                {'file_path': 'test_project/deliverable_sample/user_s_id.bam',
+                {'file_path': 'project1/date_delivery/sample1/sample1.bam',
                  'md5': 'd41d8cd98f00b204e9800998ecf8427e', 'size': 0},
-                {'file_path': 'test_project/deliverable_sample/user_s_id.g.vcf.gz',
+                {'file_path': 'project1/date_delivery/sample1/sample1.g.vcf.gz',
                  'md5': 'd41d8cd98f00b204e9800998ecf8427e', 'size': 0}
             ]}
         )
@@ -102,20 +102,19 @@ class TestDeliveredSample(TestProjectManagement):
     @patch('bin.confirm_delivery.patch_entry')
     def test_list_file_delivered_no_data(self, patched_patch_entry, patched_get_doc):
         files_delivered = self.sample.list_file_delivered
-        assert files_delivered == [
+        assert sorted(files_delivered, key=operator.itemgetter('file_path')) ==  sorted([
             {'file_path': 'project1/date_delivery/sample1/sample1.bam', 'md5': 'd41d8cd98f00b204e9800998ecf8427e',
+             'size': 0},
+            {'file_path': 'project1/date_delivery/sample1/sample1.g.vcf.gz', 'md5': 'd41d8cd98f00b204e9800998ecf8427e',
              'size': 0}
-        ]
+        ], key=operator.itemgetter('file_path'))
         patched_get_doc.assert_called_with('samples', where={'sample_id': 'sample1'})
         patched_patch_entry.assert_called_with(
             'samples',
             element_id='sample1',
             id_field='sample_id',
             update_lists=['files_delivered'],
-            payload={'files_delivered': [
-                {'file_path': 'project1/date_delivery/sample1/sample1.bam', 'md5': 'd41d8cd98f00b204e9800998ecf8427e',
-                 'size': 0}
-            ]}
+            payload={'files_delivered': files_delivered}
         )
 
     @patch('bin.confirm_delivery.get_document', return_value=sample1)
@@ -209,7 +208,7 @@ class TestConfirmDelivery(TestProjectManagement):
     @patch('egcg_core.clarity.get_list_of_samples')
     def test_confirm_download_in_lims(self, mocked_get_list_of_samples, mocked_get_workflow_stage, mocked_lims_connection):
         mocked_get_list_of_samples.return_value = [Mock(artifact=Mock(spec=Artifact))]
-        mocked_get_workflow_stage.return_value = Mock(step=Mock(spec=ProtocolStep, id='s1', permitted_containers=[]))
+        mocked_get_workflow_stage.return_value = Mock(step=Mock(spec=ProtocolStep, id='s1', permitted_containers=list()))
         self.c.confirmed_samples.append('sample1')
         self.c.confirm_download_in_lims()
         mocked_get_list_of_samples.assert_called_with(sample_names=['sample1'])

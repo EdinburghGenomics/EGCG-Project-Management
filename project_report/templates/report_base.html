@@ -31,10 +31,11 @@
                 content: "Page "counter(page) " of " counter(pages);
             }
             @bottom-left {
-                content: "EGC-BTP-1 rev. 1";
+                content: "EGC-BTP-1 rev. 2";
             }
             @bottom-right {
-                content: "Project ID: {{ params['project_name'] }}";
+                {% set last = authorisations|last %}
+                content: "{{ params['project_name'] }} {{ last.version }}";
             }
         }
 
@@ -51,11 +52,11 @@
 </head>
 
 <body>
-    <div id="page-header" class="text-center" style="margin-bottom:100px;">
+    <div id="page-header" class="text-center" style="margin-bottom:250px;">
         <table class="table borderless">
             <tbody>
                 <tr>
-                    <td><img class="logo" src="http://s29.postimg.org/8qp6u1agn/EG_logo_final_version_colourwhite_cropped.png"/></td>
+                    <td><img class="logo" src="{{ eglogo }}"/></td>
                     <td>
                         Edinburgh Genomics Clinical<br>
                         The Roslin Institute <br>
@@ -66,23 +67,51 @@
             </tbody>
         </table>
         <hr>
-        <h1>Project {{ params['project_name'] }} report</h1>
-
+        <div id="reporttitle" class="text-center" style="margin-top:250px;">
+            <h1>Report {{ params['project_name'] }} {{ last.version }}</h1>
+        </div>
     </div>
-
+    <div id="authorisation" class="page_break">
+        <h2>Authorisation</h2>
+        <table class="table table-condensed">
+            <tr>
+                <th>Version</th>
+                <th>Release date</th>
+                <th>Nb Samples</th>
+                <th>Released by</th>
+                <th>Signature id</th>
+            </tr>
+            {% for authorisation in authorisations %}
+            <tr>
+                <th>{{ authorisation.version }}</th>
+                <td>{{ authorisation.date }}</td>
+                <td>{{ authorisation.samples|length }}</td>
+                <td>{{ authorisation.name }} ({{ authorisation.role }})</td>
+                <td>{{ authorisation.id }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
     <div id="general_info" class="page_break">
         <h2>Summary</h2>
         <table class="table table-condensed borderless">
             {% for title, data in project_info %}
             <tr>
                 <th>{{ title }}</th>
-                <td>{{ data }}</td>
+                <td>
+                    {% if data is iterable and data is not string %}
+                        {{ data|join('<br>') }}
+                    {% else %}
+                        {{ data }}
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </table>
         <hr>
         For detailed per-sample information, please see Appendix I.
     </div>
+
 
     <div id="method" class="page_break">
         <h2>Methods</h2>
@@ -114,8 +143,13 @@
     </div>
 
     <div id="formal_statement">
-        <!--<h4>Deviations, Additions and Exclusions</h4>-->
-            <!--<p>N/A</p>-->
+        <h2>Deviations, Additions and Exclusions</h2>
+            {% for authorisation in authorisations %}
+                {% if authorisation.NCs %}
+                    <h4>Report {{ params['project_name'] }} {{ authorisation.version }}: {{ authorisation.date }}</h4>
+                    {{ authorisation.NCs }}
+                {% endif %}
+            {% endfor %}
 
         <h2>Declaration of Compliance</h2>
         <p class="justify_text">
@@ -128,7 +162,7 @@
     </div>
     <div class="text-center" style="margin-top:100px;">
         <hr>
-        <h4>End of project {{ params['project_name'] }} report</h4>
+        <h4>End of report {{ params['project_name'] }} {{ last.version }}</h4>
     </div>
 </body>
 </html>

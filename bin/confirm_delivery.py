@@ -164,9 +164,10 @@ class DeliveredSample(AppLogger):
     def is_download_complete(self):
         return len(self.files_missing()) == 0
 
+
 class ConfirmDelivery(AppLogger):
     def __init__(self, aspera_report_csv_files=None):
-        self.delivery_dir = cfg.query('delivery_dest')
+        self.delivery_dir = cfg.query('delivery', 'dest')
         self.samples_delivered = defaultdict(DeliveredSample)
         self.confirmed_samples = list()
         if aspera_report_csv_files:
@@ -266,7 +267,7 @@ class ConfirmDelivery(AppLogger):
             self.test_sample(sample.name)
 
 
-def main():
+def main(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument('--csv_files', type=str, nargs='+')
     group = p.add_mutually_exclusive_group()
@@ -277,7 +278,7 @@ def main():
                    help='Confirm all successfully tested samples.')
 
     p.add_argument('--debug', action='store_true')
-    args = p.parse_args()
+    args = p.parse_args(argv)
 
     load_config()
 

@@ -2,8 +2,15 @@ import hashlib
 import os
 from os.path import join, abspath, dirname
 from unittest import TestCase
+from unittest.mock import Mock
 
 
+class NamedMock(Mock):
+    def __init__(self, name, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.name = name
+
+        
 class TestProjectManagement(TestCase):
     root_path = abspath(dirname(dirname(__file__)))
     etc_config = join(root_path, 'etc', 'example_project_management.yaml')

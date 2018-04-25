@@ -1,10 +1,9 @@
-{% from 'all_templates.html' import sample_qc_pcrfree, sample_qc_nano, library_prep, library_qc, sequencing, truseq_nano, truseq_pcrfree %}
-{% set macro_dict = {'sample_qc_pcrfree': sample_qc_pcrfree,
-                    'sample_qc_nano': sample_qc_nano,
-                    'truseq_nano': truseq_nano,
-                    'truseq_pcrfree': truseq_pcrfree,
-                    'library_qc': library_qc,
-                    'sequencing': sequencing} %}
+{% from 'all_templates.html' import library_nano, library_pcrfree,  sequencing %}
+{% set macro_dict = {
+    'TruSeq Nano': library_nano,
+    'TruSeq PCR-Free': library_pcrfree,
+    'sequencing': sequencing
+} %}
 
 {% for t in project_templates['laboratory_template'] %}
     {% for key in macro_dict %}
