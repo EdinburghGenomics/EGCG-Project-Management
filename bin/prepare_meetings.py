@@ -32,7 +32,6 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
         avg_yield = sum([run.get('aggregated').get('yield_in_gb') for run in runs]) / nb_run
         avg_q30 = sum([run.get('aggregated').get('pc_q30') for run in runs]) / nb_run
 
-
         pass_count = count = 0
         for run in runs:
             for lane in rc.get_documents('lanes', where={'run_id': run.get('run_id')}):
@@ -78,14 +77,20 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
 
     samples = []
     for p in connection().get_processes(type='Sample Review EG 1.0 ST',
-                             last_modified=seven_days_ago.isoformat().split('.')[0] + "Z"):
+                                        last_modified=seven_days_ago.isoformat().split('.')[0] + "Z"):
         samples.extend([a.samples[0] for a in p.all_inputs(resolve=True)])
-
-    nb_reviewed = len(samples)
-
     sample_names = [s.name for s in samples]
 
     rest_samples = [rc.get_document('samples', where={'sample_id': s}) for s in sample_names]
+    rest_samples = [r for r in rest_samples if r]
+    new_sample_names = [r.get('sample_id') for r in rest_samples if r]
+
+    diff = set(sample_names).difference(set(new_sample_names))
+    if diff:
+        # ignore samples that are not in the rest API as they are usually tests
+        print('WARNING: samples %s are being ignored' % ', '.join(diff))
+        sample_names = new_sample_names
+    nb_reviewed = len(sample_names)
 
     pc_pass = len([s for s in rest_samples if s.get('reviewed') == 'pass']) / nb_reviewed * 100
     pc_useable = len([s for s in rest_samples if s.get('useable') == 'yes']) / nb_reviewed * 100
