@@ -3,13 +3,9 @@ import gzip
 import hashlib
 from shutil import rmtree
 from unittest.mock import Mock, patch, PropertyMock
-
-import egcg_core
-
-from bin.deliver_reviewed_data import Release_LIMS_step_name
-from integration_tests import IntegrationTest, integration_cfg, NamedMock
-from egcg_core import rest_communication, util
+from egcg_core import rest_communication, util, integration_testing
 from egcg_core.config import cfg
+from integration_tests import NamedMock
 from bin import deliver_reviewed_data
 
 work_dir = os.path.dirname(__file__)
@@ -146,13 +142,13 @@ def fake_get_document(*args, **kwargs):
         return fake_samples.get(list(kwargs.values())[0].get('sample_id'), {}). get(args[0])
 
 
-class TestDelivery(IntegrationTest):
+class TestDelivery(integration_testing.ReportingAppIntegrationTest):
     processed_run_dir = os.path.join(work_dir, 'processed_runs')
     processed_projects_dir = os.path.join(work_dir, 'processed_projects')
     delivered_projects_dir = os.path.join(work_dir, 'delivered_projects')
     artifacts = [Mock(samples=[NamedMock(name=sample)]) for sample in fake_samples if fake_samples[sample].get('authorised', False)]
     fake_process = Mock(
-        type=NamedMock(name=Release_LIMS_step_name),
+        type=NamedMock(name=deliver_reviewed_data.Release_LIMS_step_name),
         all_inputs=Mock(return_value=artifacts)
     )
     patches = (
@@ -168,8 +164,8 @@ class TestDelivery(IntegrationTest):
     def setUpClass(cls):
         cfg.content = {
             'tools': {
-                'md5sum': integration_cfg['md5sum'],
-                'fastqc': integration_cfg['fastqc']
+                'md5sum': integration_testing.cfg['md5sum'],
+                'fastqc': integration_testing.cfg['fastqc']
             },
             'sample': {
                 'input_dir': cls.processed_run_dir
@@ -278,29 +274,20 @@ class TestDelivery(IntegrationTest):
                     if not os.path.isfile(f):
                         missing_files.append(f)
 
-        assert not missing_files, 'Found missing files: %s' % missing_files
+        self.assertFalse('No missing files', missing_files)
 
-    @staticmethod
-    def _check_api_pre_delivery():
-        assert rest_communication.get_document('samples', where={'sample_id': 'delivered_sample'})['delivered'] == 'yes'
+    def _check_api_pre_delivery(self):
+        self.assertEqual('delivered_sample already delivered', rest_communication.get_document('samples', where={'sample_id': 'delivered_sample'})['delivered'], 'yes')
         for sample_id in ('split_human', 'unusable', 'merged_non_human', 'fluidx_non_human_var_calling'):
-            assert rest_communication.get_document('samples', where={'sample_id': sample_id + '_sample'})['delivered'] == 'no'
+            self.assertEqual('%s not delivered' % sample_id, rest_communication.get_document('samples', where={'sample_id': sample_id + '_sample'})['delivered'], 'no')
 
-    @staticmethod
-    def _check_api_post_delivery():
-        assert rest_communication.get_document('samples', where={'sample_id': 'unusable_sample'})['delivered'] == 'no'
+    def _check_api_post_delivery(self):
+        self.assertEqual('unusable sample not delivered', rest_communication.get_document('samples', where={'sample_id': 'unusable_sample'})['delivered'], 'no')
         for sample_id in ('split_human', 'delivered', 'merged_non_human', 'fluidx_non_human_var_calling'):
-            assert rest_communication.get_document('samples', where={'sample_id': sample_id + '_sample'})['delivered'] == 'yes'
+            self.assertEqual('%s delivered' % sample_id, rest_communication.get_document('samples', where={'sample_id': sample_id + '_sample'})['delivered'], 'yes')
 
-    @staticmethod
-    def _check_files(obs_dir, exp_basenames):
-        obs = os.listdir(obs_dir)
-        assert obs, 'No files found in %s' % obs_dir
-        if sorted(obs) != sorted(exp_basenames):
-            print('File check in %s failed' % obs_dir)
-            print('Missing files: %s' % [f for f in exp_basenames if f not in obs])
-            print('Unexpected_files: %s' % [f for f in obs if f not in exp_basenames])
-            raise AssertionError
+    def _check_files(self, obs_dir, exp_basenames):
+        self.assertEqual('File check in %s' % obs_dir, sorted(os.listdir(obs_dir)), sorted(exp_basenames))
 
     def test_deliver(self):
         self._check_files_pre_delivery()
@@ -353,8 +340,8 @@ class TestDelivery(IntegrationTest):
             ]
         )
 
-        assert not util.find_file(delivery_dir, 'unusable_sample')
-        assert not util.find_file(delivery_dir, 'delivered_sample')
+        for sample_id in ('unusable_sample', 'delivered_sample'):
+            self.assertFalse('%s not delivered' % sample_id, util.find_file(delivery_dir, sample_id))
 
         self._check_api_post_delivery()
 

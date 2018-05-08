@@ -2,10 +2,11 @@ import os
 import re
 from hashlib import md5
 from unittest.mock import Mock, patch
-from integration_tests import IntegrationTest, NamedMock
 from egcg_core import rest_communication
 from egcg_core.config import cfg
+from egcg_core.integration_testing import ReportingAppIntegrationTest
 from project_report import client
+from integration_tests import NamedMock
 work_dir = os.path.dirname(__file__)
 
 
@@ -42,8 +43,8 @@ class FakeLims:
                     'Shipment Address Line 4': '-',
                     'Shipment Address Line 5': '-'
                 },
-                researcher=NamedMock(name='First Last', first_name='First', last_name='Last', email='first.last@email.com',
-                                     lab=NamedMock(name='Awesome lab'))
+                researcher=NamedMock(name='First Last', first_name='First', last_name='Last',
+                                     email='first.last@email.com', lab=NamedMock(name='Awesome lab'))
             )
         ]
 
@@ -65,7 +66,7 @@ class FakeLims:
             ]
 
 
-class TestProjectReport(IntegrationTest):
+class TestProjectReport(ReportingAppIntegrationTest):
     delivery_source = os.path.join(work_dir, 'delivery_source')
     delivery_dest = os.path.join(work_dir, 'delivery_dest')
     patches = (
@@ -218,18 +219,15 @@ class TestProjectReport(IntegrationTest):
         return m.hexdigest()
 
     def test_reports(self):
-        test_success = True
         exp_md5s = {
             'htn999': 'dbf41471fa5fe2367daab6eb5876e151',
             'nhtn999': 'b05e63e1e9929bfc4d7412cb6d73d99f',
             'hpf999': 'c9cd8f802601e69730c7c38b9e5bc013',
             'nhpf999': 'fa74f5eb9d1e8eba0b16ac23d38a5ab9'
         }
-        for k, v in exp_md5s.items():
+        obs_md5s = {}
+        for k in exp_md5s:
             client.main(['-p', k, '-o', 'html', '-w', work_dir])
-            obs_md5 = self._check_md5(os.path.join(self.delivery_dest, k, 'project_%s_report.html' % k))
-            if obs_md5 != v:
-                print('md5 mismatch for %s: expected %s, got %s' % (k, v, obs_md5))
-                test_success = False
+            obs_md5s[k] = self._check_md5(os.path.join(self.delivery_dest, k, 'project_%s_report.html' % k))
 
-        assert test_success
+        self.assertEqual('project report md5s (obs, exp)', obs_md5s, exp_md5s)

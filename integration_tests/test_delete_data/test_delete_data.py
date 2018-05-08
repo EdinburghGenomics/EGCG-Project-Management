@@ -1,15 +1,15 @@
 import os
 from shutil import rmtree
 from unittest.mock import patch
-from integration_tests import IntegrationTest, integration_cfg, setup_delivered_samples
-from egcg_core import rest_communication, archive_management
+from integration_tests import setup_delivered_samples
+from egcg_core import rest_communication, archive_management, integration_testing
 from egcg_core.config import cfg
 from data_deletion import client
 
 work_dir = os.path.dirname(__file__)
 
 
-class TestDeletion(IntegrationTest):
+class TestDeletion(integration_testing.ReportingAppIntegrationTest):
     patches = (
         patch('data_deletion.client.load_config'),
     )
@@ -26,7 +26,7 @@ class TestDeleteRawData(TestDeletion):
     @classmethod
     def setUpClass(cls):
         cfg.content = {
-            'executor': integration_cfg['executor'],
+            'executor': integration_testing.cfg['executor'],
             'data_deletion': {
                 'raw_data': cls.raw_dir,
                 'raw_archives': cls.archive_dir
@@ -60,23 +60,26 @@ class TestDeleteRawData(TestDeletion):
 
     def test_raw_data(self):
         run_dir = os.path.join(self.raw_dir, 'a_run')
-        assert os.path.isdir(run_dir)
+        self.assertTrue('run dir exists', os.path.isdir(run_dir))
 
         self._run_main(['raw'])
 
-        assert not os.path.isdir(run_dir)
-        assert os.path.isfile(os.path.join(self.archive_dir, 'a_run', 'some_metadata', 'some_data.txt'))
+        self.assertFalse('run dir deleted', os.path.isdir(run_dir))
+        self.assertTrue(
+            'metadata archived',
+            os.path.isfile(os.path.join(self.archive_dir, 'a_run', 'some_metadata', 'some_data.txt'))
+        )
 
     def test_unreviewed_raw_data(self):
         rest_communication.patch_entry('run_elements', {'reviewed': 'not reviewed'}, 'run_element_id', 'a_run_element')
         run_dir = os.path.join(self.raw_dir, 'a_run')
-        assert os.path.isdir(run_dir)
+        self.assertTrue('run dir exists', os.path.isdir(run_dir))
 
         self._run_main(['raw'])
 
         # nothing should have happened
-        assert os.path.isdir(run_dir)
-        assert not os.path.isdir(os.path.join(self.archive_dir, 'a_run'))
+        self.assertTrue('run dir not deleted', os.path.isdir(run_dir))
+        self.assertFalse('metadata not archived', os.path.isdir(os.path.join(self.archive_dir, 'a_run')))
 
 
 class TestDeleteDeliveredData(TestDeletion):
@@ -89,7 +92,7 @@ class TestDeleteDeliveredData(TestDeletion):
     @classmethod
     def setUpClass(cls):
         cfg.content = {
-            'executor': integration_cfg['executor'],
+            'executor': integration_testing.cfg['executor'],
             'data_deletion': {
                 'fastqs': cls.fastq_dir,
                 'fastq_archives': cls.fastq_archive_dir,
@@ -105,8 +108,8 @@ class TestDeleteDeliveredData(TestDeletion):
 
     def test_manual_release(self):
         for sample_id in ('sample_1', 'sample_2', 'sample_3'):
-            assert all(archive_management.is_archived(f) for f in self.all_files[sample_id])
-            assert rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'] == 'none'
+            self.assertTrue('%s files archived' % sample_id, all(archive_management.is_archived(f) for f in self.all_files[sample_id]))
+            self.assertEqual('%s no data deleted' % sample_id, rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'], 'none')
 
         self._run_main(
             ['delivered_data', '--manual_delete', 'sample_1', 'sample_2', 'sample_3',
@@ -114,18 +117,18 @@ class TestDeleteDeliveredData(TestDeletion):
         )
         for sample_id in ('sample_1', 'sample_2'):
             statuses = {f: archive_management.archive_states(f) for f in self.all_files[sample_id]}
-            assert all(archive_management.is_released(f) for f in self.all_files[sample_id]), statuses
-            assert rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'] == 'on lustre'
+            self.assertTrue('%s files released' % sample_id, all(archive_management.is_released(f) for f in self.all_files[sample_id]), statuses)
+            self.assertEqual('%s marked as released', rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'], 'on lustre')
 
         # sample 3 should not be released
         statuses = {f: archive_management.archive_states(f) for f in self.all_files['sample_3']}
-        assert all(archive_management.is_archived(f) and not archive_management.is_released(f) for f in self.all_files['sample_3']), statuses
-        assert rest_communication.get_document('samples', where={'sample_id': 'sample_3'})['data_deleted'] == 'none'
+        self.assertTrue('sample_3 files not released', all(archive_management.is_archived(f) and not archive_management.is_released(f) for f in self.all_files['sample_3']), statuses)
+        self.assertEqual('sample_3 not marked as released', rest_communication.get_document('samples', where={'sample_id': 'sample_3'})['data_deleted'], 'none')
 
     def test_dry_run(self):
         for sample_id in ('sample_1', 'sample_2', 'sample_3'):
-            assert all(archive_management.is_archived(f) for f in self.all_files[sample_id])
-            assert rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'] == 'none'
+            self.assertTrue('%s files archived' % sample_id, all(archive_management.is_archived(f) for f in self.all_files[sample_id]))
+            self.assertEqual('%s no data deleted', rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'], 'none')
 
         self._run_main(
             ['delivered_data', '--manual_delete', 'sample_1', 'sample_2', 'sample_3',
@@ -134,5 +137,5 @@ class TestDeleteDeliveredData(TestDeletion):
 
         # nothing should have happened
         for sample_id in ('sample_1', 'sample_2', 'sample_3'):
-            assert all(archive_management.is_archived(f) for f in self.all_files[sample_id])
-            assert rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'] == 'none'
+            self.assertTrue('%s files still archived', all(archive_management.is_archived(f) for f in self.all_files[sample_id]))
+            self.assertEqual('%s still no data deleted', rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'], 'none')
