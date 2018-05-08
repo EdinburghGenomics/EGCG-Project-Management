@@ -1,10 +1,16 @@
 Changelog for EGCG-Project-Management
 =====================================
 
-0.7 (unreleased)
+0.7 (2018-05-08)
 ----------------
 
-- Modification of the project report to incorporate signature (new config entry)
+- Added customer details and signatures to project report (new config entry)
+- Added additional reporting to GeL data delivery and enhancing --force option
+- Switched data delivery over to use a delivery step URI
+  - removed `--mark_only`, `--project_id`, `--sample_id`
+  - added `--process_id`
+- Added integration test suite
+
 
 
 0.6 (2018-01-17)
