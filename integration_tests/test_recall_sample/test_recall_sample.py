@@ -1,7 +1,7 @@
 import os
 import shutil
 from time import sleep
-from egcg_core import archive_management, rest_communication, integration_testing
+from egcg_core import archive_management, rest_communication
 from egcg_core.config import cfg
 from egcg_core.exceptions import EGCGError
 from unittest.mock import patch
@@ -9,32 +9,28 @@ import integration_tests
 import data_deletion.client
 from bin import recall_sample
 
-work_dir = os.path.dirname(__file__)
 
-
-class TestRecall(integration_testing.ReportingAppIntegrationTest):
-    fastq_dir = os.path.join(work_dir, 'fastqs')
-    processed_data_dir = os.path.join(work_dir, 'processed_data')
-    delivered_data_dir = os.path.join(work_dir, 'delivered_data')
-    fastq_archive_dir = os.path.join(work_dir, 'fastq_archives')
-    processed_archive_dir = os.path.join(work_dir, 'processed_archives')
-
-    @classmethod
-    def setUpClass(cls):
-        cfg.content = {
-            'executor': integration_testing.cfg['executor'],
-            'data_deletion': {
-                'fastqs': cls.fastq_dir,
-                'fastq_archives': cls.fastq_archive_dir,
-                'processed_data': cls.processed_data_dir,
-                'processed_archives': cls.processed_archive_dir,
-                'delivered_data': cls.delivered_data_dir
-            }
-        }
-
+class TestRecall(integration_tests.IntegrationTest):
     def setUp(self):
         super().setUp()
+
+        self.fastq_dir = os.path.join(self.run_dir, 'fastqs')
+        self.processed_data_dir = os.path.join(self.run_dir, 'processed_data')
+        self.delivered_data_dir = os.path.join(self.run_dir, 'delivered_data')
+        self.fastq_archive_dir = os.path.join(self.run_dir, 'fastq_archives')
+        self.processed_archive_dir = os.path.join(self.run_dir, 'processed_archives')
+
         self.all_files = integration_tests.setup_delivered_samples(self.processed_data_dir, self.delivered_data_dir, self.fastq_dir)
+        cfg.content = {
+            'executor': self.cfg['executor'],
+            'data_deletion': {
+                'fastqs': self.fastq_dir,
+                'fastq_archives': self.fastq_archive_dir,
+                'processed_data': self.processed_data_dir,
+                'processed_archives': self.processed_archive_dir,
+                'delivered_data': self.delivered_data_dir
+            }
+        }
 
     def assert_hsm_state_for_sample(self, sample_id, state_func, retries=10):
         files = self.all_files[sample_id]
@@ -52,7 +48,7 @@ class TestRecall(integration_testing.ReportingAppIntegrationTest):
 
     def setup_samples_for_recall(self):
         with patch('data_deletion.client.load_config'):
-            data_deletion.client.main(['delivered_data', '--manual_delete', 'sample_1', 'sample_2', '--work_dir', work_dir])
+            data_deletion.client.main(['delivered_data', '--manual_delete', 'sample_1', 'sample_2', '--work_dir', self.run_dir])
             for s in ('sample_1', 'sample_2'):
                 self.assert_api_state_for_sample(s, 'on lustre')
                 self.assert_hsm_state_for_sample(s, archive_management.is_released)

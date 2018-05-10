@@ -1,17 +1,14 @@
 import os
-from shutil import rmtree
 from egcg_core import rest_communication
 from egcg_core.config import cfg
-from egcg_core.integration_testing import ReportingAppIntegrationTest
-from integration_tests import NamedMock
+from integration_tests import NamedMock, IntegrationTest
 from unittest.mock import Mock, patch
 from bin import confirm_delivery
 
-src_dir = os.path.dirname(__file__)
-downloaded_files = os.path.join(src_dir, 'downloaded_files.csv')
+downloaded_files = os.path.join(os.path.dirname(__file__), 'downloaded_files.csv')
 
 
-class TestConfirmDelivery(ReportingAppIntegrationTest):
+class TestConfirmDelivery(IntegrationTest):
     patches = (
         patch('bin.confirm_delivery.load_config'),
         patch('bin.confirm_delivery.clarity.connection'),
@@ -59,7 +56,7 @@ class TestConfirmDelivery(ReportingAppIntegrationTest):
     def setUp(self):
         super().setUp()
 
-        self.delivered_projects = os.path.join(src_dir, self._testMethodName, 'delivered_projects')
+        self.delivered_projects = os.path.join(self.run_dir, 'delivered_projects')
         cfg.content = {
             'sample': {},
             'delivery_dest': self.delivered_projects,  # TODO: really!?
@@ -76,10 +73,6 @@ class TestConfirmDelivery(ReportingAppIntegrationTest):
                 open(f, 'w').close()
 
             rest_communication.post_entry('samples', s)
-
-    def tearDown(self):
-        super().tearDown()
-        rmtree(self.delivered_projects)
 
     def test_samples(self):
         confirm_delivery.main(['--csv_files', downloaded_files, '--samples', 'sample_1', 'sample_2'])

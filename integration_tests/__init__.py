@@ -3,7 +3,19 @@ from time import sleep
 from shutil import rmtree
 from unittest.mock import Mock
 from collections import defaultdict
-from egcg_core import rest_communication, archive_management
+from egcg_core import rest_communication, archive_management, integration_testing
+
+
+class IntegrationTest(integration_testing.ReportingAppIntegrationTest):
+    """IntegrationTest with some helpers for running concurrent tests safely."""
+    @property
+    def run_dir(self):
+        return os.path.join(os.getcwd(), self.__class__.__name__, self._testMethodName)
+
+    def tearDown(self):
+        super().tearDown()
+        if os.path.isdir(self.run_dir):
+            rmtree(self.run_dir)
 
 
 class NamedMock(Mock):

@@ -4,10 +4,8 @@ from hashlib import md5
 from unittest.mock import Mock, patch
 from egcg_core import rest_communication
 from egcg_core.config import cfg
-from egcg_core.integration_testing import ReportingAppIntegrationTest
 from project_report import client
-from integration_tests import NamedMock
-work_dir = os.path.dirname(__file__)
+from integration_tests import NamedMock, IntegrationTest
 
 
 class FakeLims:
@@ -66,9 +64,7 @@ class FakeLims:
             ]
 
 
-class TestProjectReport(ReportingAppIntegrationTest):
-    delivery_source = os.path.join(work_dir, 'delivery_source')
-    delivery_dest = os.path.join(work_dir, 'delivery_dest')
+class TestProjectReport(IntegrationTest):
     patches = (
         patch('project_report.client.load_config'),
         patch('project_report.ProjectReport.sample_status', return_value={'started_date': '2018-02-08T12:26:01.893000'})
@@ -123,15 +119,6 @@ class TestProjectReport(ReportingAppIntegrationTest):
 
     @classmethod
     def setUpClass(cls):
-        cfg.content = {
-            'delivery':{
-                'source': cls.delivery_source,
-                'dest': cls.delivery_dest,
-                'signature_name': 'He-Man',
-                'signature_role': 'Prince'
-            }
-        }
-
         i = 0
         for project_id in sorted(cls.projects):
             i += 100
@@ -173,6 +160,18 @@ class TestProjectReport(ReportingAppIntegrationTest):
 
     def setUp(self):
         super().setUp()
+
+        self.delivery_source = os.path.join(self.run_dir, 'delivery_source')
+        self.delivery_dest = os.path.join(self.run_dir, 'delivery_dest')
+
+        cfg.content = {
+            'delivery': {
+                'source': self.delivery_source,
+                'dest': self.delivery_dest,
+                'signature_name': 'He-Man',
+                'signature_role': 'Prince'
+            }
+        }
 
         # can't have this in cls.patches because we need to construct the fake lims first
         self.patched_lims = patch('project_report.connection', return_value=FakeLims(self.projects))
@@ -227,7 +226,7 @@ class TestProjectReport(ReportingAppIntegrationTest):
         }
         obs_md5s = {}
         for k in exp_md5s:
-            client.main(['-p', k, '-o', 'html', '-w', work_dir])
+            client.main(['-p', k, '-o', 'html', '-w', self.run_dir])
             obs_md5s[k] = self._check_md5(os.path.join(self.delivery_dest, k, 'project_%s_report.html' % k))
 
         self.assertEqual('project report md5s (obs, exp)', obs_md5s, exp_md5s)

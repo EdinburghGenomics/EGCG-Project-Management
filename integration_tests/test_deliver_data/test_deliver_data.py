@@ -1,11 +1,10 @@
 import os
 import gzip
 import hashlib
-from shutil import rmtree
 from unittest.mock import Mock, patch, PropertyMock
-from egcg_core import rest_communication, util, integration_testing
+from egcg_core import rest_communication, util
 from egcg_core.config import cfg
-from integration_tests import NamedMock
+from integration_tests import NamedMock, IntegrationTest
 from bin import deliver_reviewed_data
 
 work_dir = os.path.dirname(__file__)
@@ -142,10 +141,7 @@ def fake_get_document(*args, **kwargs):
         return fake_samples.get(list(kwargs.values())[0].get('sample_id'), {}). get(args[0])
 
 
-class TestDelivery(integration_testing.ReportingAppIntegrationTest):
-    processed_run_dir = os.path.join(work_dir, 'processed_runs')
-    processed_projects_dir = os.path.join(work_dir, 'processed_projects')
-    delivered_projects_dir = os.path.join(work_dir, 'delivered_projects')
+class TestDelivery(IntegrationTest):
     artifacts = [Mock(samples=[NamedMock(name=sample)]) for sample in fake_samples if fake_samples[sample].get('authorised', False)]
     fake_process = Mock(
         type=NamedMock(name=deliver_reviewed_data.Release_LIMS_step_name),
@@ -160,48 +156,47 @@ class TestDelivery(integration_testing.ReportingAppIntegrationTest):
         patch('bin.deliver_reviewed_data.ProjectReport')  # TODO: run the project report once it can take mixed projects
     )
 
-    @classmethod
-    def setUpClass(cls):
+    def setUp(self):
+        super().setUp()
+        self.processed_run_dir = os.path.join(self.run_dir, 'processed_runs')
+        self.processed_projects_dir = os.path.join(self.run_dir, 'processed_projects')
+        self.delivered_projects_dir = os.path.join(self.run_dir, 'delivered_projects')
+
         cfg.content = {
             'tools': {
-                'md5sum': integration_testing.cfg['md5sum'],
-                'fastqc': integration_testing.cfg['fastqc']
+                'md5sum': self.cfg['md5sum'],
+                'fastqc': self.cfg['fastqc']
             },
             'sample': {
-                'input_dir': cls.processed_run_dir
+                'input_dir': self.processed_run_dir
             },
             'delivery': {
-                'dest': cls.delivered_projects_dir,
-                'source': cls.processed_projects_dir,
+                'dest': self.delivered_projects_dir,
+                'source': self.processed_projects_dir,
                 'clarity_workflow_name': 'a_workflow',
                 'email_notification': {}  # TODO: avoid KeyError in delivery email
             }
         }
 
         for s in fake_samples:
-            sample_dir = os.path.join(cls.processed_projects_dir, 'a_project', s)
+            sample_dir = os.path.join(self.processed_projects_dir, 'a_project', s)
             if not os.path.isdir(sample_dir):
                 os.makedirs(sample_dir)
                 for basename in fake_samples[s]['output_files']:
                     fp = os.path.join(sample_dir, basename.format(ext_sample_id='uid_' + s))
-                    cls._seed_file(fp, md5=True)
+                    self._seed_file(fp, md5=True)
 
-            fastq_dir = os.path.join(cls.processed_run_dir, 'a_run', 'a_project', s)
+            fastq_dir = os.path.join(self.processed_run_dir, 'a_run', 'a_project', s)
             if not os.path.isdir(fastq_dir):
                 os.makedirs(fastq_dir)
                 lane = fake_samples[s]['run_elements'][0]['lane']
                 for i in (1, 2):
                     file_base = 'uid_%s_S%s_L00%s_R%s_001' % (s, lane, lane, i)
-                    cls._seed_file(os.path.join(fastq_dir, file_base + '.fastq.gz'), md5=True)
-                    cls._seed_file(os.path.join(fastq_dir, file_base + '_fastqc.html'))
-                    cls._seed_file(os.path.join(fastq_dir, file_base + '_fastqc.zip'))
-
-    def setUp(self):
-        super().setUp()
+                    self._seed_file(os.path.join(fastq_dir, file_base + '.fastq.gz'), md5=True)
+                    self._seed_file(os.path.join(fastq_dir, file_base + '_fastqc.html'))
+                    self._seed_file(os.path.join(fastq_dir, file_base + '_fastqc.zip'))
 
         os.makedirs(self.delivered_projects_dir, exist_ok=True)
-        for d in os.listdir(self.delivered_projects_dir):
-            rmtree(os.path.join(self.delivered_projects_dir, d))
 
         for s in fake_samples:
             rest_communication.post_entry(
@@ -229,9 +224,8 @@ class TestDelivery(integration_testing.ReportingAppIntegrationTest):
             )
             rest_communication.post_entry('samples', sample)
 
-    @staticmethod
-    def _run_main(args=None):
-        argv = ['--process_id', 'a_process', '--noemail', '--work_dir', work_dir]
+    def _run_main(self, args=None):
+        argv = ['--process_id', 'a_process', '--noemail', '--work_dir', self.run_dir]
         if args:
             argv += args
 

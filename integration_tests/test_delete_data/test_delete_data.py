@@ -1,40 +1,33 @@
 import os
-from shutil import rmtree
 from unittest.mock import patch
-from integration_tests import setup_delivered_samples
-from egcg_core import rest_communication, archive_management, integration_testing
+from integration_tests import setup_delivered_samples, IntegrationTest
+from egcg_core import rest_communication, archive_management
 from egcg_core.config import cfg
 from data_deletion import client
 
-work_dir = os.path.dirname(__file__)
 
-
-class TestDeletion(integration_testing.ReportingAppIntegrationTest):
+class TestDeletion(IntegrationTest):
     patches = (
         patch('data_deletion.client.load_config'),
     )
 
-    @staticmethod
-    def _run_main(argv):
-        client.main(argv + ['--work_dir', work_dir])
+    def _run_main(self, argv):
+        client.main(argv + ['--work_dir', self.run_dir])
 
 
 class TestDeleteRawData(TestDeletion):
-    raw_dir = os.path.join(work_dir, 'raw')
-    archive_dir = os.path.join(work_dir, 'archives')
-
-    @classmethod
-    def setUpClass(cls):
-        cfg.content = {
-            'executor': integration_testing.cfg['executor'],
-            'data_deletion': {
-                'raw_data': cls.raw_dir,
-                'raw_archives': cls.archive_dir
-            }
-        }
-
     def setUp(self):
         super().setUp()
+        self.raw_dir = os.path.join(self.run_dir, 'raw')
+        self.archive_dir = os.path.join(self.run_dir, 'archives')
+
+        cfg.content = {
+            'executor': self.cfg['executor'],
+            'data_deletion': {
+                'raw_data': self.raw_dir,
+                'raw_archives': self.archive_dir
+            }
+        }
 
         for d in ('Data', 'Logs', 'Thumbnail_Images', 'some_metadata'):
             subdir = os.path.join(self.raw_dir, 'a_run', d)
@@ -42,8 +35,6 @@ class TestDeleteRawData(TestDeletion):
             open(os.path.join(subdir, 'some_data.txt'), 'w').close()
 
         os.makedirs(self.archive_dir, exist_ok=True)
-        for x in os.listdir(self.archive_dir):
-            rmtree(os.path.join(self.archive_dir, x))
 
         rest_communication.post_entry(
             'run_elements',
@@ -83,27 +74,25 @@ class TestDeleteRawData(TestDeletion):
 
 
 class TestDeleteDeliveredData(TestDeletion):
-    fastq_dir = os.path.join(work_dir, 'fastqs')
-    fastq_archive_dir = os.path.join(work_dir, 'fastq_archives')
-    processed_data_dir = os.path.join(work_dir, 'processed_data')
-    processed_archive_dir = os.path.join(work_dir, 'processed_archives')
-    delivered_data_dir = os.path.join(work_dir, 'delivered_data')
-
-    @classmethod
-    def setUpClass(cls):
-        cfg.content = {
-            'executor': integration_testing.cfg['executor'],
-            'data_deletion': {
-                'fastqs': cls.fastq_dir,
-                'fastq_archives': cls.fastq_archive_dir,
-                'processed_data': cls.processed_data_dir,
-                'processed_archives': cls.processed_archive_dir,
-                'delivered_data': cls.delivered_data_dir
-            }
-        }
-
     def setUp(self):
         super().setUp()
+
+        self.fastq_dir = os.path.join(self.run_dir, 'fastqs')
+        self.fastq_archive_dir = os.path.join(self.run_dir, 'fastq_archives')
+        self.processed_data_dir = os.path.join(self.run_dir, 'processed_data')
+        self.processed_archive_dir = os.path.join(self.run_dir, 'processed_archives')
+        self.delivered_data_dir = os.path.join(self.run_dir, 'delivered_data')
+
+        cfg.content = {
+            'executor': self.cfg['executor'],
+            'data_deletion': {
+                'fastqs': self.fastq_dir,
+                'fastq_archives': self.fastq_archive_dir,
+                'processed_data': self.processed_data_dir,
+                'processed_archives': self.processed_archive_dir,
+                'delivered_data': self.delivered_data_dir
+            }
+        }
         self.all_files = setup_delivered_samples(self.processed_data_dir, self.delivered_data_dir, self.fastq_dir)
 
     def test_manual_release(self):
