@@ -3,10 +3,7 @@ import gzip
 import hashlib
 from shutil import rmtree
 from unittest.mock import Mock, patch, PropertyMock
-
-import egcg_core
-
-from bin.deliver_reviewed_data import Release_LIMS_step_name
+from bin.deliver_reviewed_data import release_trigger_lims_step_name
 from integration_tests import IntegrationTest, integration_cfg, NamedMock
 from egcg_core import rest_communication, util
 from egcg_core.config import cfg
@@ -25,7 +22,7 @@ fake_samples = {
             'library_type': 'nano',
             'started_date': '2017-08-02T11:25:14.659000'
         },
-        'output_files': deliver_reviewed_data.hs_list_files,
+        'output_files': deliver_reviewed_data.hs_files,
         'api': {
             'bam_file_reads': 1, 'useable': 'yes', 'species_name': 'Homo sapiens',
             'required_yield': 120000000000, 'required_coverage': 30
@@ -47,7 +44,7 @@ fake_samples = {
             'library_type': 'nano',
             'started_date': '2017-08-02T11:25:14.659000'
         },
-        'output_files': deliver_reviewed_data.hs_list_files,
+        'output_files': deliver_reviewed_data.hs_files,
         'api': {
             'bam_file_reads': 1, 'useable': 'yes', 'delivered': 'yes', 'species_name': 'Homo sapiens',
             'required_yield': 120000000000, 'required_coverage': 30, 'coverage': {'mean': 31}
@@ -69,7 +66,7 @@ fake_samples = {
             'library_type': 'nano',
             'started_date': '2017-08-02T11:25:14.659000'
         },
-        'output_files': deliver_reviewed_data.hs_list_files,
+        'output_files': deliver_reviewed_data.hs_files,
         'api': {
             'bam_file_reads': 1, 'useable': 'no', 'species_name': 'Homo sapiens',
             'required_yield': 120000000000, 'required_coverage': 30, 'coverage': {'mean': 31}
@@ -93,7 +90,7 @@ fake_samples = {
             'library_type': 'nano',
             'started_date': '2017-08-02T11:25:14.659000'
         },
-        'output_files': deliver_reviewed_data.other_list_files,
+        'output_files': deliver_reviewed_data.other_files,
         'api': {
             'bam_file_reads': 1, 'useable': 'yes', 'species_name': 'Thingius thingy',
             'required_yield': 120000000000, 'required_coverage': 30, 'coverage': {'mean': 31}
@@ -119,7 +116,7 @@ fake_samples = {
             'library_type': 'nano',
             'started_date': '2017-08-02T11:25:14.659000'
         },
-        'output_files': deliver_reviewed_data.variant_call_list_files,
+        'output_files': deliver_reviewed_data.variant_calling_files,
         'api': {
             'bam_file_reads': 1, 'useable': 'yes', 'species_name': 'Thingius thingy',
             'required_yield': 120000000000, 'required_coverage': 30, 'coverage': {'mean': 31}
@@ -152,7 +149,7 @@ class TestDelivery(IntegrationTest):
     delivered_projects_dir = os.path.join(work_dir, 'delivered_projects')
     artifacts = [Mock(samples=[NamedMock(name=sample)]) for sample in fake_samples if fake_samples[sample].get('authorised', False)]
     fake_process = Mock(
-        type=NamedMock(name=Release_LIMS_step_name),
+        type=NamedMock(name=release_trigger_lims_step_name),
         all_inputs=Mock(return_value=artifacts)
     )
     patches = (

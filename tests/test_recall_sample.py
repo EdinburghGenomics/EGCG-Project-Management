@@ -13,16 +13,13 @@ def fake_find_file(*parts):
 
 
 class TestRecall(TestProjectManagement):
+    config_file = 'example_data_deletion.yaml'
     fake_file_states = {
         'this.vcf.gz': ['exists', 'archived', 'released'],
         'this.bam': [],
         'this_r1.fastq.gz': ['exists', 'dirty', 'archived'],
         'this_r2.fastq.gz': ['exists', 'archived']
     }
-
-    @classmethod
-    def setUpClass(cls):
-        recall_sample.cfg.load_config_file(join(cls.root_path, 'etc', 'example_data_deletion.yaml'))
 
     @patch(ppath + 'rest_communication.get_document')
     @patch(ppath + 'am.archive_states', return_value=['exists', 'archived'])

@@ -1,6 +1,6 @@
-import json
 import os
 import sys
+import json
 import argparse
 from collections import defaultdict, Counter
 from egcg_core import rest_communication
@@ -103,21 +103,21 @@ def get_sample_status(sample):
     return status
 
 
-def test_filter_aggregate(col_values, filter):
-    if filter == FILTER_FINISHED and \
+def test_filter_aggregate(col_values, filter_key):
+    if filter_key == FILTER_FINISHED and \
        sum(col_values.values()) == col_values[STATUS_DELIVERED] + col_values[STATUS_SAMPLE_FAILED]:
         return False
     return True
 
 
-def keep_sample(sample, filter, filter_values):
-    if filter in [FILTER_PROJECT, FILTER_PLATE]:
-        if sample.get(filter) in filter_values:
+def keep_sample(sample, filter_key, filter_values):
+    if filter_key in [FILTER_PROJECT, FILTER_PLATE]:
+        if sample.get(filter_key) in filter_values:
             return True
         else:
             return False
-    elif filter in [FILTER_RUN]:
-        if len(set(sample.get(filter)).intersection(filter_values)) > 0:
+    elif filter_key in [FILTER_RUN]:
+        if len(set(sample.get(filter_key)).intersection(filter_values)) > 0:
             return True
         else:
             return False
@@ -125,13 +125,13 @@ def keep_sample(sample, filter, filter_values):
         return True
 
 
-def aggregate_samples_per(samples, aggregation_key, filter, filter_values):
+def aggregate_samples_per(samples, aggregation_key, filter_key, filter_values):
     samples_per_aggregate = defaultdict(Counter)
     aggregates = set()
     statuses = set()
     header = [aggregation_key] + STATUSES
     for sample in samples:
-        if keep_sample(sample, filter, filter_values):
+        if keep_sample(sample, filter_key, filter_values):
             status = get_sample_status(sample)
             statuses.add(status)
             if isinstance(sample.get(aggregation_key), list):
@@ -143,7 +143,7 @@ def aggregate_samples_per(samples, aggregation_key, filter, filter_values):
                 samples_per_aggregate[sample.get(aggregation_key)][status] += 1
     rows = []
     for aggregate in sorted(aggregates):
-        if test_filter_aggregate(samples_per_aggregate[aggregate], filter):
+        if test_filter_aggregate(samples_per_aggregate[aggregate], filter_key):
             out = [aggregate]
             for status in STATUSES:
                 out.append(str(samples_per_aggregate[aggregate][status]))
@@ -183,16 +183,16 @@ def show_samples(samples, filter_key, filter_values):
     return header_to_report, rows
 
 
-def create_report(report_type, cached_file, filter, filter_values):
+def create_report(report_type, cached_file, filter_key, filter_values):
     samples, runs = load_cache(cached_file)
     if report_type == 'projects':
-        header, rows = aggregate_samples_per(samples, 'project_id', filter, filter_values)
+        header, rows = aggregate_samples_per(samples, 'project_id', filter_key, filter_values)
     elif report_type == 'plates':
-        header, rows = aggregate_samples_per(samples, 'plate_name', filter, filter_values)
+        header, rows = aggregate_samples_per(samples, 'plate_name', filter_key, filter_values)
     elif report_type == 'run_id':
-        header, rows = aggregate_samples_per(samples, 'run_ids', filter, filter_values)
+        header, rows = aggregate_samples_per(samples, 'run_ids', filter_key, filter_values)
     elif report_type == 'samples':
-        header, rows = show_samples(samples, filter, filter_values)
+        header, rows = show_samples(samples, filter_key, filter_values)
     else:
         raise KeyError('Invalid report type: %s' % report_type)
     format_table(header, rows)
@@ -203,18 +203,17 @@ def main():
     load_config()
 
     cached_file = os.path.join(os.path.expanduser('~'), '.report_cached.json')
-
     if not os.path.exists(cached_file) or args.pull:
         update_cache(cached_file)
     if args.report_type:
-        create_report(args.report_type, cached_file, filter=args.filter_type, filter_values=args.filter_values)
+        create_report(args.report_type, cached_file, filter_key=args.filter_type, filter_values=args.filter_values)
     else:
         print('Provide a report type with --report_type [projects or plates]')
 
 
 def _parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument('-r', '--report_type', dest='report_type', type=str, choices=['projects', 'plates', 'samples', 'run_id'])
+    p.add_argument('-r', '--report_type', dest='report_type', type=str, choices=('projects', 'plates', 'samples', 'run_id'))
     p.add_argument('--filter_type', type=str, help='set a filter', choices=FILTERS)
     p.add_argument('--filter_values', type=str, nargs='+', help='Things to keep')
     p.add_argument('--pull', action='store_true', help='Force download and update the cache')

@@ -1,16 +1,14 @@
+import os
 import collections
 import operator
-import os
-from email.mime.multipart import MIMEMultipart
-from unittest.mock import patch, Mock, PropertyMock
 import shutil
 import datetime
-
 import itertools
+from email.mime.multipart import MIMEMultipart
+from unittest.mock import patch, Mock, PropertyMock
 from egcg_core.config import cfg
-
 from tests import TestProjectManagement, NamedMock
-from bin.deliver_reviewed_data import DataDelivery, _execute, Release_LIMS_step_name, resolve_process_id
+from bin.deliver_reviewed_data import DataDelivery, _execute, release_trigger_lims_step_name, resolve_process_id
 
 sample_templates = {
     'process_id1': {
@@ -32,7 +30,7 @@ sample_templates = {
                 'pc_mapped_reads': 99.1,
                 'pc_duplicate_reads': 16.4,
             },
-            'coverage':{'mean': 35},
+            'coverage': {'mean': 35},
 
         },
         'lims/samples': {
@@ -79,7 +77,7 @@ sample_templates = {
                 'pc_mapped_reads': 99.1,
                 'pc_duplicate_reads': 16.4,
             },
-            'coverage':{'mean': 35},
+            'coverage': {'mean': 35},
         },
         'lims/samples': {
             '2D Barcode': 'Fluidx%s',
@@ -128,7 +126,6 @@ def _get_value(value_template, index):
 rest_responses = {'samples': {}, 'lims/samples': {}, 'lims/status/sample_status': {}, 'run_elements': {}}
 fake_processes = {}
 for process in sample_templates:
-
     artifacts = []
     for i in range(1, sample_templates[process].get('nb_sample', 2) + 1):
         sample_id = sample_templates[process]['name'] % i
@@ -147,7 +144,7 @@ for process in sample_templates:
             rest_responses['run_elements'][sample_id].append(re)
 
     fake_processes[process] = Mock(
-        type=NamedMock(name=Release_LIMS_step_name),
+        type=NamedMock(name=release_trigger_lims_step_name),
         all_inputs=Mock(return_value=artifacts)
     )
 
@@ -162,7 +159,6 @@ def fake_get_document(*args, **kwargs):
 
 patch_get_document = patch('egcg_core.rest_communication.get_document', side_effect=fake_get_document)
 patch_get_documents = patch('egcg_core.rest_communication.get_documents', side_effect=fake_get_document)
-
 patch_get_queue = patch('egcg_core.clarity.get_queue_uri', return_value='http://testclarity.com/queue/999')
 
 
@@ -189,11 +185,11 @@ def touch(f, content=None):
 
 
 def create_fake_fastq_fastqc_md5_from_commands(instance):
-    '''
+    """
     This function replaces run_aggregate_commands and take an instance of DataDelivery.
     It will create the output as if the command were run.
     It only supports fastqc and command that redirects there outputs
-    '''
+    """
     for commands in instance.all_commands_for_cluster:
         for command in commands.split(';'):
             if len(command.split('>')) > 1:
@@ -208,31 +204,24 @@ def create_fake_fastq_fastqc_md5_from_commands(instance):
 
 
 class TestDataDelivery(TestProjectManagement):
-    def __init__(self, *args, **kwargs):
-        super(TestDataDelivery, self).__init__(*args, **kwargs)
-        cfg.load_config_file(os.path.join(os.path.dirname(self.root_test_path), 'etc', 'example_data_delivery.yaml'))
-        os.chdir(os.path.dirname(self.root_test_path))
-        self.assets_delivery = os.path.join(self.assets_path, 'data_delivery')
-        analysis_files = [
-            '{ext_sample_id}.bam', '{ext_sample_id}.bam.bai', '{ext_sample_id}.bam.bai.md5', '{ext_sample_id}.bam.md5',
-            '{ext_sample_id}.g.vcf.gz', '{ext_sample_id}.g.vcf.gz.md5', '{ext_sample_id}.g.vcf.gz.tbi',
-            '{ext_sample_id}.g.vcf.gz.tbi.md5', '{ext_sample_id}.vcf.gz', '{ext_sample_id}.vcf.gz.md5',
-            '{ext_sample_id}.vcf.gz.tbi', '{ext_sample_id}.vcf.gz.tbi.md5'
-        ]
-        raw_data_files = [
-            '{ext_sample_id}_R1.fastq.gz', '{ext_sample_id}_R1.fastq.gz.md5', '{ext_sample_id}_R1_fastqc.html',
-            '{ext_sample_id}_R1_fastqc.zip', '{ext_sample_id}_R2.fastq.gz', '{ext_sample_id}_R2.fastq.gz.md5',
-            '{ext_sample_id}_R2_fastqc.html', '{ext_sample_id}_R2_fastqc.zip'
-        ]
-        self.final_files_merged = self._format_list(analysis_files + raw_data_files,  ext_sample_id='p1_user_s_id1')
-        self.final_files_merged_no_raw = self._format_list(analysis_files, ext_sample_id='p1_user_s_id1')
-        self.final_files_merged2 = self._format_list(analysis_files + raw_data_files, ext_sample_id='p1_user_s_id2')
+    config_file = 'example_data_delivery.yaml'
+    assets_delivery = os.path.join(TestProjectManagement.assets_path, 'data_delivery')
+    analysis_exts = ['.bam', '.bam.bai', '.bam.bai.md5', '.bam.md5', '.g.vcf.gz', '.g.vcf.gz.md5', '.g.vcf.gz.tbi',
+                     '.g.vcf.gz.tbi.md5', '.vcf.gz', '.vcf.gz.md5', '.vcf.gz.tbi', '.vcf.gz.tbi.md5']
+    raw_data_exts = ['_R1.fastq.gz', '_R1.fastq.gz.md5', '_R1_fastqc.html', '_R1_fastqc.zip', '_R2.fastq.gz',
+                     '_R2.fastq.gz.md5', '_R2_fastqc.html', '_R2_fastqc.zip']
+    final_files_split = ['p2_user_s_id1' + ext for ext in analysis_exts] + ['raw_data']
+    final_files_merged = ['p1_user_s_id1' + ext for ext in analysis_exts + raw_data_exts]
+    final_files_merged2 = ['p1_user_s_id2' + ext for ext in analysis_exts + raw_data_exts]
+    final_files_merged_no_raw = ['p1_user_s_id1' + ext for ext in analysis_exts]
 
-        self.final_files_split = self._format_list(analysis_files + ['raw_data'], ext_sample_id='p2_user_s_id1')
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.dest_dir = cfg.query('delivery', 'dest')
 
-        self.dest_dir = cfg.query('delivery', 'dest')
-
-    def _format_list(self, list_, **kwargs):
+    @staticmethod
+    def _format_list(list_, **kwargs):
         return [v.format(**kwargs) for v in list_]
 
     def setUp(self):
@@ -267,7 +256,7 @@ class TestDataDelivery(TestProjectManagement):
                 'S1_L00%s_R1_fastqc.html', 'S1_L00%s_R2_fastqc.html',
                 'S1_L00%s_R1_fastqc.zip', 'S1_L00%s_R2_fastqc.zip'
             ]:
-                self.touch(os.path.join(sample_dir, t % e['lane']))
+                open(os.path.join(sample_dir, t % e['lane']), 'w').close()
                 self.md5(os.path.join(sample_dir, t % e['lane']))
 
     def _create_analysed_sample_files(self, list_samples):
@@ -276,7 +265,7 @@ class TestDataDelivery(TestProjectManagement):
             os.makedirs(sample_dir, exist_ok=True)
             for t in ['%s.bam', '%s.bam.bai', '%s.g.vcf.gz', '%s.g.vcf.gz.tbi', '%s.vcf.gz', '%s.vcf.gz.tbi']:
                 f = os.path.join(sample_dir, t % s['user_sample_id'])
-                self.touch(f)
+                open(f, 'w').close()
                 self.md5(f)
 
     def test_mark_samples_as_released(self):
@@ -284,7 +273,7 @@ class TestDataDelivery(TestProjectManagement):
         with patch('bin.deliver_reviewed_data._now', return_value=delivered_date), \
                 patch('egcg_core.rest_communication.patch_entry') as mpatch, \
                 patch('egcg_core.clarity.route_samples_to_delivery_workflow') as mroute:
-            self.delivery_real_merged.samples2list_files = {
+            self.delivery_real_merged.samples2files = {
                 'p1sample1': [{'file_path': 'path to file1'}],
                 'p1sample2': [{'file_path': 'path to file2'}],
             }
@@ -294,7 +283,7 @@ class TestDataDelivery(TestProjectManagement):
                 payload={
                     'delivered': 'yes',
                     'files_delivered': [{'file_path': 'path to file1'}],
-                    'delivery_date':delivered_date
+                    'delivery_date': delivered_date
                 },
                 update_lists=['files_delivered']
             )
@@ -309,15 +298,15 @@ class TestDataDelivery(TestProjectManagement):
             )
             mroute.assert_called_with(['p1sample1', 'p1sample2'])
 
-    def test_get_deliverable_projects_samples(self):
+    def test_deliverable_samples(self):
         with patch_process, patch_get_document, patch_get_documents:
             project_to_samples = self.delivery_dry_merged.deliverable_samples
             assert list(project_to_samples) == ['project1']
-            assert list([sample.get('sample_id') for samples in project_to_samples.values() for sample in samples]) == ['p1sample1', 'p1sample2']
+            assert [sample['sample_id'] for samples in project_to_samples.values() for sample in samples] == ['p1sample1', 'p1sample2']
 
     def test_summarise_metrics_per_sample(self):
         with patch_process, patch_get_document, patch_get_documents:
-            self.delivery_dry_merged.deliverable_samples
+            _ = self.delivery_dry_merged.deliverable_samples
             expected_header = ['Project', 'Sample Id', 'User sample id', 'Species', 'Library type','Received date',
                                'DNA QC (ng)', 'Number of Read pair', 'Target Yield', 'Yield', 'Yield Q30', '%Q30',
                                'Mapped reads rate', 'Duplicate rate', 'Target Coverage', 'Mean coverage',
@@ -352,7 +341,7 @@ class TestDataDelivery(TestProjectManagement):
             open_file.write('\n'.join(metrics_lines))
 
         with patch_process, patch_get_document, patch_get_documents:
-            self.delivery_dry_merged.deliverable_samples
+            _ = self.delivery_dry_merged.deliverable_samples
             self.delivery_dry_merged.write_metrics_file(
                 project='project1',
                 delivery_folder='date_delivery2'
@@ -378,7 +367,7 @@ class TestDataDelivery(TestProjectManagement):
             open_file.write('\n'.join(metrics_lines))
 
         with patch_process, patch_get_document, patch_get_documents:
-            self.delivery_dry_merged.deliverable_samples
+            _ = self.delivery_dry_merged.deliverable_samples
             self.delivery_dry_merged.write_metrics_file(
                 project='project1',
                 delivery_folder='date_delivery2'
@@ -427,19 +416,17 @@ class TestDataDelivery(TestProjectManagement):
             today = datetime.date.today().isoformat()
             assert sorted(os.listdir(os.path.join(self.dest_dir, 'project1'))) == [today, 'all_md5sums.txt', 'summary_metrics.csv']
             assert os.listdir(os.path.join(self.dest_dir, 'project1', today)) == ['p1sample1', 'p1sample2']
-            list_files = sorted(os.listdir(os.path.join(self.dest_dir, 'project1', today, 'p1sample2')))
-            assert sorted(list_files) == sorted(self.final_files_merged2)
+            assert sorted(self.final_files_merged2) == sorted(os.listdir(os.path.join(self.dest_dir, 'project1', today, 'p1sample2')))
 
-            list_file = ['p1_user_s_id2.g.vcf.gz', 'p1_user_s_id2.g.vcf.gz.tbi', 'p1_user_s_id2.vcf.gz',
-                         'p1_user_s_id2.vcf.gz.tbi', 'p1_user_s_id2.bam', 'p1_user_s_id2.bam.bai']
-            expected_list_files = [
+            assert self.delivery_real_merged.samples2files['p1sample2'] == [
                 {
                     'file_path': 'project1/%s/p1sample2/%s'% (today, f),
                     'size': 0,
                     'md5': 'd41d8cd98f00b204e9800998ecf8427e'
-                } for f in list_file
+                }
+                for f in ('p1_user_s_id2.g.vcf.gz', 'p1_user_s_id2.g.vcf.gz.tbi', 'p1_user_s_id2.vcf.gz',
+                          'p1_user_s_id2.vcf.gz.tbi', 'p1_user_s_id2.bam', 'p1_user_s_id2.bam.bai')
             ]
-            assert self.delivery_real_merged.samples2list_files['p1sample2'] == expected_list_files
 
     def test_deliver_data_split_real(self):
         with patch_process, patch_get_document, patch_get_documents, patch_get_queue,\
@@ -450,23 +437,24 @@ class TestDataDelivery(TestProjectManagement):
             today = datetime.date.today().isoformat()
             assert sorted(os.listdir(os.path.join(self.dest_dir, 'project2'))) == [today, 'all_md5sums.txt', 'summary_metrics.csv']
             assert os.listdir(os.path.join(self.dest_dir, 'project2', today)) == ['Fluidx1', 'Fluidx2']
-            list_files = sorted(os.listdir(os.path.join(self.dest_dir, 'project2', today, 'Fluidx1')))
-            assert sorted(list_files) == sorted(self.final_files_split)
+            assert sorted(self.final_files_split) == sorted(os.listdir(os.path.join(self.dest_dir, 'project2', today, 'Fluidx1')))
 
-            list_file = ['raw_data/run1_el_s1_id3_R1.fastq.gz', 'raw_data/run1_el_s1_id3_R2.fastq.gz',
-                         'raw_data/run1_el_s1_id4_R1.fastq.gz', 'raw_data/run1_el_s1_id4_R2.fastq.gz',
-                         'p2_user_s_id1.g.vcf.gz', 'p2_user_s_id1.g.vcf.gz.tbi', 'p2_user_s_id1.vcf.gz',
-                         'p2_user_s_id1.vcf.gz.tbi', 'p2_user_s_id1.bam', 'p2_user_s_id1.bam.bai']
-            expected_list_files = [
-                {
-                    'file_path': 'project2/%s/Fluidx1/%s' % (today, f),
-                    'size': 0,
-                    'md5': 'd41d8cd98f00b204e9800998ecf8427e'
-                } for f in list_file
-                ]
             assert sorted(
-                self.delivery_real_split_fluidx.samples2list_files['p2sample1'], key=operator.itemgetter('file_path')
-            ) == sorted(expected_list_files, key=operator.itemgetter('file_path'))
+                self.delivery_real_split_fluidx.samples2files['p2sample1'],
+                key=operator.itemgetter('file_path')
+            ) == sorted(
+                [
+                    {
+                        'file_path': 'project2/%s/Fluidx1/%s' % (today, f),
+                        'size': 0,
+                        'md5': 'd41d8cd98f00b204e9800998ecf8427e'
+                    } for f in ('raw_data/run1_el_s1_id3_R1.fastq.gz', 'raw_data/run1_el_s1_id3_R2.fastq.gz',
+                                'raw_data/run1_el_s1_id4_R1.fastq.gz', 'raw_data/run1_el_s1_id4_R2.fastq.gz',
+                                'p2_user_s_id1.g.vcf.gz', 'p2_user_s_id1.g.vcf.gz.tbi', 'p2_user_s_id1.vcf.gz',
+                                'p2_user_s_id1.vcf.gz.tbi', 'p2_user_s_id1.bam', 'p2_user_s_id1.bam.bai')
+                ],
+                key=operator.itemgetter('file_path')
+            )
 
     def test_get_email_data(self):
         with patch_process, patch_get_document, patch_get_documents, patch_get_queue,\
@@ -483,8 +471,8 @@ class TestDataDelivery(TestProjectManagement):
         with patch_process, patch_get_document, patch_get_documents, patch_get_queue,\
              patch('egcg_core.notifications.email.EmailSender._try_send') as mock_send_email:
             self.delivery_dry_merged.email = True
-            self.delivery_dry_merged.deliverable_samples
-            self.delivery_dry_merged.emails_report(
+            _ = self.delivery_dry_merged.deliverable_samples
+            self.delivery_dry_merged.send_reports(
                 {'project1': [rest_responses.get('samples').get('p1sample1'), rest_responses.get('samples').get('p1sample2')]},
                 {'test_project': os.path.join(self.assets_path, 'data_delivery', 'test_project_report.pdf')}
             )

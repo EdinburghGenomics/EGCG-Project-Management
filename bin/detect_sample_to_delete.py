@@ -1,23 +1,23 @@
-import argparse
-import csv
-import logging
-import operator
 import os
 import sys
+import csv
+import argparse
+import logging
+import operator
 from collections import defaultdict
 from datetime import datetime
-
 from egcg_core import rest_communication, clarity
 from egcg_core.app_logging import logging_default as log_cfg
+from egcg_core.notifications import send_plain_text_email
+from egcg_core.config import cfg
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from config import load_config
-from egcg_core.notifications import send_email
-from egcg_core.config import cfg
+
 
 def _utcnow():
     return datetime.utcnow()
+
 
 def old_enough_for_deletion(date_run, age_threshold=90):
     year, month, day = date_run.split('-')
@@ -28,10 +28,10 @@ def old_enough_for_deletion(date_run, age_threshold=90):
 def download_confirmation(sample_data):
     # TODO: need to check the LIMS for download confirmation when implemented there
     # for now look only at the files downloaded
-    file_downloaded = set([f['file_path'] for f in sample_data.get('files_downloaded', [])])
+    files_downloaded = set([f['file_path'] for f in sample_data.get('files_downloaded', [])])
     files_delivered = sample_data.get('files_delivered', [])
-    file_missing = [f['file_path'] for f in files_delivered if f['file_path'] not in file_downloaded]
-    return not bool(file_missing)
+    files_missing = [f['file_path'] for f in files_delivered if f['file_path'] not in files_downloaded]
+    return not bool(files_missing)
 
 
 def check_deletable_samples(age_threshold=None):
@@ -44,7 +44,7 @@ def check_deletable_samples(age_threshold=None):
         max_results=100
     )
     if age_threshold is None:
-        age_threshold = cfg.query('data_deletion', 'age_threshold')
+        age_threshold = cfg.query('data_deletion', 'age_threshold', ret_default=90)
 
     project_batches = defaultdict(list)
     for r in sample_records:
@@ -60,16 +60,14 @@ def check_deletable_samples(age_threshold=None):
         output_dir = os.getcwd()
     output_file = os.path.join(output_dir, 'Candidate_samples_for_deletion_gt_%s_days_old_%s.csv' % (age_threshold, today))
     write_report(project_batches, output_file)
-    subject = 'Samples ready for deletion'
     msg = '''Hi,
 The attached csv file contains all samples ready for deletion on the {today}.
 Please review them and get back to the bioinformatics team with samples that can be deleted.
 '''.format(today=today)
-    send_email(
+    send_plain_text_email(
         msg=msg,
-        subject=subject,
+        subject='Samples ready for deletion',
         attachments=[output_file],
-        strict=True,
         **cfg['data_deletion']['email_notification']
     )
 
@@ -82,7 +80,7 @@ def write_report(project_batches, output_file):
         writer = csv.writer(csvfile, delimiter=',')
         writer.writerow(headers)
 
-        #sort by release date
+        # sort by release date
         batch_keys = sorted(project_batches, key=operator.itemgetter(1))
         for pb in batch_keys:
             project_id, release_date = pb

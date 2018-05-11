@@ -1,18 +1,17 @@
-import argparse
-import csv
-import datetime
-import glob
-import logging
 import os
-import shutil
 import sys
+import csv
+import glob
+import shutil
+import argparse
+import datetime
+import logging
 import traceback
 from collections import defaultdict
 from os.path import basename, join, dirname
 from cached_property import cached_property
 from egcg_core import executor, rest_communication, clarity
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
-from egcg_core.clarity import connection
 from egcg_core.config import cfg
 from egcg_core.constants import ELEMENT_NB_READS_CLEANED, ELEMENT_RUN_NAME, ELEMENT_PROJECT_ID, ELEMENT_LANE, \
     ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_RUN_ELEMENT_ID, ELEMENT_USEABLE
@@ -25,7 +24,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from project_report import ProjectReport
 from config import load_config
 
-hs_list_files = [
+hs_files = [
     '{ext_sample_id}.g.vcf.gz',
     '{ext_sample_id}.g.vcf.gz.tbi',
     '{ext_sample_id}.vcf.gz',
@@ -34,20 +33,20 @@ hs_list_files = [
     '{ext_sample_id}.bam.bai'
 ]
 
-variant_call_list_files = [
+variant_calling_files = [
     '{ext_sample_id}.g.vcf.gz',
     '{ext_sample_id}.g.vcf.gz.tbi',
     '{ext_sample_id}.bam',
     '{ext_sample_id}.bam.bai'
 ]
 
-other_list_files = []
+other_files = []
 
 email_template = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'etc', 'delivery_email_template.html'
 )
 
-Release_LIMS_step_name = 'Data Release Trigger EG 1.0 ST'
+release_trigger_lims_step_name = 'Data Release Trigger EG 1.0 ST'
 
 
 def _execute(*commands, **kwargs):
@@ -72,10 +71,10 @@ class DataDelivery(AppLogger):
         self.all_samples_dict = {}
         self.sample2species = {}
         self.sample2analysis_type = {}
-        self.samples2list_files = defaultdict(list)
+        self.samples2files = defaultdict(list)
         self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + _now())
-        self.delivery_dest = cfg.query('delivery', 'dest')
-        self.delivery_source = cfg.query('delivery', 'source')
+        self.delivery_dest = cfg['delivery']['dest']
+        self.delivery_source = cfg['delivery']['source']
 
     @cached_property
     def today(self):
@@ -93,7 +92,7 @@ class DataDelivery(AppLogger):
 
     @cached_property
     def process(self):
-        return Process(connection(), id=self.process_id)
+        return Process(clarity.connection(), id=self.process_id)
 
     @staticmethod
     def get_sample_data(sample_name):
@@ -106,15 +105,15 @@ class DataDelivery(AppLogger):
 
     def already_delivered_samples(self, project_id):
         return dict(
-            (sample.get('sample_id'), self.get_sample_data(sample.get('sample_id')))
+            (sample['sample_id'], self.get_sample_data(sample['sample_id']))
             for sample in rest_communication.get_documents('samples', where={'project_id': project_id, 'delivered': 'yes'})
         )
 
     @cached_property
     def deliverable_samples(self):
         """Retrieve the names of samples that went through the authorisation step. Then get the data associated."""
-        if self.process.type.name != Release_LIMS_step_name:
-            raise ValueError('Process %s is not of the type ' + Release_LIMS_step_name)
+        if self.process.type.name != release_trigger_lims_step_name:
+            raise ValueError('Process %s is not of the type ' + release_trigger_lims_step_name)
         sample_names = [a.samples[0].name for a in self.process.all_inputs(resolve=True)]
         project_to_samples = defaultdict(list)
         samples = [self.get_sample_data(sample) for sample in sample_names]
@@ -124,13 +123,13 @@ class DataDelivery(AppLogger):
         return project_to_samples
 
     def stage_data(self, sample):
-        # test sample has arrived in fuildX tube
+        # test sample has arrived in FluidX tube
         sample_id = sample.get(ELEMENT_SAMPLE_INTERNAL_ID)
-        fluidX_barcode = self.all_samples_dict[sample_id]['udfs'].get('2D Barcode')
+        fluidx_barcode = self.all_samples_dict[sample_id]['udfs'].get('2D Barcode')
 
         # Create staging_directory
-        if fluidX_barcode:
-            sample_dir = os.path.join(self.staging_dir, fluidX_barcode)
+        if fluidx_barcode:
+            sample_dir = os.path.join(self.staging_dir, fluidx_barcode)
         else:
             sample_dir = os.path.join(self.staging_dir, sample_id)
         os.makedirs(sample_dir, exist_ok=True)
@@ -145,7 +144,7 @@ class DataDelivery(AppLogger):
     def _stage_fastq_files(self, sample, sample_dir):
         sample_id = sample.get(ELEMENT_SAMPLE_INTERNAL_ID)
         delivery_type = self.all_samples_dict[sample_id]['udfs'].get('Delivery', 'merged')
-        original_fastq_files = self._get_fastq_file_for_sample(sample_id)
+        original_fastq_files = self._get_fastq_files_for_sample(sample_id)
         external_sample_id = sample.get(ELEMENT_SAMPLE_EXTERNAL_ID)
 
         if delivery_type == 'merged':
@@ -183,22 +182,22 @@ class DataDelivery(AppLogger):
                                          rename=rename + '_R2_fastqc.zip')
 
     def _stage_analysed_files(self, sample, sample_dir):
-        sample_id = sample.get(ELEMENT_SAMPLE_INTERNAL_ID)
-        external_sample_id = sample.get(ELEMENT_SAMPLE_EXTERNAL_ID)
-        project_id = sample.get(ELEMENT_PROJECT_ID)
+        sample_id = sample[ELEMENT_SAMPLE_INTERNAL_ID]
+        external_sample_id = sample[ELEMENT_SAMPLE_EXTERNAL_ID]
+        project_id = sample[ELEMENT_PROJECT_ID]
         origin_sample_dir = os.path.join(self.delivery_source, project_id, sample_id)
 
         if not os.path.isdir(origin_sample_dir):
             raise EGCGError('Directory for sample %s in project %s does not exist' % (sample_id, project_id))
-        list_of_file_to_move = self.get_analysis_files(sample_name=sample_id, external_sample_name=external_sample_id)
-        for file_to_move in list_of_file_to_move:
-            origin_file = os.path.join(origin_sample_dir, file_to_move)
+        files_to_move = self.get_analysis_files(sample_name=sample_id, external_sample_name=external_sample_id)
+        for f in files_to_move:
+            origin_file = os.path.join(origin_sample_dir, f)
             if not os.path.isfile(origin_file):
-                raise EGCGError('File %s for sample %s does not exist' % (file_to_move, sample))
+                raise EGCGError('File %s for sample %s does not exist' % (f, sample))
             data_file = self._link_file_to_sample_folder(origin_file, sample_dir)
-            origin_file = os.path.join(origin_sample_dir, file_to_move + '.md5')
+            origin_file = os.path.join(origin_sample_dir, f + '.md5')
             if not os.path.isfile(origin_file):
-                raise EGCGError('File %s for sample %s does not exist' % (file_to_move, sample))
+                raise EGCGError('File %s for sample %s does not exist' % (f, sample))
             md5_file = self._link_file_to_sample_folder(origin_file, sample_dir)
             self.register_file(sample_id, data_file, md5_file)
 
@@ -207,10 +206,10 @@ class DataDelivery(AppLogger):
             md5, file_path = open_file.readline().strip().split()
         rel_path = os.path.relpath(data_file, start=self.staging_dir)
         file_size = os.stat(data_file).st_size
-        self.samples2list_files[sample_id].append({'file_path': rel_path, 'md5': md5, 'size': file_size})
+        self.samples2files[sample_id].append({'file_path': rel_path, 'md5': md5, 'size': file_size})
 
     def update_registered_files(self, sample_id, delivery_folder):
-        for file_dict in self.samples2list_files.get(sample_id):
+        for file_dict in self.samples2files.get(sample_id):
             file_dict['file_path'] = join(basename(dirname(delivery_folder)), basename(delivery_folder), file_dict['file_path'])
 
     def register_postponed_files(self):
@@ -258,9 +257,9 @@ class DataDelivery(AppLogger):
         _execute(command, env='local')
         return link_file
 
-    def _on_cluster_concat_file_to_sample(self, sample_id, list_files, sample_folder, rename):
-        command = 'cat {list_files} > {fq}; {md5sum} {fq} > {fq}.md5; {fastqc} --nogroup -q {fq}'.format(
-            list_files=' '.join(list_files),
+    def _on_cluster_concat_file_to_sample(self, sample_id, files, sample_folder, rename):
+        command = 'cat {files} > {fq}; {md5sum} {fq} > {fq}.md5; {fastqc} --nogroup -q {fq}'.format(
+            files=' '.join(files),
             fq=os.path.join(sample_folder, rename),
             md5sum=cfg.query('tools', 'md5sum', ret_default='md5sum'),
             fastqc=cfg['tools']['fastqc']
@@ -282,40 +281,40 @@ class DataDelivery(AppLogger):
         if species is None:
             raise EGCGError('No species information found in the LIMS for ' + sample_name)
         elif species == 'Homo sapiens':
-            list_of_file = hs_list_files
+            files = hs_files
         elif analysis_type in ['Variant Calling', 'Variant Calling gatk']:
-            list_of_file = variant_call_list_files
+            files = variant_calling_files
         else:
-            list_of_file = other_list_files
+            files = other_files
         final_list = []
-        for f in list_of_file:
+        for f in files:
             final_list.append(f.format(ext_sample_id=external_sample_name))
         return final_list
 
-    def _get_fastq_file_for_sample(self, sample_id):
-        fastqs_files = {}
+    def _get_fastq_files_for_sample(self, sample_id):
+        fastq_files = {}
         # TODO: make sure that the list of run elements is the same as the one that was QC.
         for run_element in self.all_samples_dict[sample_id]['run_elements']:
             if run_element.get(ELEMENT_USEABLE) == 'yes' and int(run_element.get(ELEMENT_NB_READS_CLEANED, 0)) > 0:
-                local_fastq_dir = os.path.join(cfg['input_dir'], run_element.get(ELEMENT_RUN_NAME))
-                fastqs = find_fastqs(local_fastq_dir, run_element.get(ELEMENT_PROJECT_ID),
-                                     run_element.get(ELEMENT_SAMPLE_INTERNAL_ID), run_element.get(ELEMENT_LANE))
+                local_fastq_dir = os.path.join(cfg['input_dir'], run_element[ELEMENT_RUN_NAME])
+                fastqs = find_fastqs(local_fastq_dir, run_element[ELEMENT_PROJECT_ID],
+                                     run_element[ELEMENT_SAMPLE_INTERNAL_ID], run_element[ELEMENT_LANE])
                 if fastqs:
-                    fastqs_files[run_element.get(ELEMENT_RUN_ELEMENT_ID)] = tuple(sorted(fastqs))
+                    fastq_files[run_element.get(ELEMENT_RUN_ELEMENT_ID)] = tuple(sorted(fastqs))
                 else:
                     raise EGCGError(
                         'No Fastq files found for %s, %s, %s, %s' % (
-                            local_fastq_dir, run_element.get(ELEMENT_PROJECT_ID),
-                            run_element.get(ELEMENT_SAMPLE_INTERNAL_ID), run_element.get(ELEMENT_LANE)
+                            local_fastq_dir, run_element[ELEMENT_PROJECT_ID],
+                            run_element[ELEMENT_SAMPLE_INTERNAL_ID], run_element[ELEMENT_LANE]
                         )
                     )
-        return fastqs_files
+        return fastq_files
 
     def mark_samples_as_released(self, samples):
         for sample_id in samples:
             payload = {
                 'delivered': 'yes',
-                'files_delivered': self.samples2list_files.get(sample_id, []),
+                'files_delivered': self.samples2files.get(sample_id, []),
                 'delivery_date': _now()
             }
             rest_communication.patch_entry(
@@ -393,7 +392,7 @@ class DataDelivery(AppLogger):
             for project in self.deliverable_samples:
                 batch_delivery_folder = os.path.join(self.delivery_dest, project, self.today)
                 for sample in self.deliverable_samples.get(project):
-                    print('%s --> %s' % (sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)),
+                    print('%s --> %s' % (sample2stagedirectory.get(sample[ELEMENT_SAMPLE_INTERNAL_ID]),
                                          batch_delivery_folder))
                 header, lines = self.summarise_metrics_per_sample(project, batch_delivery_folder)
                 print('\t'.join(header))
@@ -410,10 +409,10 @@ class DataDelivery(AppLogger):
                 project_to_delivery_folder[project] = batch_delivery_folder
                 for sample in self.deliverable_samples.get(project):
                     shutil.move(
-                        sample2stagedirectory.get(sample.get(ELEMENT_SAMPLE_INTERNAL_ID)),
+                        sample2stagedirectory.get(sample[ELEMENT_SAMPLE_INTERNAL_ID]),
                         batch_delivery_folder
                     )
-                    self.update_registered_files(sample.get(ELEMENT_SAMPLE_INTERNAL_ID), batch_delivery_folder)
+                    self.update_registered_files(sample[ELEMENT_SAMPLE_INTERNAL_ID], batch_delivery_folder)
                 self.write_metrics_file(project, batch_delivery_folder)
                 self.generate_md5_summary(project, batch_delivery_folder)
             self.mark_samples_as_released(list(sample2stagedirectory))
@@ -426,8 +425,8 @@ class DataDelivery(AppLogger):
                 if not self.dry_run:
                     pr = ProjectReport(project, self.staging_dir)
                     pr.generate_report('pdf')
-            except Exception:
-                self.critical('Project report generation for %s failed' % project)
+            except Exception as e:
+                self.critical('Project report generation for %s failed: %s' % (project, e))
                 etype, value, tb = sys.exc_info()
                 if tb:
                     stacktrace = ''.join(traceback.format_exception(etype, value, tb))
@@ -437,17 +436,16 @@ class DataDelivery(AppLogger):
                 project_to_reports[project] = project_report
 
         # Send email confirmation with attachments
-        self.emails_report(self.deliverable_samples, project_to_reports)
-
+        self.send_reports(self.deliverable_samples, project_to_reports)
         self.cleanup()
 
-    def emails_report(self, project_to_samples, project_to_reports):
+    def send_reports(self, project_to_samples, project_to_reports):
         if not {'mailhost', 'port', 'sender', 'recipients'} == set(cfg['delivery']['email_notification']):
-            self.warning('Missing paramter in config: will not sent email')
+            self.warning('Missing parameter in config: will not sent email')
             return
 
         for project_id in project_to_samples:
-            species_list = [self.get_sample_species(sample.get('sample_id')) for sample in
+            species_list = [self.get_sample_species(sample[ELEMENT_SAMPLE_INTERNAL_ID]) for sample in
                             project_to_samples[project_id]]
 
             subject = '%s: %s WGS Data Release' % (project_id, ', '.join(sorted(set(species_list))))
@@ -504,8 +502,7 @@ def main(argv=None):
 
     cfg.merge(cfg['sample'])
     process_id = resolve_process_id(args.process_id)
-    dd = DataDelivery(args.dry_run, args.work_dir, no_cleanup=args.no_cleanup,
-                      email=args.email, process_id=process_id)
+    dd = DataDelivery(args.dry_run, args.work_dir, process_id=process_id, no_cleanup=args.no_cleanup, email=args.email)
     dd.deliver_data()
 
 

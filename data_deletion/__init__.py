@@ -28,14 +28,7 @@ def get_file_list_size(file_list):
     return sum(stat(f).st_size for f in files_by_inode(file_list).values())
 
 
-class DataDeletionError(EGCGError):
-    pass
-
-
 class Deleter(app_logging.AppLogger):
-    data_dir = ''
-    local_execute_only = False
-
     def __init__(self, work_dir, dry_run=False, deletion_limit=None):
         self.work_dir = work_dir
         self.dry_run = dry_run
@@ -43,14 +36,14 @@ class Deleter(app_logging.AppLogger):
 
     @cached_property
     def deletion_dir(self):  # need caching because of reference to datetime.now
-        return join(self.data_dir, '.data_deletion_' + self._strnow())
+        return join(self.work_dir, '.data_deletion_' + self._strnow())
 
     def delete_dir(self, d):
-        self.debug('Removing deletion dir containing: %s', listdir(d))
+        self.debug('Removing dir %s containing: %s', d, listdir(d))
         self._execute('rm -rfv ' + d, cluster_execution=True)
 
     def _execute(self, cmd, cluster_execution=False):
-        if self.local_execute_only or not cluster_execution:
+        if not cluster_execution:
             status = executor.local_execute(cmd).join()
         else:
             status = executor.cluster_execute(cmd, job_name='data_deletion', working_dir=self.work_dir).join()
@@ -77,9 +70,6 @@ class Deleter(app_logging.AppLogger):
 
 class ProcessedSample(AppLogger):
     def __init__(self, sample_data):
-        self.raw_data_dir = cfg['data_deletion']['fastqs']
-        self.processed_data_dir = cfg['data_deletion']['processed_data']
-        self.delivered_data_dir = cfg['data_deletion']['delivered_data']
         self.sample_data = sample_data
 
     @cached_property
@@ -98,9 +88,10 @@ class ProcessedSample(AppLogger):
     def external_sample_id(self):
         return self.sample_data[ELEMENT_SAMPLE_EXTERNAL_ID]
 
-    def _find_fastqs_for_run_element(self, run_element):
+    @staticmethod
+    def _find_fastqs_for_run_element(run_element):
         return util.find_fastqs(
-            join(self.raw_data_dir, run_element[ELEMENT_RUN_NAME]),
+            join(cfg['data_deletion']['fastqs'], run_element[ELEMENT_RUN_NAME]),
             run_element[ELEMENT_PROJECT_ID],
             run_element[ELEMENT_SAMPLE_INTERNAL_ID],
             lane=run_element[ELEMENT_LANE]
@@ -135,7 +126,7 @@ class ProcessedSample(AppLogger):
 
         for ext in file_extensions:
             f = util.find_file(
-                self.processed_data_dir,
+                cfg['data_deletion']['processed_data'],
                 self.project_id,
                 self.sample_id,
                 self.external_sample_id + ext
@@ -146,7 +137,7 @@ class ProcessedSample(AppLogger):
 
     @cached_property
     def released_data_folder(self):
-        release_folders = util.find_files(self.delivered_data_dir, self.project_id, '*', self.sample_id)
+        release_folders = util.find_files(cfg['data_deletion']['delivered_data'], self.project_id, '*', self.sample_id)
         if len(release_folders) != 1:
             self.warning(
                 'Found %s deletable directories for sample %s: %s',

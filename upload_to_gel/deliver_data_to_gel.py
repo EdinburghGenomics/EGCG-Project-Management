@@ -1,11 +1,10 @@
 import os
 import re
-import glob
 import shutil
 import sqlite3
 from requests.exceptions import HTTPError
 from cached_property import cached_property
-from egcg_core import executor, clarity, rest_communication
+from egcg_core import executor, clarity, rest_communication, util
 from egcg_core.config import cfg
 from egcg_core.app_logging import AppLogger
 from egcg_core.constants import ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_PROJECT_ID
@@ -118,11 +117,7 @@ class GelDataDelivery(AppLogger):
 
     @cached_property
     def sample_data(self):
-        return rest_communication.get_document(
-            'samples',
-            quiet=True,
-            where={'sample_id': self.sample_id}
-        )
+        return rest_communication.get_document('samples', quiet=True, where={'sample_id': self.sample_id})
 
     @cached_property
     def deliver_db(self):
@@ -146,15 +141,12 @@ class GelDataDelivery(AppLogger):
     @cached_property
     def sample_delivery_folder(self):
         delivery_dest = cfg.query('delivery', 'dest')
-        if self.fluidx_barcode:
-            path_to_glob = os.path.join(delivery_dest, self.project_id, '*', self.fluidx_barcode)
-        else:
-            path_to_glob = os.path.join(delivery_dest, self.project_id, '*', self.sample_id)
-        tmp = glob.glob(path_to_glob)
+        tmp = util.find_files(delivery_dest, self.project_id, '*', self.fluidx_barcode or self.sample_id)
+
         if len(tmp) == 1:
             return tmp[0]
         else:
-            raise ValueError('Could not find a single delivery folder: %s ' % path_to_glob)
+            raise ValueError('Unexpected number of delivery folders: expected 1, got %s' % tmp)
 
     @property
     def sample_barcode(self):
@@ -211,7 +203,8 @@ class GelDataDelivery(AppLogger):
         try:
             send_action_to_rest_api(action='get', delivery_id=self.delivery_id)
             return True
-        except HTTPError:
+        except HTTPError as e:
+            self.error(e)
             return False
 
     def deliver_data(self):
