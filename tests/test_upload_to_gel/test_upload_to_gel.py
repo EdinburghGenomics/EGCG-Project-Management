@@ -34,7 +34,7 @@ class TestDeliveryDB(TestProjectManagement):
     config_file = 'example_gel_data_delivery.yaml'
 
     def setUp(self):
-        self.db_file = cfg.query('gel_upload', 'delivery_db')
+        self.db_file = cfg['gel_upload']['delivery_db']
         self.deliverydb = DeliveryDB()
 
     def tearDown(self):
@@ -126,7 +126,7 @@ class TestGelDataDelivery(TestProjectManagement):
         self.gel_data_delivery = GelDataDelivery('sample1', work_dir=self.staging_dir, dry_run=False, no_cleanup=True)
 
     def tearDown(self):
-        db_file = cfg.query('gel_upload', 'delivery_db')
+        db_file = cfg['gel_upload']['delivery_db']
         if os.path.exists(db_file):
             os.remove(db_file)
         shutil.rmtree(os.path.dirname(self.dest_proj1))

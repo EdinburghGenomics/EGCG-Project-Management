@@ -31,7 +31,7 @@ class DeliveryDB:
     );'''
 
     def __init__(self):
-        self.delivery_db = sqlite3.connect(cfg.query('gel_upload', 'delivery_db'))
+        self.delivery_db = sqlite3.connect(cfg['gel_upload']['delivery_db'])
         self.cursor = self.delivery_db.cursor()
         self.cursor.execute(self.schema)
 
@@ -140,7 +140,7 @@ class GelDataDelivery(AppLogger):
 
     @cached_property
     def sample_delivery_folder(self):
-        delivery_dest = cfg.query('delivery', 'dest')
+        delivery_dest = cfg['delivery']['dest']
         tmp = util.find_files(delivery_dest, self.project_id, '*', self.fluidx_barcode or self.sample_id)
 
         if len(tmp) == 1:
@@ -183,8 +183,8 @@ class GelDataDelivery(AppLogger):
         options = ['-rv', '-L', '--timeout=300', '--append', '--partial', '--chmod ug+rwx,o-rwx', '--perms']
         ssh_options = ['ssh', '-o StrictHostKeyChecking=no', '-o TCPKeepAlive=yes', '-o ServerAliveInterval=100',
                        '-o KeepAlive=yes', '-o BatchMode=yes', '-o LogLevel=Error',
-                       '-i %s' % cfg.query('gel_upload', 'ssh_key'), '-p 22']
-        destination = '%s@%s:%s' % (cfg.query('gel_upload', 'username'), cfg.query('gel_upload', 'host'), cfg.query('gel_upload', 'dest'))
+                       '-i %s' % cfg['gel_upload']['ssh_key'], '-p 22']
+        destination = '%s@%s:%s' % (cfg['gel_upload']['username'], cfg['gel_upload']['host'], cfg['gel_upload']['dest'])
 
         cmd = ' '.join(['rsync',  ' '.join(options), '-e "%s"' % ' '.join(ssh_options), delivery_id_path, destination])
         return executor.local_execute(cmd).join()

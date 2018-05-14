@@ -1,8 +1,6 @@
 import os
 import uuid
 from datetime import datetime
-from os import listdir
-from os.path import join, isdir
 from egcg_core import rest_communication
 from data_deletion import Deleter, ProcessedSample
 from egcg_core.archive_management import release_file_from_lustre
@@ -58,14 +56,14 @@ class DeliveredDataDeleter(Deleter):
 
     def _move_to_unique_file_name(self, source, dest_dir):
         source_name = os.path.basename(source)
-        dest = join(dest_dir, str(uuid.uuid4()) + '_' + source_name)
+        dest = os.path.join(dest_dir, str(uuid.uuid4()) + '_' + source_name)
         self._execute('mv %s %s' % (source, dest))
 
     def setup_samples_for_deletion(self, samples):
         total_size_to_delete = 0
         for s in samples:
             total_size_to_delete += s.size_of_files
-            deletable_data_dir = join(self.deletion_dir, s.sample_id)
+            deletable_data_dir = os.path.join(self.deletion_dir, s.sample_id)
             if not self.dry_run:
                 if len(s.files_to_purge):
                     self._execute('mkdir -p ' + deletable_data_dir)
@@ -116,5 +114,5 @@ class DeliveredDataDeleter(Deleter):
 
         # Data has been deleted, so now clean up empty released directories
         for folder in set(os.path.dirname(s.released_data_folder) for s in deletable_samples if s.released_data_folder):
-            if isdir(folder) and not listdir(folder):
+            if os.path.isdir(folder) and not os.listdir(folder):
                 self._execute('rm -r ' + folder)

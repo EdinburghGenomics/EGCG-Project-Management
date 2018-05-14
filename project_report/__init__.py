@@ -44,8 +44,8 @@ class ProjectReport:
     def __init__(self, project_name, working_dir=None):
         self.project_name = project_name
         self.working_dir = working_dir or os.getcwd()
-        self.project_source = path.join(cfg.query('delivery', 'source'), project_name)
-        self.project_delivery = path.join(cfg.query('delivery', 'dest'), project_name)
+        self.project_source = path.join(cfg['delivery']['source'], project_name)
+        self.project_delivery = path.join(cfg['delivery']['dest'], project_name)
         self.lims = connection()
         self.params = {
             'project_name': project_name,

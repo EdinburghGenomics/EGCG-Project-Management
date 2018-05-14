@@ -7,12 +7,12 @@ from tests import TestProjectManagement
 from tests.test_data_deletion import TestDeleter, patches
 
 run_elements1 = [
-    {'run_id': 'a_run', 'project_id': 'a_project', 'sample_id': 'a_sample', 'lane': '2'},
-    {'run_id': 'another_run', 'project_id': 'a_project', 'sample_id': 'a_sample', 'lane': '3'}
+    {'run_id': 'a_run', 'project_id': 'a_project', 'sample_id': 'a_sample', 'lane': 2},
+    {'run_id': 'another_run', 'project_id': 'a_project', 'sample_id': 'a_sample', 'lane': 3}
 ]
 run_elements2 = [
-    {'run_id': 'a_run', 'project_id': 'another_project', 'sample_id': 'yet_another_sample', 'lane': '4'},
-    {'run_id': 'another_run', 'project_id': 'another_project', 'sample_id': 'yet_another_sample', 'lane': '5'}
+    {'run_id': 'a_run', 'project_id': 'another_project', 'sample_id': 'yet_another_sample', 'lane': 4},
+    {'run_id': 'another_run', 'project_id': 'another_project', 'sample_id': 'yet_another_sample', 'lane': 5}
 ]
 
 sample1 = {
@@ -51,8 +51,16 @@ class TestProcessedSample(TestProjectManagement):
         self.sample1 = ProcessedSample(sample1)
         self.sample2 = ProcessedSample(sample2)
 
-    def test_find_fastqs_for_run_element(self):
-        self.sample1._find_fastqs_for_run_element(run_elements1[0])
+    @patch('data_deletion.util.find_fastqs')
+    def test_find_fastqs_for_run_element(self, mocked_find_fastqs):
+        run_element = self.sample1.sample_data['run_elements'][0]
+        self.sample1._find_fastqs_for_run_element(run_element)
+        mocked_find_fastqs.assert_called_with(
+            'tests/assets/data_deletion/fastqs/a_run',
+            'a_project',
+            'a_sample',
+            lane=2
+        )
 
     def test_raw_data_files(self):
         with patch('data_deletion.delivered_data.ProcessedSample.run_elements', new=run_elements1), \

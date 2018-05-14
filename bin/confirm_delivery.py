@@ -25,14 +25,14 @@ lims_stage_name = 'Download Confirmation EG 1.0 ST'
 class DeliveredSample(AppLogger):
     def __init__(self, sample_id):
         self.sample_id = sample_id
-        # resolve fluidX sample name
+        # resolve FluidX sample name
         if self.sample_id.startswith('FD'):
             # might be FluidX tube barcode
             arts = clarity.connection().get_artifacts(type='Analyte', udf={'2D Barcode': self.sample_id})
             if arts and len(arts) == 1:
                 self.sample_id = arts[0].samples[0].name
             else:
-                self.error('Found %s artifacts for %s', len(arts), self.sample_id)
+                self.error('Found %s artifacts for FluidX sample %s', len(arts), self.sample_id)
         self.files_downloaded = []
 
     @cached_property
@@ -98,14 +98,14 @@ class DeliveredSample(AppLogger):
         if new_files_downloaded:
             patch_entry(
                 'samples',
-                payload={'files_downloaded': list(new_files_downloaded)},
+                payload={'files_downloaded': new_files_downloaded},
                 id_field='sample_id',
                 element_id=self.sample_id,
                 update_lists=['files_downloaded']
             )
 
     def files_missing(self):
-        files_downloaded = set([f['file_path'] for f in self.files_downloaded + self.files_already_downloaded])
+        files_downloaded = set(f['file_path'] for f in self.files_downloaded + self.files_already_downloaded)
         return [f['file_path'] for f in self.files_delivered if f['file_path'] not in files_downloaded]
 
     def is_download_complete(self):
@@ -259,13 +259,13 @@ def main(argv=None):
 
     load_config()
 
-    log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout), level=logging.INFO)
+    log_cfg.add_stdout_handler()
     if args.debug:
         log_cfg.set_log_level(logging.DEBUG)
 
     cfg.merge(cfg['sample'])
 
-    cd = ConfirmDelivery(aspera_report_csv_files=args.csv_files)
+    cd = ConfirmDelivery(args.csv_files)
     if args.samples:
         for sample in args.samples:
             cd.test_sample(sample)

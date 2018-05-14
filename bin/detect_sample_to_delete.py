@@ -35,11 +35,10 @@ def download_confirmation(sample_data):
 
 
 def check_deletable_samples(age_threshold=None):
-    where = {'useable': 'yes', 'delivered': 'yes', 'data_deleted': 'none'}
     sample_records = rest_communication.get_documents(
         'samples',
         quiet=True,
-        where=where,
+        where={'useable': 'yes', 'delivered': 'yes', 'data_deleted': 'none'},
         all_pages=True,
         max_results=100
     )
@@ -98,7 +97,7 @@ def write_report(project_batches, output_file):
 def main():
     args = _parse_args()
     load_config()
-    log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout))
+    log_cfg.add_stdout_handler()
     if args.debug:
         log_cfg.set_log_level(logging.DEBUG)
 

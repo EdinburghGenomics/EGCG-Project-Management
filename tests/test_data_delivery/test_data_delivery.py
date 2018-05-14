@@ -8,7 +8,7 @@ from email.mime.multipart import MIMEMultipart
 from unittest.mock import patch, Mock, PropertyMock
 from egcg_core.config import cfg
 from tests import TestProjectManagement, NamedMock
-from bin.deliver_reviewed_data import DataDelivery, _execute, release_trigger_lims_step_name, resolve_process_id
+from bin import deliver_reviewed_data as d
 
 sample_templates = {
     'process_id1': {
@@ -144,7 +144,7 @@ for process in sample_templates:
             rest_responses['run_elements'][sample_id].append(re)
 
     fake_processes[process] = Mock(
-        type=NamedMock(name=release_trigger_lims_step_name),
+        type=NamedMock(name=d.release_trigger_lims_step_name),
         all_inputs=Mock(return_value=artifacts)
     )
 
@@ -163,19 +163,12 @@ patch_get_queue = patch('egcg_core.clarity.get_queue_uri', return_value='http://
 
 
 class FakeProcessPropertyMock(PropertyMock):
-    """
-    PropertyMock Specific to return fake processes
-    """
+    """PropertyMock Specific to return fake processes."""
     def __get__(self, obj, obj_type):
         return fake_processes.get(obj.process_id)
 
 
-patch_process = patch.object(DataDelivery, 'process', new=FakeProcessPropertyMock())
-
-
-def execute_local(*args, **kwargs):
-    if 'env' in kwargs and kwargs['env'] == 'local':
-        _execute(*args, **kwargs)
+patch_process = patch.object(d.DataDelivery, 'process', new=FakeProcessPropertyMock())
 
 
 def touch(f, content=None):
@@ -218,19 +211,15 @@ class TestDataDelivery(TestProjectManagement):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.dest_dir = cfg.query('delivery', 'dest')
-
-    @staticmethod
-    def _format_list(list_, **kwargs):
-        return [v.format(**kwargs) for v in list_]
+        cls.dest_dir = cfg['delivery']['dest']
 
     def setUp(self):
         os.makedirs(self.dest_dir, exist_ok=True)
         staging_dir = os.path.join(self.assets_delivery, 'staging')
-        self.delivery_dry_split_fluidx = DataDelivery(dry_run=True, work_dir=staging_dir, process_id='process_id2', no_cleanup=True, email=False)
-        self.delivery_real_split_fluidx = DataDelivery(dry_run=False, work_dir=staging_dir, process_id='process_id2', email=False)
-        self.delivery_dry_merged = DataDelivery(dry_run=True, work_dir=staging_dir, process_id='process_id1', no_cleanup=True, email=False)
-        self.delivery_real_merged = DataDelivery(dry_run=False, work_dir=staging_dir, process_id='process_id1', email=False)
+        self.delivery_dry_split_fluidx = d.DataDelivery(dry_run=True, work_dir=staging_dir, process_id='process_id2', no_cleanup=True, email=False)
+        self.delivery_real_split_fluidx = d.DataDelivery(dry_run=False, work_dir=staging_dir, process_id='process_id2', email=False)
+        self.delivery_dry_merged = d.DataDelivery(dry_run=True, work_dir=staging_dir, process_id='process_id1', no_cleanup=True, email=False)
+        self.delivery_real_merged = d.DataDelivery(dry_run=False, work_dir=staging_dir, process_id='process_id1', email=False)
 
         self._create_run_elements(itertools.chain.from_iterable(rest_responses['run_elements'].values()))
         self._create_analysed_sample_files(rest_responses['samples'].values())
@@ -239,6 +228,7 @@ class TestDataDelivery(TestProjectManagement):
         for directory in [self.delivery_dry_split_fluidx.staging_dir, self.delivery_dry_merged.staging_dir]:
             if os.path.exists(directory):
                 shutil.rmtree(directory)
+
         for directory in [
             self.dest_dir,
             os.path.join(self.assets_delivery, 'source'),
@@ -409,8 +399,8 @@ class TestDataDelivery(TestProjectManagement):
     def test_deliver_data_merged_real(self):
         with patch_process, patch_get_document, patch_get_documents, patch_get_queue,\
              patch('bin.deliver_reviewed_data.DataDelivery.mark_samples_as_released'), \
-             patch.object(DataDelivery, 'run_aggregate_commands', new=create_fake_fastq_fastqc_md5_from_commands), \
-             patch.object(DataDelivery, 'register_postponed_files'):
+             patch.object(d.DataDelivery, 'run_aggregate_commands', new=create_fake_fastq_fastqc_md5_from_commands), \
+             patch.object(d.DataDelivery, 'register_postponed_files'):
             self.delivery_real_merged.deliver_data()
             assert os.listdir(self.dest_dir) == ['project1']
             today = datetime.date.today().isoformat()
@@ -430,7 +420,7 @@ class TestDataDelivery(TestProjectManagement):
 
     def test_deliver_data_split_real(self):
         with patch_process, patch_get_document, patch_get_documents, patch_get_queue,\
-             patch.object(DataDelivery, 'run_aggregate_commands'),\
+             patch.object(d.DataDelivery, 'run_aggregate_commands'),\
              patch('bin.deliver_reviewed_data.DataDelivery.mark_samples_as_released'):
             self.delivery_real_split_fluidx.deliver_data()
             assert os.listdir(self.dest_dir) == ['project2']
@@ -448,17 +438,18 @@ class TestDataDelivery(TestProjectManagement):
                         'file_path': 'project2/%s/Fluidx1/%s' % (today, f),
                         'size': 0,
                         'md5': 'd41d8cd98f00b204e9800998ecf8427e'
-                    } for f in ('raw_data/run1_el_s1_id3_R1.fastq.gz', 'raw_data/run1_el_s1_id3_R2.fastq.gz',
-                                'raw_data/run1_el_s1_id4_R1.fastq.gz', 'raw_data/run1_el_s1_id4_R2.fastq.gz',
-                                'p2_user_s_id1.g.vcf.gz', 'p2_user_s_id1.g.vcf.gz.tbi', 'p2_user_s_id1.vcf.gz',
-                                'p2_user_s_id1.vcf.gz.tbi', 'p2_user_s_id1.bam', 'p2_user_s_id1.bam.bai')
+                    }
+                    for f in ('raw_data/run1_el_s1_id3_R1.fastq.gz', 'raw_data/run1_el_s1_id3_R2.fastq.gz',
+                              'raw_data/run1_el_s1_id4_R1.fastq.gz', 'raw_data/run1_el_s1_id4_R2.fastq.gz',
+                              'p2_user_s_id1.g.vcf.gz', 'p2_user_s_id1.g.vcf.gz.tbi', 'p2_user_s_id1.vcf.gz',
+                              'p2_user_s_id1.vcf.gz.tbi', 'p2_user_s_id1.bam', 'p2_user_s_id1.bam.bai')
                 ],
                 key=operator.itemgetter('file_path')
             )
 
     def test_get_email_data(self):
         with patch_process, patch_get_document, patch_get_documents, patch_get_queue,\
-             patch.object(DataDelivery, 'today', new_callable=PropertyMock(return_value='2017-12-15')):
+             patch.object(d.DataDelivery, 'today', new_callable=PropertyMock(return_value='2017-12-15')):
             exp = {
                 'num_samples': 2,
                 'release_batch': '2017-12-15',
@@ -467,20 +458,20 @@ class TestDataDelivery(TestProjectManagement):
             }
             assert exp == self.delivery_dry_merged.get_email_data('test_project', ['sample1', 'sample2'])
 
-    def test_emails_report(self):
+    def test_send_reports(self):
         with patch_process, patch_get_document, patch_get_documents, patch_get_queue,\
              patch('egcg_core.notifications.email.EmailSender._try_send') as mock_send_email:
             self.delivery_dry_merged.email = True
             _ = self.delivery_dry_merged.deliverable_samples
             self.delivery_dry_merged.send_reports(
-                {'project1': [rest_responses.get('samples').get('p1sample1'), rest_responses.get('samples').get('p1sample2')]},
+                {'project1': [rest_responses['samples']['p1sample1'], rest_responses['samples']['p1sample2']]},
                 {'test_project': os.path.join(self.assets_path, 'data_delivery', 'test_project_report.pdf')}
             )
             assert mock_send_email.call_count == 1
             assert type(mock_send_email.call_args_list[0][0][0]) == MIMEMultipart
 
     def test_resolve_process_id(self):
-        assert resolve_process_id('http://test.com/path/to/step/20198') == '24-20198'
-        assert resolve_process_id('http://test.com/api/2/steps/24-20198') == '24-20198'
-        assert resolve_process_id('20198') == '24-20198'
-        assert resolve_process_id('24-20198') == '24-20198'
+        assert d.resolve_process_id('http://test.com/path/to/step/20198') == '24-20198'
+        assert d.resolve_process_id('http://test.com/api/2/steps/24-20198') == '24-20198'
+        assert d.resolve_process_id('20198') == '24-20198'
+        assert d.resolve_process_id('24-20198') == '24-20198'

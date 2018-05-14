@@ -1,7 +1,6 @@
 import os
 import sys
 import csv
-import glob
 import shutil
 import argparse
 import datetime
@@ -17,7 +16,7 @@ from egcg_core.constants import ELEMENT_NB_READS_CLEANED, ELEMENT_RUN_NAME, ELEM
     ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_RUN_ELEMENT_ID, ELEMENT_USEABLE
 from egcg_core.exceptions import EGCGError
 from egcg_core.notifications.email import send_html_email
-from egcg_core.util import find_fastqs, query_dict
+from egcg_core.util import find_files, find_fastqs, query_dict
 from pyclarity_lims.entities import Process
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -172,14 +171,10 @@ class DataDelivery(AppLogger):
         self.register_file(sample_id, fastq1, md5_fastq1)
         self.register_file(sample_id, fastq2, md5_fastq2)
 
-        self._link_file_to_sample_folder(r1.replace('.fastq.gz', '_fastqc.html'), fastq_folder,
-                                         rename=rename + '_R1_fastqc.html')
-        self._link_file_to_sample_folder(r2.replace('.fastq.gz', '_fastqc.html'), fastq_folder,
-                                         rename=rename + '_R2_fastqc.html')
-        self._link_file_to_sample_folder(r1.replace('.fastq.gz', '_fastqc.zip'), fastq_folder,
-                                         rename=rename + '_R1_fastqc.zip')
-        self._link_file_to_sample_folder(r2.replace('.fastq.gz', '_fastqc.zip'), fastq_folder,
-                                         rename=rename + '_R2_fastqc.zip')
+        self._link_file_to_sample_folder(r1.replace('.fastq.gz', '_fastqc.html'), fastq_folder, rename=rename + '_R1_fastqc.html')
+        self._link_file_to_sample_folder(r2.replace('.fastq.gz', '_fastqc.html'), fastq_folder, rename=rename + '_R2_fastqc.html')
+        self._link_file_to_sample_folder(r1.replace('.fastq.gz', '_fastqc.zip'), fastq_folder, rename=rename + '_R1_fastqc.zip')
+        self._link_file_to_sample_folder(r2.replace('.fastq.gz', '_fastqc.zip'), fastq_folder, rename=rename + '_R2_fastqc.zip')
 
     def _stage_analysed_files(self, sample, sample_dir):
         sample_id = sample[ELEMENT_SAMPLE_INTERNAL_ID]
@@ -189,16 +184,18 @@ class DataDelivery(AppLogger):
 
         if not os.path.isdir(origin_sample_dir):
             raise EGCGError('Directory for sample %s in project %s does not exist' % (sample_id, project_id))
+
         files_to_move = self.get_analysis_files(sample_name=sample_id, external_sample_name=external_sample_id)
         for f in files_to_move:
             origin_file = os.path.join(origin_sample_dir, f)
             if not os.path.isfile(origin_file):
                 raise EGCGError('File %s for sample %s does not exist' % (f, sample))
             data_file = self._link_file_to_sample_folder(origin_file, sample_dir)
-            origin_file = os.path.join(origin_sample_dir, f + '.md5')
-            if not os.path.isfile(origin_file):
+            origin_md5_file = os.path.join(origin_sample_dir, f + '.md5')
+            if not os.path.isfile(origin_md5_file):
                 raise EGCGError('File %s for sample %s does not exist' % (f, sample))
-            md5_file = self._link_file_to_sample_folder(origin_file, sample_dir)
+
+            md5_file = self._link_file_to_sample_folder(origin_md5_file, sample_dir)
             self.register_file(sample_id, data_file, md5_file)
 
     def register_file(self, sample_id, data_file, md5_file):
@@ -218,24 +215,24 @@ class DataDelivery(AppLogger):
 
     def _sample_metrics(self, sample_data, delivery_folder):
         return [
-                    query_dict(sample_data, 'data.project_id'),
-                    query_dict(sample_data, 'data.sample_id'),
-                    query_dict(sample_data, 'data.user_sample_id'),
-                    query_dict(sample_data, 'data.species_name'),
-                    self.library_alias(query_dict(sample_data, 'status.library_type')),
-                    self.parse_date(query_dict(sample_data, 'status.started_date')),
-                    query_dict(sample_data, 'udfs.Total DNA(ng)'),
-                    query_dict(sample_data, 'data.aggregated.clean_reads'),
-                    query_dict(sample_data, 'data.required_yield') / 1000000000,
-                    query_dict(sample_data, 'data.aggregated.yield_in_gb'),
-                    query_dict(sample_data, 'data.aggregated.yield_q30_in_gb'),
-                    query_dict(sample_data, 'data.aggregated.pc_q30'),
-                    query_dict(sample_data, 'data.aggregated.pc_mapped_reads'),
-                    query_dict(sample_data, 'data.aggregated.pc_duplicate_reads'),
-                    query_dict(sample_data, 'data.required_coverage'),
-                    query_dict(sample_data, 'data.coverage.mean'),
-                    os.path.basename(delivery_folder)
-                ]
+            query_dict(sample_data, 'data.project_id'),
+            query_dict(sample_data, 'data.sample_id'),
+            query_dict(sample_data, 'data.user_sample_id'),
+            query_dict(sample_data, 'data.species_name'),
+            self.library_alias(query_dict(sample_data, 'status.library_type')),
+            self.parse_date(query_dict(sample_data, 'status.started_date')),
+            query_dict(sample_data, 'udfs.Total DNA(ng)'),
+            query_dict(sample_data, 'data.aggregated.clean_reads'),
+            query_dict(sample_data, 'data.required_yield') / 1000000000,
+            query_dict(sample_data, 'data.aggregated.yield_in_gb'),
+            query_dict(sample_data, 'data.aggregated.yield_q30_in_gb'),
+            query_dict(sample_data, 'data.aggregated.pc_q30'),
+            query_dict(sample_data, 'data.aggregated.pc_mapped_reads'),
+            query_dict(sample_data, 'data.aggregated.pc_duplicate_reads'),
+            query_dict(sample_data, 'data.required_coverage'),
+            query_dict(sample_data, 'data.coverage.mean'),
+            os.path.basename(delivery_folder)
+        ]
 
     def summarise_metrics_per_sample(self, project_id, delivery_folder):
         headers = ['Project', 'Sample Id', 'User sample id', 'Species', 'Library type', 'Received date', 'DNA QC (ng)',
@@ -354,8 +351,7 @@ class DataDelivery(AppLogger):
             )
 
     def generate_md5_summary(self, project, batch_folder):
-        all_md5_files = glob.glob(os.path.join(batch_folder, '*', '*.md5'))
-        all_md5_files.extend(glob.glob(os.path.join(batch_folder, '*', 'raw_data', '*.md5')))
+        all_md5_files = find_files(batch_folder, '*', '*.md5') + find_files(batch_folder, '*', 'raw_data', '*.md5')
         md5_summary = []
         for md5_file in all_md5_files:
             with open(md5_file) as open_file:
@@ -440,8 +436,9 @@ class DataDelivery(AppLogger):
         self.cleanup()
 
     def send_reports(self, project_to_samples, project_to_reports):
-        if not {'mailhost', 'port', 'sender', 'recipients'} == set(cfg['delivery']['email_notification']):
-            self.warning('Missing parameter in config: will not sent email')
+        email_cfg = cfg.query('delivery', 'email_notification')
+        if email_cfg and set(email_cfg) != {'mailhost', 'port', 'sender', 'recipients'}:
+            self.error('Invalid email config: will not sent email')
             return
 
         for project_id in project_to_samples:
@@ -449,9 +446,8 @@ class DataDelivery(AppLogger):
                             project_to_samples[project_id]]
 
             subject = '%s: %s WGS Data Release' % (project_id, ', '.join(sorted(set(species_list))))
-            params = {}
-            params.update(cfg['delivery']['email_notification'])
-            params.update(self.get_email_data(project_id, project_to_samples[project_id]))
+            params = self.get_email_data(project_id, project_to_samples[project_id])
+            params.update(email_cfg)
             if self.dry_run:
                 subject = 'Dry run: ' + subject
             self.info('Send email for project %s', project_id)
@@ -495,7 +491,7 @@ def main(argv=None):
 
     load_config()
     log_cfg.set_log_level(logging.INFO)
-    log_cfg.add_handler(logging.StreamHandler(stream=sys.stdout))
+    log_cfg.add_stdout_handler()
 
     if args.debug:
         log_cfg.set_log_level(logging.DEBUG)

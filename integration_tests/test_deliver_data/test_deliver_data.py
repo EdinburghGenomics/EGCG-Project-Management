@@ -174,8 +174,7 @@ class TestDelivery(IntegrationTest):
             'delivery': {
                 'dest': cls.delivered_projects_dir,
                 'source': cls.processed_projects_dir,
-                'clarity_workflow_name': 'a_workflow',
-                'email_notification': {}  # TODO: avoid KeyError in delivery email
+                'clarity_workflow_name': 'a_workflow'
             }
         }
 

@@ -1,15 +1,14 @@
-default:
-    data_deletion:
-        raw_data: tests/assets/data_deletion/raw
-        raw_archives: tests/assets/data_deletion/archive
-        fastqs: tests/assets/data_deletion/fastqs
-        fastq_archives: tests/assets/data_deletion/fastqs/archive
-        processed_data: tests/assets/data_deletion/projects
-        processed_archives: tests/assets/data_deletion/projects/archive
-        delivered_data: tests/assets/data_deletion/delivered_data
-        email_notification:
-            mailhost: smtp.mail.com
-            port: 25
-            sender: sender@email.com
-            recipients: [recipient@email.com]
-        log_dir: tests/assets/data_deletion/logs
+data_deletion:
+    raw_data: tests/assets/data_deletion/raw
+    raw_archives: tests/assets/data_deletion/archive
+    fastqs: tests/assets/data_deletion/fastqs
+    fastq_archives: tests/assets/data_deletion/fastqs/archive
+    processed_data: tests/assets/data_deletion/projects
+    processed_archives: tests/assets/data_deletion/projects/archive
+    delivered_data: tests/assets/data_deletion/delivered_data
+    email_notification:
+        mailhost: smtp.mail.com
+        port: 25
+        sender: sender@email.com
+        recipients: [recipient@email.com]
+    log_dir: tests/assets/data_deletion/logs

@@ -176,11 +176,7 @@ class ProcessedSample(AppLogger):
         return get_file_list_size(self.files_to_purge) + get_file_list_size(self.files_to_remove_from_lustre)
 
     def mark_as_deleted(self):
-        rest_communication.patch_entry(
-            'samples',
-            {'data_deleted': 'on lustre'},
-            'sample_id', self.sample_id
-        )
+        rest_communication.patch_entry('samples', {'data_deleted': 'on lustre'}, 'sample_id', self.sample_id)
 
     def __repr__(self):
         return self.sample_id + ' (%s)' % self.release_date

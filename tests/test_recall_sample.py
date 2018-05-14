@@ -1,9 +1,9 @@
+import logging
 from os.path import join
+from egcg_core.exceptions import EGCGError
 from unittest.mock import Mock, patch
 from bin import recall_sample
 from tests import TestProjectManagement
-from egcg_core.exceptions import EGCGError
-import logging
 
 ppath = 'bin.recall_sample.'
 
@@ -13,7 +13,7 @@ def fake_find_file(*parts):
 
 
 class TestRecall(TestProjectManagement):
-    config_file = 'example_data_deletion.yaml'
+    config_file = 'example_data_delivery.yaml'
     fake_file_states = {
         'this.vcf.gz': ['exists', 'archived', 'released'],
         'this.bam': [],
