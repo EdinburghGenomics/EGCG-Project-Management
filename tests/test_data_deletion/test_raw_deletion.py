@@ -28,10 +28,6 @@ class TestRawDataDeleter(TestDeleter):
         for d in os.listdir(join(self.assets_deletion, 'archive')):
             rmtree(join(self.assets_deletion, 'archive', d))
 
-    def test_deletion_dir(self):
-        with patch.object(RawDataDeleter, '_strnow', return_value='t'):
-            assert self.deleter.deletion_dir == os.path.join(self.assets_deletion, 'raw', '.data_deletion_t')
-
     def test_deletable_runs(self):
         with patch(ptc.patch_get, return_value=ptc.fake_run_elements_no_procs) as p:
             runs = self.deleter.deletable_runs()

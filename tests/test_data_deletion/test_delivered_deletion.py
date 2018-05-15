@@ -3,6 +3,7 @@ from datetime import datetime
 from unittest.mock import patch, Mock, PropertyMock
 from data_deletion import ProcessedSample
 from data_deletion.delivered_data import DeliveredDataDeleter
+from egcg_core.exceptions import ArchivingError
 from tests import TestProjectManagement
 from tests.test_data_deletion import TestDeleter, patches
 
@@ -48,13 +49,12 @@ class TestProcessedSample(TestProjectManagement):
     config_file = 'example_data_deletion.yaml'
 
     def setUp(self):
-        self.sample1 = ProcessedSample(sample1)
-        self.sample2 = ProcessedSample(sample2)
+        self.sample = ProcessedSample(sample1)
 
     @patch('data_deletion.util.find_fastqs')
     def test_find_fastqs_for_run_element(self, mocked_find_fastqs):
-        run_element = self.sample1.sample_data['run_elements'][0]
-        self.sample1._find_fastqs_for_run_element(run_element)
+        run_element = self.sample.sample_data['run_elements'][0]
+        self.sample._find_fastqs_for_run_element(run_element)
         mocked_find_fastqs.assert_called_with(
             'tests/assets/data_deletion/fastqs/a_run',
             'a_project',
@@ -66,12 +66,12 @@ class TestProcessedSample(TestProjectManagement):
         with patch('data_deletion.delivered_data.ProcessedSample.run_elements', new=run_elements1), \
              patch('data_deletion.delivered_data.ProcessedSample._find_fastqs_for_run_element',
                    return_value=['path_2_fastq1', 'path_2_fastq2']):
-            assert self.sample1.raw_data_files == ['path_2_fastq1', 'path_2_fastq2',
+            assert self.sample.raw_data_files == ['path_2_fastq1', 'path_2_fastq2',
                                                    'path_2_fastq1', 'path_2_fastq2']
 
     @patch(ppath + 'util.find_file', side_effect=fake_find_file)
     def test_processed_data_files(self, mocked_find_file):
-        assert self.sample1.processed_data_files == [
+        assert self.sample.processed_data_files == [
             'tests/assets/data_deletion/projects/a_project/a_sample/a_user_sample_id_R1.fastq.gz',
             'tests/assets/data_deletion/projects/a_project/a_sample/a_user_sample_id_R2.fastq.gz',
             'tests/assets/data_deletion/projects/a_project/a_sample/a_user_sample_id.bam',
@@ -84,8 +84,25 @@ class TestProcessedSample(TestProjectManagement):
 
     def test_released_data_folder(self):
         with patch(ppath + 'util.find_files', side_effect=fake_find_files):
-            released_data_folder = self.sample1.released_data_folder
+            released_data_folder = self.sample.released_data_folder
         assert released_data_folder == 'tests/assets/data_deletion/delivered_data/a_project/star/a_sample'
+
+    @patch.object(ProcessedSample, 'released_data_folder', new='a_deletion_dir')
+    def test_files_to_purge(self):
+        assert self.sample.files_to_purge == ['a_deletion_dir']
+
+    @patch.object(ProcessedSample, 'raw_data_files', new=['R1.fastq.gz', 'R2.fastq.gz'])
+    @patch.object(ProcessedSample, 'processed_data_files', new=['sample.vcf.gz', 'sample.bam'])
+    @patch.object(ProcessedSample, 'is_archived')
+    def test_files_to_remove_from_lustre(self, mocked_is_archived):
+        mocked_is_archived.return_value = False
+        with self.assertRaises(ArchivingError) as e:
+            _ = self.sample.files_to_remove_from_lustre
+
+        assert str(e.value) == 'File R1.fastq.gz is not archived so cannot be released from Lustre'
+
+        mocked_is_archived.return_value = True
+        assert self.sample.files_to_remove_from_lustre == ['R1.fastq.gz', 'R1.fastq.gz', 'sample.vcf.gz', 'sample.bam']
 
     def test_size_of_files(self):
         patched_stat = patch(ppath + 'stat', return_value=Mock(st_ino='123456', st_size=10000))
@@ -95,12 +112,12 @@ class TestProcessedSample(TestProjectManagement):
                                new_callable=PropertyMock(return_value=[]))
 
         with patched_stat, patched_purge, patched_remove:
-            file_size = self.sample1.size_of_files
+            file_size = self.sample.size_of_files
             assert file_size == 10000
 
     @patches.patched_patch_entry
     def test_mark_as_deleted(self, mocked_patch):
-        self.sample1.mark_as_deleted()
+        self.sample.mark_as_deleted()
         mocked_patch.assert_called_with('samples', {'data_deleted': 'on lustre'}, 'sample_id', 'a_sample')
 
 
@@ -117,10 +134,6 @@ class TestDeliveredDataDeleter(TestDeleter):
     def setUp(self):
         self.deleter = DeliveredDataDeleter(self.assets_deletion)
 
-    def test_deletion_dir(self):
-        with patch.object(DeliveredDataDeleter, '_strnow', return_value='t'):
-            assert self.deleter.deletion_dir == os.path.join(self.assets_deletion, '.data_deletion_t')
-
     @patch('egcg_core.rest_communication.get_documents', return_value=[{'some': 'data'}])
     def test_get_sample_from_list(self, mocked_get):
         assert self.deleter._get_sample_from_list(list(range(25))) == [{'some': 'data'}, {'some': 'data'}]
@@ -132,7 +145,7 @@ class TestDeliveredDataDeleter(TestDeleter):
     def test_deletable_samples(self, mocked_get):
         mocked_get.return_value = [{'sample_id': 'this'}, {'sample_id': 'that'}]
         assert self.deleter.deletable_samples() == []
-        self.deleter.list_samples = ['this', 'that']
+        self.deleter.samples = ['this', 'that']
         assert [s.sample_data for s in self.deleter.deletable_samples()] == list(reversed(mocked_get.return_value))
 
     @patch.object(DeliveredDataDeleter, '_execute')

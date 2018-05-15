@@ -6,7 +6,7 @@ from unittest.mock import patch, Mock
 from egcg_core.config import cfg
 from pyclarity_lims.entities import ProtocolStep, Artifact
 from bin.confirm_delivery import DeliveredSample, ConfirmDelivery
-from tests import TestProjectManagement
+from tests import TestProjectManagement, NamedMock
 
 sample1 = {
     'sample_id': 'sample1',
@@ -57,6 +57,20 @@ class TestDeliveredSample(TestProjectManagement):
 
     def tearDown(self):
         shutil.rmtree(self.project_dir)
+
+    @patch.object(DeliveredSample, 'error')
+    @patch('bin.confirm_delivery.clarity.connection')
+    def test_fluidx(self, mocked_lims, mocked_error):
+        fake_artifacts = [Mock(samples=[NamedMock('a_fluidx_sample')])]
+        mocked_lims.return_value = Mock(get_artifacts=Mock(return_value=fake_artifacts))
+        sample = DeliveredSample('FD')
+        assert sample.sample_id == 'a_fluidx_sample'
+        assert mocked_error.call_count == 0
+        fake_artifacts.extend(fake_artifacts)
+
+        sample = DeliveredSample('FD')
+        assert sample.sample_id == 'FD'
+        mocked_error.assert_called_with('Found %s artifacts for FluidX sample %s', 2, 'FD')
 
     @patch('bin.confirm_delivery.get_document', return_value=sample1)
     def test_data(self, patched_get_doc):

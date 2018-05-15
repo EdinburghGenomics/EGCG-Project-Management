@@ -11,20 +11,21 @@ executor:
     job_queue: uv2000
     pre_job_source: bashrc
 
-#    logging:
-#        format: '[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
-#        datefmt: '%Y-%b-%d %H:%M:%S'
-#        stream_handlers:
-#          - stream: 'ext://sys.stdout'
-#            level: 'DEBUG'
-#        file_handlers:
-#          - filename: tests/assets/test.log
-#            mode: 'a'
-#            level: 'WARNING'
-#        timed_rotating_file_handlers:
-#          - filename: tests/assets/test.log
-#            when: 'h'
-#            interval: 1
+    logging:
+        format: '[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
+        datefmt: '%Y-%b-%d %H:%M:%S'
+        stream_handlers:
+          - stream: 'ext://sys.stdout'
+            level: 'DEBUG'
+        file_handlers:
+          - filename: tests/assets/test.log
+            mode: 'a'
+            level: 'WARNING'
+        timed_rotating_file_handlers:
+          - filename: tests/assets/test.log
+            when: 'h'
+            interval: 1
+
 delivery:
     signature_name: He-Man
     signature_role: Prince

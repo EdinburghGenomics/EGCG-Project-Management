@@ -10,9 +10,7 @@ class DeliveredDataDeleter(Deleter):
     def __init__(self, work_dir, dry_run=False, deletion_limit=None, manual_delete=None, sample_ids=None):
         super().__init__(work_dir, dry_run, deletion_limit)
         self.data_dir = self.work_dir
-        self.list_samples = []
-
-        self.list_samples = manual_delete or []
+        self.samples = manual_delete or []
         self.limit_samples = sample_ids
 
     @staticmethod
@@ -32,8 +30,8 @@ class DeliveredDataDeleter(Deleter):
 
     def deletable_samples(self):
         samples = []
-        if self.list_samples:
-            samples = [ProcessedSample(s) for s in self._get_sample_from_list(self.list_samples)]
+        if self.samples:
+            samples = [ProcessedSample(s) for s in self._get_sample_from_list(self.samples)]
 
         return sorted(samples + self._auto_deletable_samples(), key=lambda e: e.sample_data['sample_id'])
 
@@ -74,7 +72,7 @@ class DeliveredDataDeleter(Deleter):
                         release_file_from_lustre(f)
             else:
                 self.info(
-                    'Sample %s has %s files to delete and %s file to remove from lustre (%.2f G)\n%s\n%s',
+                    'Sample %s has %s files to delete and %s files to remove from Lustre (%.2f G)\n%s\n%s',
                     s,
                     len(s.files_to_purge),
                     len(s.files_to_remove_from_lustre),

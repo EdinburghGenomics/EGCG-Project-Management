@@ -3,7 +3,6 @@ from os.path import join, isdir
 from datetime import datetime
 from cached_property import cached_property
 from egcg_core import app_logging, executor, clarity, rest_communication, util
-from egcg_core.app_logging import AppLogger
 from egcg_core.archive_management import is_archived, ArchivingError
 from egcg_core.config import cfg
 from egcg_core.exceptions import EGCGError
@@ -68,7 +67,7 @@ class Deleter(app_logging.AppLogger):
         return cls._now().strftime('%d_%m_%Y_%H:%M:%S')
 
 
-class ProcessedSample(AppLogger):
+class ProcessedSample(app_logging.AppLogger):
     def __init__(self, sample_data):
         self.sample_data = sample_data
 
@@ -153,7 +152,7 @@ class ProcessedSample(AppLogger):
         _files_to_purge = []
         release_folder = self.released_data_folder
         if release_folder:
-            _files_to_purge.append(release_folder)
+            _files_to_purge.extend(util.find_files(release_folder, '*'))
         return _files_to_purge
 
     @cached_property
