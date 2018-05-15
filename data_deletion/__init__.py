@@ -149,11 +149,9 @@ class ProcessedSample(app_logging.AppLogger):
 
     @cached_property
     def files_to_purge(self):
-        _files_to_purge = []
-        release_folder = self.released_data_folder
-        if release_folder:
-            _files_to_purge.extend(util.find_files(release_folder, '*'))
-        return _files_to_purge
+        if self.released_data_folder:
+            return util.find_files(self.released_data_folder, '*')
+        return []
 
     @cached_property
     def files_to_remove_from_lustre(self):
@@ -165,9 +163,10 @@ class ProcessedSample(app_logging.AppLogger):
         processed_files = self.processed_data_files
         if processed_files:
             _files_to_remove_from_lustre.extend(processed_files)
-        for f in _files_to_remove_from_lustre:
-            if not is_archived(f):
-                raise ArchivingError('File %s is not archived so cannot be released from Lustre' % f)
+
+        unarchived_files = [f for f in _files_to_remove_from_lustre if not is_archived(f)]
+        if unarchived_files:
+            raise ArchivingError('Unarchived files cannot be released from Lustre: %s' % _files_to_remove_from_lustre)
         return _files_to_remove_from_lustre
 
     @cached_property

@@ -84,6 +84,7 @@ class TestRecall(IntegrationTest):
         with patch('bin.recall_sample.load_config'):
             with self.assertRaises(EGCGError) as e:
                 recall_sample.main(['restore', 'sample_1'])
-                assert e.exception.args == ('Found 0 dirty, 1 unarchived files',)
+
+            assert e.exception.args == ('Found 0 dirty, 1 unarchived files',)
 
         self.assert_api_state_for_sample('sample_1', 'on lustre')  # nothing should have happened

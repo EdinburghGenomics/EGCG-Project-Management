@@ -87,22 +87,30 @@ class TestProcessedSample(TestProjectManagement):
             released_data_folder = self.sample.released_data_folder
         assert released_data_folder == 'tests/assets/data_deletion/delivered_data/a_project/star/a_sample'
 
-    @patch.object(ProcessedSample, 'released_data_folder', new='a_deletion_dir')
-    def test_files_to_purge(self):
-        assert self.sample.files_to_purge == ['a_deletion_dir']
+    @patch(ppath + 'util.find_files', return_value=['a_deletion_dir/a_file'])
+    def test_files_to_purge(self, mocked_find_files):
+        with patch.object(ProcessedSample, 'released_data_folder', new=None):
+            assert self.sample.files_to_purge == []
+
+        del self.sample.__dict__['files_to_purge']
+
+        with patch.object(ProcessedSample, 'released_data_folder', new='a_deletion_dir'):
+            assert self.sample.files_to_purge == ['a_deletion_dir/a_file']
+            mocked_find_files.assert_called_with('a_deletion_dir', '*')
 
     @patch.object(ProcessedSample, 'raw_data_files', new=['R1.fastq.gz', 'R2.fastq.gz'])
     @patch.object(ProcessedSample, 'processed_data_files', new=['sample.vcf.gz', 'sample.bam'])
-    @patch.object(ProcessedSample, 'is_archived')
+    @patch(ppath + 'is_archived')
     def test_files_to_remove_from_lustre(self, mocked_is_archived):
+        exp = ['R1.fastq.gz', 'R2.fastq.gz', 'sample.vcf.gz', 'sample.bam']
         mocked_is_archived.return_value = False
         with self.assertRaises(ArchivingError) as e:
             _ = self.sample.files_to_remove_from_lustre
 
-        assert str(e.value) == 'File R1.fastq.gz is not archived so cannot be released from Lustre'
+        assert str(e.exception) == 'Unarchived files cannot be released from Lustre: ' + str(exp)
 
         mocked_is_archived.return_value = True
-        assert self.sample.files_to_remove_from_lustre == ['R1.fastq.gz', 'R1.fastq.gz', 'sample.vcf.gz', 'sample.bam']
+        assert self.sample.files_to_remove_from_lustre == exp
 
     def test_size_of_files(self):
         patched_stat = patch(ppath + 'stat', return_value=Mock(st_ino='123456', st_size=10000))
@@ -174,11 +182,11 @@ class TestDeliveredDataDeleter(TestDeleter):
         self.deleter.dry_run = True
         self.deleter.setup_samples_for_deletion(self.samples)
         mocked_log.assert_any_call(
-            'Sample %s has %s files to delete and %s file to remove from lustre (%.2f G)\n%s\n%s',
+            'Sample %s has %s files to delete and %s files to remove from Lustre (%.2f G)\n%s\n%s',
             self.samples[0], 1, 1, 2 / 1000000000, 'folder_this', 'a_file'
         )
         mocked_log.assert_any_call(
-            'Sample %s has %s files to delete and %s file to remove from lustre (%.2f G)\n%s\n%s',
+            'Sample %s has %s files to delete and %s files to remove from Lustre (%.2f G)\n%s\n%s',
             self.samples[1], 1, 1, 4 / 1000000000, 'folder_that', 'another_file'
         )
         mocked_log.assert_any_call('Will run: mv %s %s', 'folder_this', 'a_deletion_dir/this')
