@@ -283,7 +283,7 @@ class TestDataDelivery(TestProjectManagement):
         delivered_date = datetime.datetime(2018, 1, 10)
         with patch('bin.deliver_reviewed_data._now', return_value=delivered_date), \
                 patch('egcg_core.rest_communication.patch_entry') as mpatch, \
-                patch('egcg_core.clarity.route_samples_to_delivery_workflow') as mroute:
+                patch('egcg_core.clarity.route_samples_to_workflow_stage') as mroute:
             self.delivery_real_merged.samples2list_files = {
                 'p1sample1': [{'file_path': 'path to file1'}],
                 'p1sample2': [{'file_path': 'path to file2'}],
@@ -307,7 +307,11 @@ class TestDataDelivery(TestProjectManagement):
                 },
                 update_lists=['files_delivered']
             )
-            mroute.assert_called_with(['p1sample1', 'p1sample2'])
+            mroute.assert_called_with(
+                ['p1sample1', 'p1sample2'],
+                'Data Release workflow',
+                stage_name='Data Release stage'
+            )
 
     def test_get_deliverable_projects_samples(self):
         with patch_process, patch_get_document, patch_get_documents:

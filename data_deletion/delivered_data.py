@@ -148,7 +148,7 @@ class DeliveredDataDeleter(Deleter):
         self.debug('Found %s samples for deletion: %s' % (len(deletable_samples), sample_ids))
         self.setup_samples_for_deletion(deletable_samples, self.dry_run)
 
-        if not self.deletable_samples or self.dry_run:
+        if not deletable_samples or self.dry_run:
             return 0
 
         for s in deletable_samples:
