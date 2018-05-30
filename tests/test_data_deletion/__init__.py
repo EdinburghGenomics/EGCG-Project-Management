@@ -33,3 +33,11 @@ class TestDeleter(TestProjectManagement):
             os.remove(deletion_script)
         for tmpdir in find_files(self.assets_deletion, '*', '.data_deletion_*'):
             rmtree(tmpdir)
+
+    @patch('egcg_core.notifications.log.LogNotification.notify')
+    def test_crash_report(self, mocked_notify):
+        patched_delete = patch.object(self.deleter.__class__, 'delete_data', side_effect=ValueError('Something broke'))
+        with patch('sys.exit'), patched_delete:
+            self.deleter.run()
+
+        assert 'ValueError: Something broke' in mocked_notify.call_args[0][0]
