@@ -16,4 +16,4 @@ default:
 
     notifications:
         log:
-            log_file: tests/assets/data_deletion/notifications.log
+            log_file: tests/assets/notifications.log
