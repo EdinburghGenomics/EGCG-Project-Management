@@ -153,11 +153,11 @@ for process in sample_templates:
 
 
 def fake_get_document(*args, **kwargs):
-    match = list(kwargs.values())[0]
+    match = kwargs.get('where') or kwargs['match']
     if 'sample_id' in match:
-        return rest_responses.get(args[0], {}).get(match.get('sample_id'))
+        return rest_responses.get(args[0], {}).get(match['sample_id'])
     if 'project_id' in match:
-        return [rr for rr in rest_responses.get(args[0], {}).values() if rr['project_id'] == match.get('project_id')]
+        return [rr for rr in rest_responses.get(args[0], {}).values() if rr['project_id'] == match['project_id']]
 
 
 patch_get_document = patch('egcg_core.rest_communication.get_document', side_effect=fake_get_document)
