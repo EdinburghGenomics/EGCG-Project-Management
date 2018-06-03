@@ -32,28 +32,36 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
         avg_yield = sum([run.get('aggregated').get('yield_in_gb') for run in runs]) / nb_run
         avg_q30 = sum([run.get('aggregated').get('pc_q30') for run in runs]) / nb_run
 
-        pass_count = count = 0
+        pass_count = waiting_count = count = 0
         for run in runs:
             for lane in rc.get_documents('lanes', where={'run_id': run.get('run_id')}):
-                if lane.get('aggregated').get('review_statuses')[0] == 'pass':
+                if lane.get('aggregated').get('review_statuses', ['no'])[0] == 'pass':
                     pass_count += 1
+                if lane.get('aggregated').get('review_statuses', ['no'])[0] == 'not reviewed':
+                    waiting_count += 1
                 count += 1
 
         pc_pass = pass_count / count * 100
+        pc_waiting = waiting_count / count * 100
 
-        pass_count = count = 0
+        pass_count = waiting_count = count = 0
         for run in runs:
-            run_pass_count = run_count = 0
+            run_pass_count = run_waiting_count = run_count = 0
             for lane in rc.get_documents('lanes', where={'run_id': run.get('run_id')}):
                 if lane.get('aggregated').get('useable_statuses', ['no'])[0] == 'yes':
                     run_pass_count += 1
+                if lane.get('aggregated').get('useable_statuses', ['no'])[0] == 'not marked':
+                    run_waiting_count += 1
 
                 run_count += 1
 
             pass_count += run_pass_count / run_count
+            waiting_count += run_waiting_count / run_count
             count += 1
 
             pc_useable = pass_count / count * 100
+            pc_waiting_useable = waiting_count / count * 100
+
     else:
         avg_yield = 0
         avg_q30 = 0
@@ -65,7 +73,10 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
         'avg_yield': avg_yield,
         'avg_q30': avg_q30,
         'run_pc_pass': pc_pass,
-        'run_pc_useable': pc_useable
+        'run_pc_waiting_pass': pc_waiting,
+        'run_pc_useable': pc_useable,
+        'run_pc_waiting_useable': pc_waiting_useable
+
     }
 
     seven_days_ago = meeting_date - timedelta(days=7)
@@ -91,9 +102,12 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
         print('WARNING: samples %s are being ignored' % ', '.join(diff))
         sample_names = new_sample_names
     nb_reviewed = len(sample_names)
-
-    pc_pass = len([s for s in rest_samples if s.get('reviewed') == 'pass']) / nb_reviewed * 100
-    pc_useable = len([s for s in rest_samples if s.get('useable') == 'yes']) / nb_reviewed * 100
+    if nb_reviewed:
+        pc_pass = len([s for s in rest_samples if s.get('reviewed') == 'pass']) / nb_reviewed * 100
+        pc_useable = len([s for s in rest_samples if s.get('useable') == 'yes']) / nb_reviewed * 100
+    else:
+        pc_pass = 0
+        pc_useable = 0
 
     res['nb_sample_processed'] = nb_sample_processed
     res['nb_reviewed'] = nb_reviewed
@@ -102,8 +116,9 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
 
     res['review_errors'] = list(set([(s.get('project_id'), s.get('review_comments')) for s in rest_samples if s.get('reviewed') == 'fail']))
 
-    for k in ['nb_run', 'avg_yield', 'avg_q30', 'run_pc_pass', 'run_pc_useable', 'nb_sample_processed',
-              'nb_reviewed', 'sample_pc_pass','sample_pc_useable', 'review_errors']:
+    for k in ['nb_run', 'avg_yield', 'avg_q30', 'run_pc_pass', 'run_pc_waiting_pass', 'run_pc_useable',
+              'run_pc_waiting_useable', 'nb_sample_processed', 'nb_reviewed', 'sample_pc_pass','sample_pc_useable',
+              'review_errors']:
         print('%s: %s' % (k, res[k]))
 
 
