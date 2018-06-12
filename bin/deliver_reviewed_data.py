@@ -105,10 +105,14 @@ class DataDelivery(AppLogger):
         }
 
     def already_delivered_samples(self, project_id):
-        return dict(
-            (sample.get('sample_id'), self.get_sample_data(sample.get('sample_id')))
-            for sample in rest_communication.get_documents('samples', where={'project_id': project_id, 'delivered': 'yes'})
-        )
+        return {
+            sample['sample_id']: self.get_sample_data(sample['sample_id'])
+            for sample in rest_communication.get_documents(
+                'samples',
+                where={'project_id': project_id, 'delivered': 'yes'},
+                all_pages=True
+            )
+        }
 
     @cached_property
     def deliverable_samples(self):
@@ -321,7 +325,11 @@ class DataDelivery(AppLogger):
             rest_communication.patch_entry(
                 'samples', payload=payload, id_field='sample_id', element_id=sample_id, update_lists=['files_delivered']
             )
-        clarity.route_samples_to_delivery_workflow(samples)
+        clarity.route_samples_to_workflow_stage(
+            samples,
+            cfg['delivery']['clarity_workflow_name'],
+            stage_name=cfg['delivery']['clarity_stage_name']
+        )
 
     def write_metrics_file(self, project, delivery_folder):
         lines = []
@@ -332,7 +340,6 @@ class DataDelivery(AppLogger):
                 reader = csv.DictReader(open_file, delimiter='\t')
                 already_delivered_data = self.already_delivered_samples(project)
                 for l in reader:
-                    print(l.get('Delivery folder'))
                     res = self._sample_metrics(already_delivered_data[l.get('Sample Id')], l.get('Delivery folder'))
                     lines.append('\t'.join(str(r) for r in res))
 
@@ -472,7 +479,7 @@ class DataDelivery(AppLogger):
             'project_id': project_id,
             'delivery_queue': clarity.get_queue_uri(
                 cfg['delivery']['clarity_workflow_name'],
-                cfg.query('delivery', 'clarity_stage_name', ret_default=None)
+                cfg['delivery']['clarity_stage_name']
             )
         }
 

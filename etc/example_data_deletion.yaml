@@ -14,4 +14,6 @@ default:
             recipients: [recipient@email.com]
         log_dir: tests/assets/data_deletion/logs
 
-
+    notifications:
+        log:
+            log_file: tests/assets/notifications.log
