@@ -13,3 +13,11 @@ class TestDeleter(TestProjectManagement):
     def test_deletion_dir(self):
         with patch.object(self.deleter.__class__, '_strnow', return_value='t'):
             assert self.deleter.deletion_dir == join(self.deleter.work_dir, '.data_deletion_t')
+
+    @patch('egcg_core.notifications.log.LogNotification.notify')
+    def test_crash_report(self, mocked_notify):
+        patched_delete = patch.object(self.deleter.__class__, 'delete_data', side_effect=ValueError('Something broke'))
+        with patch('sys.exit'), patched_delete:
+            self.deleter.run()
+
+        assert 'ValueError: Something broke' in mocked_notify.call_args[0][0]

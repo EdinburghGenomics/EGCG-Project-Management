@@ -1,8 +1,10 @@
+import sys
+import traceback
 from os import listdir, stat
 from os.path import join, isdir
 from datetime import datetime
 from cached_property import cached_property
-from egcg_core import app_logging, executor, clarity, rest_communication, util
+from egcg_core import app_logging, executor, clarity, rest_communication, util, notifications
 from egcg_core.archive_management import is_archived, ArchivingError
 from egcg_core.config import cfg
 from egcg_core.exceptions import EGCGError
@@ -32,6 +34,7 @@ class Deleter(app_logging.AppLogger):
         self.work_dir = work_dir
         self.dry_run = dry_run
         self.deletion_limit = deletion_limit
+        self.ntf = notifications.NotificationCentre('%s at %s' % (self.__class__.__name__, self._strnow()))
 
     @cached_property
     def deletion_dir(self):  # need caching because of reference to datetime.now
@@ -65,6 +68,25 @@ class Deleter(app_logging.AppLogger):
     @classmethod
     def _strnow(cls):
         return cls._now().strftime('%d_%m_%Y_%H:%M:%S')
+
+    def delete_data(self):
+        """
+        The main behaviour of the Deleter
+        :return: None
+        """
+        raise NotImplementedError
+
+    def run(self):
+        """Runs self.delete_data with exception handling and notifications."""
+        try:
+            self.delete_data()
+        except Exception as e:
+            etype, value, tb = sys.exc_info()
+            stacktrace = ''.join(traceback.format_exception(etype, value, tb))
+            self.critical('Encountered a %s exception: %s. Stacktrace below:\n%s', e.__class__.__name__, e, stacktrace)
+            self.ntf.notify_all(stacktrace)
+            executor.stop_running_jobs()
+            sys.exit(9)
 
 
 class ProcessedSample(app_logging.AppLogger):

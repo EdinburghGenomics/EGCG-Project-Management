@@ -150,11 +150,11 @@ for process in sample_templates:
 
 
 def fake_get_document(*args, **kwargs):
-    match = list(kwargs.values())[0]
+    match = kwargs.get('where') or kwargs['match']
     if 'sample_id' in match:
-        return rest_responses.get(args[0], {}).get(match.get('sample_id'))
+        return rest_responses.get(args[0], {}).get(match['sample_id'])
     if 'project_id' in match:
-        return [rr for rr in rest_responses.get(args[0], {}).values() if rr['project_id'] == match.get('project_id')]
+        return [rr for rr in rest_responses.get(args[0], {}).values() if rr['project_id'] == match['project_id']]
 
 
 patch_get_document = patch('egcg_core.rest_communication.get_document', side_effect=fake_get_document)
@@ -163,7 +163,7 @@ patch_get_queue = patch('egcg_core.clarity.get_queue_uri', return_value='http://
 
 
 class FakeProcessPropertyMock(PropertyMock):
-    """PropertyMock Specific to return fake processes."""
+    """PropertyMock specifically to return fake processes."""
     def __get__(self, obj, obj_type):
         return fake_processes.get(obj.process_id)
 
@@ -262,7 +262,7 @@ class TestDataDelivery(TestProjectManagement):
         delivered_date = datetime.datetime(2018, 1, 10)
         with patch('bin.deliver_reviewed_data._now', return_value=delivered_date), \
                 patch('egcg_core.rest_communication.patch_entry') as mpatch, \
-                patch('egcg_core.clarity.route_samples_to_delivery_workflow') as mroute:
+                patch('egcg_core.clarity.route_samples_to_workflow_stage') as mroute:
             self.delivery_real_merged.samples2files = {
                 'p1sample1': [{'file_path': 'path to file1'}],
                 'p1sample2': [{'file_path': 'path to file2'}],
@@ -286,7 +286,11 @@ class TestDataDelivery(TestProjectManagement):
                 },
                 update_lists=['files_delivered']
             )
-            mroute.assert_called_with(['p1sample1', 'p1sample2'])
+            mroute.assert_called_with(
+                ['p1sample1', 'p1sample2'],
+                'Data Release workflow',
+                stage_name='Data Release stage'
+            )
 
     def test_deliverable_samples(self):
         with patch_process, patch_get_document, patch_get_documents:

@@ -8,8 +8,8 @@ ncbi_cache: ':memory:'
 delivery:
     source: tests/assets/data_delivery/source
     dest: tests/assets/data_delivery/dest
-    clarity_workflow_name: 'Data Release'
-    clarity_stage_name: 'Data Release'
+    clarity_workflow_name: 'Data Release workflow'
+    clarity_stage_name: 'Data Release stage'
     email_notification:
         mailhost: smtp.test.me
         port: 25

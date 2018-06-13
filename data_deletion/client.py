@@ -38,7 +38,7 @@ def main(argv=None):
     deleter_args = {k: v for k, v in args.__dict__.items() if v}
 
     d = deleters[deleter_type](**deleter_args)
-    d.delete_data()
+    d.run()
 
 
 if __name__ == '__main__':
