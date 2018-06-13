@@ -1,34 +1,20 @@
-import hashlib
 import os
-import shutil
-from unittest.mock import patch, PropertyMock, Mock
-
-import pytest
+import hashlib
 import time
+import shutil
+import pytest
+from unittest.mock import patch, PropertyMock, Mock
 from egcg_core.config import cfg
 from egcg_core.constants import ELEMENT_SAMPLE_EXTERNAL_ID
-
-from tests import TestProjectManagement
 from upload_to_gel.deliver_data_to_gel import send_action_to_rest_api, GelDataDelivery, DeliveryDB
+from tests import TestProjectManagement
 
-patched_response = patch(
-        'requests.request',
-        return_value=Mock(status_code=200, content='')
-    )
-
+patched_response = patch('requests.request', return_value=Mock(status_code=200, content=''))
 sample1 = {'project_id': 'project1', 'sample_id': 'sample1', 'user_sample_id': '123456789_ext_sample1'}
 sample2 = {'project_id': 'project1', 'sample_id': 'sample2', 'user_sample_id': '223456789_ext_sample2'}
 sample3 = {'project_id': 'project1', 'sample_id': 'sample3', 'user_sample_id': '323456789_ext_sample3'}
-samples = {
-    'sample1': sample1,
-    'sample2': sample2,
-    'sample3': sample3
-}
-fluidx = {
-    'sample1': 'FD1',
-    'sample2': 'FD2',
-    'sample3': 'FD3'
-}
+samples = {'sample1': sample1, 'sample2': sample2, 'sample3': sample3}
+fluidx = {'sample1': 'FD1', 'sample2': 'FD2', 'sample3': 'FD3'}
 
 
 def fake_get_sample(self, sample_id):
@@ -37,19 +23,18 @@ def fake_get_sample(self, sample_id):
 
 def md5(fname):
     hash_md5 = hashlib.md5()
-    with open(fname, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
+    with open(fname, 'rb') as f:
+        for chunk in iter(lambda: f.read(4096), b''):
             hash_md5.update(chunk)
-    with open(fname + '.md5', "w") as f:
-        f.write(hash_md5.hexdigest() + "  " + fname)
+    with open(fname + '.md5', 'w') as f:
+        f.write(hash_md5.hexdigest() + '  ' + fname)
 
 
 class TestDeliveryDB(TestProjectManagement):
+    config_file = 'example_gel_data_delivery.yaml'
+
     def setUp(self):
-        os.chdir(self.root_path)
-        etc_config = os.path.join(self.root_path, 'etc', 'example_gel_data_delivery.yaml')
-        cfg.load_config_file(etc_config)
-        self.db_file = cfg.query('gel_upload', 'delivery_db')
+        self.db_file = cfg['gel_upload']['delivery_db']
         self.deliverydb = DeliveryDB()
 
     def tearDown(self):
@@ -104,6 +89,8 @@ class TestDeliveryDB(TestProjectManagement):
 
 
 class TestGelDataDelivery(TestProjectManagement):
+    config_file = 'example_gel_data_delivery.yaml'
+    assets_delivery = os.path.join(TestProjectManagement.assets_path, 'data_delivery')
     patch_sample_data1 = patch.object(
         GelDataDelivery,
         'sample_data',
@@ -122,12 +109,6 @@ class TestGelDataDelivery(TestProjectManagement):
     patch_create_delivery = patch.object(DeliveryDB, 'create_delivery', return_value='ED00000005')
     patch_send_action = patch('upload_to_gel.deliver_data_to_gel.send_action_to_rest_api')
 
-    def __init__(self, *args, **kwargs):
-        super(TestProjectManagement, self).__init__(*args, **kwargs)
-        cfg.load_config_file(os.path.join(os.path.dirname(self.root_test_path), 'etc', 'example_gel_data_delivery.yaml'))
-        os.chdir(os.path.dirname(self.root_test_path))
-        self.assets_delivery = os.path.join(self.assets_path, 'data_delivery')
-
     def setUp(self):
         self.dest_proj1 = os.path.join(self.assets_delivery, 'dest', 'project1', '2017-01-01')
         os.makedirs(self.dest_proj1, exist_ok=True)
@@ -141,21 +122,11 @@ class TestGelDataDelivery(TestProjectManagement):
                 open(f, 'w').close()
                 md5(f)
 
-        self.gel_data_delivery_dry = GelDataDelivery(
-            'sample1',
-            work_dir=self.staging_dir,
-            dry_run=True,
-            no_cleanup=True
-        )
-        self.gel_data_delivery = GelDataDelivery(
-            'sample1',
-            work_dir=self.staging_dir,
-            dry_run=False,
-            no_cleanup=True
-        )
+        self.gel_data_delivery_dry = GelDataDelivery('sample1', work_dir=self.staging_dir, dry_run=True, no_cleanup=True)
+        self.gel_data_delivery = GelDataDelivery('sample1', work_dir=self.staging_dir, dry_run=False, no_cleanup=True)
 
     def tearDown(self):
-        db_file = cfg.query('gel_upload', 'delivery_db')
+        db_file = cfg['gel_upload']['delivery_db']
         if os.path.exists(db_file):
             os.remove(db_file)
         shutil.rmtree(os.path.dirname(self.dest_proj1))

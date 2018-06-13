@@ -2,9 +2,13 @@ import os
 from shutil import rmtree
 from os.path import join
 from unittest.mock import patch
-
+from egcg_core.executor import local_execute
 from data_deletion.raw_data import RawDataDeleter
 from tests.test_data_deletion import TestDeleter, patches as ptc
+
+
+def fake_execute(cmd, cluster_execution=False):
+    local_execute(cmd).join()
 
 
 class TestRawDataDeleter(TestDeleter):
@@ -13,9 +17,8 @@ class TestRawDataDeleter(TestDeleter):
             os.makedirs(join(self.assets_deletion, 'raw', run_id, d), exist_ok=True)
 
     def setUp(self):
-        os.chdir(os.path.dirname(self.root_test_path))
         self.deleter = RawDataDeleter(join(self.assets_deletion, 'raw'))
-        self.deleter.local_execute_only = True
+        self.deleter._execute = fake_execute
         self._setup_run('deletable_run', self.deleter.deletable_sub_dirs)
         os.makedirs(join(self.assets_deletion, 'archive'), exist_ok=True)
 
@@ -137,4 +140,3 @@ class TestRawDataDeleter(TestDeleter):
         assert d(deletable_element)
         assert not d(unreviewed_element)
         assert not d(unfinished_element)
-

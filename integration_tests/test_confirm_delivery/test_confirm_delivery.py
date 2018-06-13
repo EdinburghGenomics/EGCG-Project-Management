@@ -59,11 +59,8 @@ class TestConfirmDelivery(IntegrationTest):
     @classmethod
     def setUpClass(cls):
         cfg.content = {
-            'sample': {},
-            'delivery_dest': cls.delivered_projects,  # TODO: really!?
-            'delivery': {
-                'dest': cls.delivered_projects
-            }
+            'sample': {},  # for cfg.merge
+            'delivery': {'dest': cls.delivered_projects}
         }
         os.makedirs(cls.delivered_projects, exist_ok=True)
         for s in cls.samples:

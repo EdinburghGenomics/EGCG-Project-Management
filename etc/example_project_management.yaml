@@ -1,19 +1,15 @@
+rest_api:
+    url: 'http://localhost:4999/api/0.1'
+    username: 'a_user'
+    password: 'a_password'
 
----
-default:
+ncbi_cache: ':memory:'
 
-    rest_api:
-        url: 'http://localhost:4999/api/0.1'
-        username: 'a_user'
-        password: 'a_password'
-
-    ncbi_cache: ':memory:'
-
-    executor:
-        job_execution: local  # pbs, slurm, local
-        qsub: '/bin/sh'
-        job_queue: uv2000
-        pre_job_source: bashrc
+executor:
+    job_execution: local  # pbs, slurm, local
+    qsub: '/bin/sh'
+    job_queue: uv2000
+    pre_job_source: bashrc
 
     logging:
         format: '[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
@@ -29,22 +25,23 @@ default:
           - filename: tests/assets/test.log
             when: 'h'
             interval: 1
-    delivery:
-        signature_name: He-Man
-        signature_role: Prince
-        source: tests/assets/project_report/source
-        dest: tests/assets/project_report/dest
 
-    clarity:
-        baseuri: 'http://genologics.com:8080/'
-        username: testuser
-        password: password
+delivery:
+    signature_name: He-Man
+    signature_role: Prince
+    source: tests/assets/project_report/source
+    dest: tests/assets/project_report/dest
 
-    genome_downloader:
-        base_dir: path/to/reference_data
+clarity:
+    baseuri: 'http://genologics.com:8080/'
+    username: testuser
+    password: password
 
-    species:
-        Homo sapiens:
-            default: hg38
-        Thingius thingy:
-            default: thingius47
+genome_downloader:
+    base_dir: path/to/reference_data
+
+species:
+    Homo sapiens:
+        default: hg38
+    Thingius thingy:
+        default: thingius47

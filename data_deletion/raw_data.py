@@ -44,9 +44,9 @@ class RawDataDeleter(Deleter):
             deletable_dirs = self._setup_run_for_deletion(run)
             if sorted(self.deletable_sub_dirs) != sorted(deletable_dirs):
                 self.warning(
-                    'Not all deletable dirs were present for run %s: %s' % (
-                        run, [d for d in self.deletable_sub_dirs if d not in deletable_dirs]
-                    )
+                    'Not all deletable dirs were present for run %s: %s',
+                    run,
+                    [d for d in self.deletable_sub_dirs if d not in deletable_dirs]
                 )
 
         self._compare_lists(listdir(self.deletion_dir), run_ids)
@@ -69,20 +69,13 @@ class RawDataDeleter(Deleter):
 
     def delete_data(self):
         deletable_runs = self.deletable_runs()
-        self.debug(
-            'Found %s runs for deletion: %s' % (
-                len(deletable_runs), [r[ELEMENT_RUN_NAME] for r in deletable_runs]
-            )
-        )
+        self.debug('Found %s runs for deletion: %s', len(deletable_runs), [r[ELEMENT_RUN_NAME] for r in deletable_runs])
         if self.dry_run or not deletable_runs:
             return 0
 
         self.setup_runs_for_deletion(deletable_runs)
         runs_to_delete = listdir(self.deletion_dir)
-        self._compare_lists(
-            runs_to_delete,
-            [run[ELEMENT_RUN_NAME] for run in deletable_runs]
-        )
+        self._compare_lists(runs_to_delete, [run[ELEMENT_RUN_NAME] for run in deletable_runs])
         assert all([listdir(join(self.data_dir, r)) for r in runs_to_delete])
 
         for run in deletable_runs:

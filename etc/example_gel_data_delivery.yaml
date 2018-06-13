@@ -1,30 +1,29 @@
-default:
-    raw_data: tests/assets/data_deletion/raw
-    raw_archives: tests/assets/data_deletion/archive
-    fastqs: tests/assets/data_deletion/fastqs
-    delivered_data: tests/assets/data_deletion/delivered_data
+raw_data: tests/assets/data_deletion/raw
+raw_archives: tests/assets/data_deletion/archive
+fastqs: tests/assets/data_deletion/fastqs
+delivered_data: tests/assets/data_deletion/delivered_data
 
-    ncbi_cache: ':memory:'
+ncbi_cache: ':memory:'
 
-    delivery:
-        source: tests/assets/data_delivery/source
-        dest: tests/assets/data_delivery/dest
+delivery:
+    source: tests/assets/data_delivery/source
+    dest: tests/assets/data_delivery/dest
 
-    sample:
-        input_dir: tests/assets/data_delivery/runs
+sample:
+    input_dir: tests/assets/data_delivery/runs
 
-    tools:
-        fastqc: fastqc
-    executor:
-        job_execution: local
+tools:
+    fastqc: fastqc
+executor:
+    job_execution: local
 
-    gel_upload:
-        delivery_db: tests/assets/data_delivery/gel_upload.sqlite
-        ssh_key: path/to/id_rsa.pub
-        username: user
-        host: gelupload.com
-        dest: /destination/
-        rest_api:
-            host: restapi.gelupload.com
-            user: restuser
-            pswd: passwd
+gel_upload:
+    delivery_db: tests/assets/data_delivery/gel_upload.sqlite
+    ssh_key: path/to/id_rsa.pub
+    username: user
+    host: gelupload.com
+    dest: /destination/
+    rest_api:
+        host: restapi.gelupload.com
+        user: restuser
+        pswd: passwd

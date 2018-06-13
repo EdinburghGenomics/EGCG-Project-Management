@@ -1,18 +1,13 @@
-import collections
-import datetime
-import glob
 import os
+import glob
 import shutil
+import datetime
+import collections
 from itertools import cycle
 from random import randint, random
 from unittest.mock import Mock, PropertyMock, patch
-
-from egcg_core.config import cfg
-
 from project_report import ProjectReport
 from tests import TestProjectManagement, NamedMock
-
-cfg.load_config_file(TestProjectManagement.etc_config)
 
 nb_samples = 50
 
@@ -115,7 +110,7 @@ for project in fake_sample_templates:
         template = fake_sample_templates[project]
         fake_samples[project].append(FakeSample(
             name=template['name'] + str(i),
-            udf=dict([(k, _resolve_next(template['udf'][k])) for k in template['udf']])
+            udf={k: _resolve_next(template['udf'][k]) for k in template['udf']}
         ))
 
 d = datetime.datetime.strptime('2018-01-10', '%Y-%m-%d').date()
@@ -153,10 +148,6 @@ for project in fake_process_templates:
             }
         ))
 
-fake_sample_status = {
-    "started_date": "2017-08-02T11:25:14.659000"
-}
-
 
 class FakeLims:
     fake_lims_researcher = NamedMock(
@@ -185,8 +176,8 @@ class FakeLims:
         return fake_samples[projectname]
 
     @staticmethod
-    def get_processes(type, projectname):
-        if type == 'Data Release Trigger EG 1.0 ST':
+    def get_processes(process_type, projectname):
+        if process_type == 'Data Release Trigger EG 1.0 ST':
             return fake_processes[projectname]
 
 
@@ -234,7 +225,7 @@ for project in fake_samples:
             })
 
 mocked_get_folder_size = patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
-mocked_sample_status = patch(ppath('ProjectReport.sample_status'), return_value=fake_sample_status)
+mocked_sample_status = patch(ppath('ProjectReport.sample_status'), return_value={'started_date': '2017-08-02T11:25:14.659000'})
 
 
 def get_patch_sample_restapi(project_name):
@@ -244,10 +235,7 @@ def get_patch_sample_restapi(project_name):
 
 class TestProjectReport(TestProjectManagement):
     def setUp(self):
-        cfg.load_config_file(self.etc_config)
-
         self.fake_samples = fake_samples['a_project_name']
-        os.chdir(self.root_path)
         self.source_dir = os.path.join(self.assets_path, 'project_report', 'source')
         self.working_dir = os.path.join(self.assets_path, 'project_report', 'work')
         os.makedirs(self.working_dir, exist_ok=True)
@@ -291,7 +279,7 @@ class TestProjectReport(TestProjectManagement):
         # Remove the lab name from the researcher
         self.pr.lims.fake_lims_researcher = NamedMock(name='Firstname Lastname', lab=NamedMock(name=''))
         # Remove the cached project
-        self.pr._project = None
+        del self.pr.__dict__['project']
         assert self.pr.customer_name == 'Firstname Lastname'
 
     @mocked_get_folder_size
@@ -326,7 +314,7 @@ class TestProjectReport(TestProjectManagement):
     def test_get_report_type(self):
         assert self.pr.get_species_from_sample('sample_1') == 'Thingius thingy'
         self.pr.project_name = 'hmix999'
-        self.pr._lims_samples_for_project = None
+        del self.pr.__dict__['samples_for_project_lims']
         assert self.pr.get_species_from_sample('HS_mix_1') == 'Human'
 
     def test_update_program_from_csv(self):
@@ -392,7 +380,6 @@ class TestProjectReport(TestProjectManagement):
 
     @mocked_sample_status
     def test_project_types(self, mocked_sample_status):
-        os.chdir(TestProjectManagement.root_path)
         projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999')
         for p in projects:
             with get_patch_sample_restapi(p):
