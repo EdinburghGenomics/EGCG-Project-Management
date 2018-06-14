@@ -5,7 +5,7 @@ from data_deletion import ProcessedSample
 from data_deletion.delivered_data import DeliveredDataDeleter
 from egcg_core.exceptions import ArchivingError
 from tests import TestProjectManagement
-from tests.test_data_deletion import TestDeleter, patches
+from tests.test_data_deletion import TestDeleter, patched_patch_entry
 
 run_elements1 = [
     {'run_id': 'a_run', 'project_id': 'a_project', 'sample_id': 'a_sample', 'lane': 2},
@@ -123,7 +123,7 @@ class TestProcessedSample(TestProjectManagement):
             file_size = self.sample.size_of_files
             assert file_size == 10000
 
-    @patches.patched_patch_entry
+    @patched_patch_entry
     def test_mark_as_deleted(self, mocked_patch):
         self.sample.mark_as_deleted()
         mocked_patch.assert_called_with('samples', {'data_deleted': 'on lustre'}, 'sample_id', 'a_sample')
@@ -143,17 +143,18 @@ class TestDeliveredDataDeleter(TestDeleter):
         self.deleter = DeliveredDataDeleter(self.assets_deletion)
 
     @patch('egcg_core.rest_communication.get_documents', return_value=[{'some': 'data'}])
-    def test_get_sample_from_list(self, mocked_get):
-        assert self.deleter._get_sample_from_list(list(range(25))) == [{'some': 'data'}, {'some': 'data'}]
+    def test_manually_deletable_samples(self, mocked_get):
+        self.deleter.manual_delete = list(range(25))  # 2 pages worth
+        assert self.deleter._manually_deletable_samples() == [{'some': 'data'}, {'some': 'data'}]
         mocked_get.assert_any_call('aggregate/samples', quiet=True, match={'$or': [{'sample_id': s} for s in range(20)]}, paginate=False)
         mocked_get.assert_any_call('aggregate/samples', quiet=True, match={'$or': [{'sample_id': s} for s in range(20, 25)]}, paginate=False)
 
     @patch.object(ProcessedSample, 'release_date', new='now')
-    @patch.object(DeliveredDataDeleter, '_get_sample_from_list')
+    @patch.object(DeliveredDataDeleter, '_manually_deletable_samples')
     def test_deletable_samples(self, mocked_get):
-        mocked_get.return_value = [{'sample_id': 'this'}, {'sample_id': 'that'}]
+        mocked_get.return_value = []
         assert self.deleter.deletable_samples() == []
-        self.deleter.samples = ['this', 'that']
+        mocked_get.return_value = [{'sample_id': 'this'}, {'sample_id': 'that'}]
         assert [s.sample_data for s in self.deleter.deletable_samples()] == list(reversed(mocked_get.return_value))
 
     @patch.object(DeliveredDataDeleter, '_execute')

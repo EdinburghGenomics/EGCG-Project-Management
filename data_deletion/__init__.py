@@ -30,10 +30,11 @@ def get_file_list_size(file_list):
 
 
 class Deleter(app_logging.AppLogger):
-    def __init__(self, work_dir, dry_run=False, deletion_limit=None):
+    def __init__(self, work_dir, dry_run=False, deletion_limit=None, manual_delete=None):
         self.work_dir = work_dir
         self.dry_run = dry_run
         self.deletion_limit = deletion_limit
+        self.manual_delete = manual_delete or []
         self.ntf = notifications.NotificationCentre('%s at %s' % (self.__class__.__name__, self._strnow()))
 
     @cached_property

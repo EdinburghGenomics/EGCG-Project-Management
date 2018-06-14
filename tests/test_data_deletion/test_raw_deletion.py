@@ -1,14 +1,21 @@
 import os
 from shutil import rmtree
 from os.path import join
+from datetime import datetime
 from unittest.mock import patch
 from egcg_core.executor import local_execute
 from data_deletion.raw_data import RawDataDeleter
-from tests.test_data_deletion import TestDeleter, patches as ptc
+from tests.test_data_deletion import TestDeleter, patched_patch_entry
 
 
 def fake_execute(cmd, cluster_execution=False):
     local_execute(cmd).join()
+
+
+patched_deletable_runs = patch(
+    'data_deletion.raw_data.RawDataDeleter.deletable_runs',
+    return_value=[{'run_id': 'deletable_run', 'most_recent_proc': {'proc_id': 'most_recent_proc'}}]
+)
 
 
 class TestRawDataDeleter(TestDeleter):
@@ -17,7 +24,9 @@ class TestRawDataDeleter(TestDeleter):
             os.makedirs(join(self.assets_deletion, 'raw', run_id, d), exist_ok=True)
 
     def setUp(self):
-        self.deleter = RawDataDeleter(join(self.assets_deletion, 'raw'))
+        with patch.object(RawDataDeleter, '_now', return_value=datetime(2018, 6, 14, 12)):
+            self.deleter = RawDataDeleter(join(self.assets_deletion, 'raw'))
+
         self.deleter._execute = fake_execute
         self._setup_run('deletable_run', self.deleter.deletable_sub_dirs)
         os.makedirs(join(self.assets_deletion, 'archive'), exist_ok=True)
@@ -28,21 +37,33 @@ class TestRawDataDeleter(TestDeleter):
         for d in os.listdir(join(self.assets_deletion, 'archive')):
             rmtree(join(self.assets_deletion, 'archive', d))
 
-    def test_deletable_runs(self):
-        with patch(ptc.patch_get, return_value=ptc.fake_run_elements_no_procs) as p:
-            runs = self.deleter.deletable_runs()
-            p.assert_called_with('aggregate/all_runs', paginate=False, quiet=True, sort='run_id')
-            assert runs == []
+    @patch('egcg_core.rest_communication.get_documents')
+    @patch('egcg_core.rest_communication.get_document')
+    def test_deletable_runs(self, mocked_get_doc, mocked_get_docs):
+        mocked_get_doc.return_value = {
+            'run_id': 'a_manually_deletable_recent_run',
+            # 'aggregated': {'most_recent_proc': {'status': 'stuck in processing because something broke'}}
+        }
+        mocked_get_docs.side_effect = [
+            [
+                {'run_id': 'a_finished_reviewed_recent_run'},
+                {'run_id': 'a_finished_reviewed_old_run'},
+                {'run_id': 'a_finished_unreviewed_old_run'},
+                {'run_id': 'an_extra_run'}
+            ],
+            [{'useable_date': '12_06_2018_12:00:00'}],
+            [{'useable_date': '31_05_2018_12:00:00'}],
+            [{'useable_date': '31_05_2018_12:00:00'}, {'useable_date': None}],
+            [{'useable_date': '31_05_2018_12:00:00'}]
+        ]
 
-        with patch(ptc.patch_get, return_value=ptc.fake_run_elements_procs_running) as p:
-            runs = self.deleter.deletable_runs()
-            p.assert_called_with('aggregate/all_runs', paginate=False, quiet=True, sort='run_id')
-            assert runs == []
+        self.deleter.manual_delete = ['a_manually_deletable_recent_run']
+        self.deleter.deletion_limit = 2
+        runs = self.deleter.deletable_runs()
+        mocked_get_doc.assert_called_with('runs', where={'run_id': 'a_manually_deletable_recent_run'})
 
-        with patch(ptc.patch_get, return_value=ptc.fake_run_elements_procs_complete) as p:
-            runs = self.deleter.deletable_runs()
-            p.assert_called_with('aggregate/all_runs', paginate=False, quiet=True, sort='run_id')
-            assert runs == ptc.fake_run_elements_procs_complete[1:]
+        obs = [r['run_id'] for r in runs]
+        assert obs == ['a_manually_deletable_recent_run', 'a_finished_reviewed_old_run']
 
     def test_setup_run_for_deletion(self):
         subdirs_to_delete = self.deleter._setup_run_for_deletion('deletable_run')
@@ -50,18 +71,18 @@ class TestRawDataDeleter(TestDeleter):
         rmtree(self.deleter.deletion_dir)
 
     def test_setup_runs_for_deletion(self):
-        with ptc.patched_deletable_runs:
+        with patched_deletable_runs:
             self.deleter.setup_runs_for_deletion(self.deleter.deletable_runs())
             assert os.listdir(self.deleter.deletion_dir) == ['deletable_run']
         rmtree(self.deleter.deletion_dir)
 
     def test_delete_runs(self):
-        with ptc.patched_deletable_runs:
+        with patched_deletable_runs:
             self.deleter.setup_runs_for_deletion(self.deleter.deletable_runs())
             self.deleter.delete_dir(self.deleter.deletion_dir)
             assert not os.path.isdir(self.deleter.deletion_dir)
 
-    @ptc.patched_patch_entry
+    @patched_patch_entry
     def test_mark_run_as_deleted(self, mocked_patch):
         run_object = {
             'run_id': 'a_run',
@@ -90,8 +111,8 @@ class TestRawDataDeleter(TestDeleter):
         )
         rmtree(archived_run)
 
-    @ptc.patched_patch_entry
-    @ptc.patched_deletable_runs
+    @patched_patch_entry
+    @patched_deletable_runs
     def test_run_deletion(self, mocked_deletable_runs, mocked_patch):
         self._setup_run('non_deletable_run', self.deleter.deletable_sub_dirs)
         del_dir = join(self.assets_deletion, 'raw', 'deletable_run')
@@ -122,21 +143,3 @@ class TestRawDataDeleter(TestDeleter):
             'most_recent_proc'
         )
         assert mocked_deletable_runs.call_count == 1
-
-    def test_run_deletable(self):
-        deletable_element = {
-            'review_statuses': [None, 'yes', 'no'],
-            'most_recent_proc': {'status': 'finished'}
-        }
-        unreviewed_element = {
-            'review_statuses': [None, 'not reviewed', 'yes', 'no'],
-            'most_recent_proc': {'status': 'finished'}
-        }
-        unfinished_element = {
-            'review_statuses': [None, 'yes', 'no'],
-            'most_recent_proc': {'status': 'running'}
-        }
-        d = self.deleter._run_deletable
-        assert d(deletable_element)
-        assert not d(unreviewed_element)
-        assert not d(unfinished_element)

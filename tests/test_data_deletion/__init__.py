@@ -4,6 +4,9 @@ from data_deletion import Deleter
 from tests import TestProjectManagement
 
 
+patched_patch_entry = patch('data_deletion.raw_data.rest_communication.patch_entry')
+
+
 class TestDeleter(TestProjectManagement):
     config_file = 'example_data_deletion.yaml'
 
