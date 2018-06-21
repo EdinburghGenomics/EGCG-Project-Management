@@ -25,7 +25,7 @@ class TestRawDataDeleter(TestDeleter):
 
     def setUp(self):
         with patch.object(RawDataDeleter, '_now', return_value=datetime(2018, 6, 14, 12)):
-            self.deleter = RawDataDeleter(join(self.assets_deletion, 'raw'))
+            self.deleter = RawDataDeleter(self.cmd_args)
 
         self.deleter._execute = fake_execute
         self._setup_run('deletable_run', self.deleter.deletable_sub_dirs)

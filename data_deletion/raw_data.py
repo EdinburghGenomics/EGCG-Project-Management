@@ -10,10 +10,11 @@ reporting_app_date_format = '%d_%m_%Y_%H:%M:%S'
 
 
 class RawDataDeleter(Deleter):
+    alias = 'raw'
     deletable_sub_dirs = ('Data', 'Logs', 'Thumbnail_Images')
 
-    def __init__(self, work_dir, dry_run=False, deletion_limit=None, manual_delete=None):
-        super().__init__(work_dir, dry_run, deletion_limit, manual_delete)
+    def __init__(self, cmd_args):
+        super().__init__(cmd_args)
         self.raw_data_dir = cfg['data_deletion']['raw_data']
         self.archive_dir = cfg['data_deletion']['raw_archives']
 

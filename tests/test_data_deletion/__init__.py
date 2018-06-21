@@ -1,5 +1,5 @@
 from os.path import join
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from data_deletion import Deleter
 from tests import TestProjectManagement
 
@@ -9,9 +9,16 @@ patched_patch_entry = patch('data_deletion.raw_data.rest_communication.patch_ent
 
 class TestDeleter(TestProjectManagement):
     config_file = 'example_data_deletion.yaml'
+    cmd_args = Mock(
+        work_dir=TestProjectManagement.assets_deletion,
+        dry_run=None,
+        deletion_limit=None,
+        manual_delete=[],
+        sample_ids=[]
+    )
 
     def setUp(self):
-        self.deleter = Deleter(self.assets_deletion)
+        self.deleter = Deleter(self.cmd_args)
 
     def test_deletion_dir(self):
         with patch.object(self.deleter.__class__, '_strnow', return_value='t'):

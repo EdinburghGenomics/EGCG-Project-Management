@@ -140,7 +140,7 @@ class TestDeliveredDataDeleter(TestDeleter):
     )
 
     def setUp(self):
-        self.deleter = DeliveredDataDeleter(self.assets_deletion)
+        self.deleter = DeliveredDataDeleter(self.cmd_args)
 
     @patch('egcg_core.rest_communication.get_documents', return_value=[{'some': 'data'}])
     def test_manually_deletable_samples(self, mocked_get):
