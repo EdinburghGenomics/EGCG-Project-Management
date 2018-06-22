@@ -1,12 +1,14 @@
 import argparse
+
 import logging
 import sys
 from datetime import timedelta, datetime
 from os.path import dirname, abspath
+
 from egcg_core import rest_communication as rc
 from egcg_core.clarity import connection
-from egcg_core.util import query_dict
 from egcg_core.app_logging import logging_default as log_cfg
+from egcg_core.util import query_dict
 
 sys.path.append(dirname(dirname(abspath(__file__))))
 from config import load_config
@@ -21,7 +23,7 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
     ten_days_ago = meeting_date - timedelta(days=day_since_last_meeting + 3)
 
     # number of runs since last meeting
-    runs = rc.get_documents('runs', where={'_created': {'$gte': ten_days_ago.strftime(date_format)}})
+    runs = rc.get_documents('runs', where={'_created': {'$gte': ten_days_ago.strftime(date_format)}}, all_pages=True)
     # only keep finished runs
     runs = [run for run in runs if run.get('aggregated').get('yield_in_gb')]
 
@@ -33,7 +35,7 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
 
         pass_count = waiting_count = count = 0
         for run in runs:
-            for lane in rc.get_documents('lanes', where={'run_id': run.get('run_id')}):
+            for lane in rc.get_documents('lanes', where={'run_id': run.get('run_id')}, all_pages=True):
                 if query_dict(lane, 'aggregated.review_statuses')[0] == 'pass':
                     pass_count += 1
                 if lane.get('aggregated').get('review_statuses', ['no'])[0] == 'not reviewed':
@@ -42,12 +44,11 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
 
         pc_pass = pass_count / count * 100
         pc_waiting = waiting_count / count * 100
-        pc_useable = 0
 
         pass_count = waiting_count = count = 0
         for run in runs:
             run_pass_count = run_waiting_count = run_count = 0
-            for lane in rc.get_documents('lanes', where={'run_id': run.get('run_id')}):
+            for lane in rc.get_documents('lanes', where={'run_id': run.get('run_id')}, all_pages=True):
                 useable_statuses = query_dict(lane, 'aggregated.useable_statuses') or ['no']
                 if useable_statuses[0] == 'yes':
                     run_pass_count += 1
@@ -88,7 +89,8 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
             'status': 'finished',
             'dataset_type': 'sample',
             'end_date': {'$gt': seven_days_ago.strftime(date_format)}
-        }
+        },
+        all_pages=True
     )
     nb_samples_processed = len(processes)
 
@@ -119,14 +121,14 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
     res['nb_reviewed'] = nb_reviewed
     res['sample_pc_pass'] = pc_pass
     res['sample_pc_useable'] = pc_useable
-    res['review_errors'] = list(set([(s.get('project_id'), s.get('review_comments')) for s in rest_samples if s.get('reviewed') == 'fail']))
+    res['review_errors'] = list(set([
+        (s.get('project_id'), s.get('review_comments')) for s in rest_samples if s.get('reviewed') == 'fail'
+    ]))
 
-    for k in ['nb_runs', 'avg_yield', 'avg_q30', 'run_pc_pass', 'run_pc_useable', 'nb_samples_processed',
-              'nb_reviewed', 'sample_pc_pass', 'sample_pc_useable', 'review_errors']:
-    for k in ['nb_run', 'avg_yield', 'avg_q30', 'run_pc_pass', 'run_pc_waiting_pass', 'run_pc_useable',
-              'run_pc_waiting_useable', 'nb_sample_processed', 'nb_reviewed', 'sample_pc_pass','sample_pc_useable',
+    for k in ['nb_runs', 'avg_yield', 'avg_q30', 'run_pc_pass', 'run_pc_waiting_pass', 'run_pc_useable',
+              'run_pc_waiting_useable', 'nb_samples_processed', 'nb_reviewed', 'sample_pc_pass','sample_pc_useable',
               'review_errors']:
-        print('%s: %s' % (k, res[k]))
+        print('%s: %s' % (k, res.get(k)))
 
 
 def main():
