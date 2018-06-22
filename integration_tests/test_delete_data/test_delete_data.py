@@ -82,7 +82,9 @@ class TestDeleteRawData(TestDeletion):
         deletion_threshold = RawDataDeleter._now() - timedelta(days=10)
         rest_communication.patch_entry(
             'run_elements',
-            {'useable_date': deletion_threshold.strftime(reporting_app_date_format)}
+            {'useable_date': deletion_threshold.strftime(reporting_app_date_format)},
+            'run_element_id',
+            'a_run_element'
         )
         self._run_main(['raw'])
         self._assert_deletion_not_occurred()

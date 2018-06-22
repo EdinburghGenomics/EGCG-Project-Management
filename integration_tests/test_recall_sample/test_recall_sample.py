@@ -22,7 +22,8 @@ class TestRecall(IntegrationTest):
     @classmethod
     def setUpClass(cls):
         cfg.content = {
-            'executor': integration_cfg['executor'],
+            'delivery': {'dest': cls.delivered_data_dir},
+            'executor': integration_cfg['executor'],  # for preliminary data deletion
             'data_deletion': {
                 'fastqs': cls.fastq_dir,
                 'fastq_archives': cls.fastq_archive_dir,

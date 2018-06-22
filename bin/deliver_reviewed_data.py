@@ -443,8 +443,8 @@ class DataDelivery(AppLogger):
         self.cleanup()
 
     def send_reports(self, project_to_samples, project_to_reports):
-        email_cfg = cfg.query('delivery', 'email_notification')
-        if email_cfg and set(email_cfg) != {'mailhost', 'port', 'sender', 'recipients'}:
+        email_cfg = cfg.query('delivery', 'email_notification', ret_default={})
+        if set(email_cfg) != {'mailhost', 'port', 'sender', 'recipients'}:
             self.error('Invalid email config: will not sent email')
             return
 

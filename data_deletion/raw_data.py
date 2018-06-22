@@ -82,7 +82,7 @@ class RawDataDeleter(Deleter):
                 ELEMENT_PROCS,
                 {ELEMENT_STATUS: DATASET_DELETED},
                 ELEMENT_PROC_ID,
-                run['most_recent_proc'][ELEMENT_PROC_ID]
+                run['aggregated']['most_recent_proc'][ELEMENT_PROC_ID]
             )
 
     def archive_run(self, run_id):
