@@ -14,7 +14,7 @@ def fake_execute(cmd, cluster_execution=False):
 
 patched_deletable_runs = patch(
     'data_deletion.raw_data.RawDataDeleter.deletable_runs',
-    return_value=[{'run_id': 'deletable_run', 'most_recent_proc': {'proc_id': 'most_recent_proc'}}]
+    return_value=[{'run_id': 'deletable_run', 'aggregated': {'most_recent_proc': {'proc_id': 'most_recent_proc'}}}]
 )
 
 
@@ -86,7 +86,7 @@ class TestRawDataDeleter(TestDeleter):
     def test_mark_run_as_deleted(self, mocked_patch):
         run_object = {
             'run_id': 'a_run',
-            'most_recent_proc': {'proc_id': 'a_most_recent_proc'}
+            'aggregated': {'most_recent_proc': {'proc_id': 'a_most_recent_proc'}}
         }
         self.deleter.mark_run_as_deleted(run_object)
         mocked_patch.assert_called_with(
