@@ -53,8 +53,16 @@ class TestDeleteRawData(TestDeletion):
             'run_elements',
             {
                 'run_element_id': 'a_run_element', 'run_id': 'a_run', 'lane': 1, 'project_id': 'a_project',
-                'library_id': 'a_library', 'sample_id': 'a_sample', 'reviewed': 'pass', 'useable': 'yes',
-                'useable_date': deletion_threshold.strftime(reporting_app_date_format)
+                'library_id': 'a_library', 'barcode': 'ATGCATGC', 'sample_id': 'a_sample', 'reviewed': 'pass',
+                'useable': 'yes', 'useable_date': deletion_threshold.strftime(reporting_app_date_format)
+            }
+        )
+        # unknown barcode has no useable date, but should not prevent a run from being deletable
+        rest_communication.post_entry(
+            'run_elements',
+            {
+                'run_element_id': 'an_unknown_barcode', 'run_id': 'a_run', 'lane': 1, 'project_id': 'a_project',
+                'library_id': 'a_library', 'barcode': 'unknown', 'sample_id': 'a_sample'
             }
         )
         rest_communication.post_entry(

@@ -18,8 +18,8 @@ class RawDataDeleter(Deleter):
         self.raw_data_dir = cfg['data_deletion']['raw_data']
         self.archive_dir = cfg['data_deletion']['raw_archives']
 
-        now = self._now()
-        self.deletion_threshold = now - datetime.timedelta(days=cfg['data_deletion'].get('run_age_threshold_in_days', 14))
+        threshold = datetime.timedelta(cfg['data_deletion'].get('run_age_threshold_in_days', 14))
+        self.deletion_threshold = self._now() - threshold
 
     def deletable_runs(self):
         manual_runs = [
@@ -37,7 +37,11 @@ class RawDataDeleter(Deleter):
         return runs[:self.deletion_limit]
 
     def _run_old_enough_for_deletion(self, run_id):
-        run_elements = rest_communication.get_documents('run_elements', where={'run_id': run_id}, all_pages=True)
+        run_elements = rest_communication.get_documents(
+            'run_elements',
+            where={'run_id': run_id, 'barcode': {'$ne': 'unknown'}},
+            all_pages=True
+        )
         for e in run_elements:
             useable_date = e.get('useable_date')
             if not useable_date:
