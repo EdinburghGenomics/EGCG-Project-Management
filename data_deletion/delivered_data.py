@@ -24,10 +24,10 @@ class DeliveredDataDeleter(Deleter):
         for start in range(0, len(self.manual_delete), max_query):
             samples.extend(
                 rest_communication.get_documents(
-                    'aggregate/samples',
+                    'samples',
                     quiet=True,
-                    match={'$or': [{'sample_id': s} for s in self.manual_delete[start:start + max_query]]},
-                    paginate=False
+                    where={'$or': [{'sample_id': s} for s in self.manual_delete[start:start + max_query]]},
+                    all_pages=True
                 )
             )
         return samples

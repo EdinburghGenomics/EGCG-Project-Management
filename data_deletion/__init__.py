@@ -6,7 +6,7 @@ from os.path import join, isdir, expanduser
 from datetime import datetime
 from cached_property import cached_property
 from egcg_core import app_logging, executor, clarity, rest_communication, util, notifications
-from egcg_core.archive_management import is_archived, ArchivingError
+from egcg_core.archive_management import is_archived, is_released, ArchivingError
 from egcg_core.config import cfg
 from egcg_core.exceptions import EGCGError
 from egcg_core.constants import ELEMENT_SAMPLE_INTERNAL_ID, ELEMENT_PROJECT_ID, ELEMENT_SAMPLE_EXTERNAL_ID, \
@@ -223,3 +223,32 @@ class ProcessedSample(app_logging.AppLogger):
 
     def __repr__(self):
         return self.sample_id + ' (%s)' % self.release_date
+
+
+class FinalSample(ProcessedSample):
+
+    @cached_property
+    def files_to_purge(self):
+        _file_to_purge = []
+        if self.released_data_folder:
+            _file_to_purge.extend(util.find_files(self.released_data_folder, '*'))
+        raw_files = self.raw_data_files
+        if raw_files:
+            _file_to_purge.extend(raw_files)
+
+        processed_files = self.processed_data_files
+        if processed_files:
+            _file_to_purge.extend(processed_files)
+
+        unreleased_files = [f for f in _file_to_purge if not is_released(f)]
+        if unreleased_files:
+            raise ArchivingError('Files not yet remove from lustre cannot be removed from tape: %s' % unreleased_files)
+
+        return _file_to_purge
+
+    @cached_property
+    def files_to_remove_from_lustre(self):
+        return []
+
+    def mark_as_deleted(self):
+        rest_communication.patch_entry('samples', {'data_deleted': 'all'}, 'sample_id', self.sample_id)
