@@ -175,7 +175,7 @@ class TestDeleteFinalData(TestDeletion):
     delivered_data_dir = os.path.join(work_dir, 'delivered_data')
 
     patches = TestDeletion.patches + (
-        patch('data_deletion.clarity.get_sample_release_date', return_value='a_release_date'),
+        patch('data_deletion.clarity.get_sample_release_date', return_value='2016-12-01'),
     )
 
     @classmethod

@@ -80,7 +80,7 @@ class FinalDataDeleter(DeliveredDataDeleter):
 
     def _try_archive_project(self, project_id):
         # Ensure that all samples of that project have been fully deleted.
-        samples = rest_communication.get_document('samples', where={'project_id': project_id})
+        samples = rest_communication.get_documents('samples', where={'project_id': project_id}, all_pages=True)
         if all((sample['data_deleted'] == 'all' for sample in samples)):
             # remove the extra vcf file from project process
             project_dir = os.path.join(self.projects_dir, project_id)
