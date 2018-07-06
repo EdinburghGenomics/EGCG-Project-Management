@@ -116,6 +116,28 @@ def setup_delivered_samples(processed_dir, delivered_dir, fastq_dir):
     return all_files
 
 
+def setup_samples_deleted_from_tier1(processed_dir, delivered_dir, fastq_dir):
+    all_files = setup_delivered_samples(processed_dir, delivered_dir, fastq_dir)
+    for i in range(1, 4):
+        sample_id = 'sample_' + str(i)
+
+        # Remove the delivered data
+        os.removedirs(os.path.join(delivered_dir, 'a_project', 'a_delivery_date'))
+
+        # remove files from lustre
+        for f in all_files[sample_id]:
+            archive_management.release_file_from_lustre(f)
+
+        # mark the sample as deleted on rest api
+        rest_communication.patch_entries('samples', {'data_deleted': 'on lustre'}, 'sample_id', sample_id)
+
+    for sample_id in ('sample_1', 'sample_2', 'sample_3'):
+        for f in all_files[sample_id]:
+            while not archive_management.is_released(f):
+                sleep(10)
+    return all_files
+
+
 def now():
     return datetime.utcnow().strftime('%Y-%m-%d_%H:%M:%S')
 
