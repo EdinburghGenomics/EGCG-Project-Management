@@ -92,7 +92,7 @@ class FinalDataDeleter(DeliveredDataDeleter):
                     self._move_to_unique_file_name(f, deletable_data_dir)
 
             self.debug('Archiving processed project: ' + project_id)
-            self._execute('mv %s %s' % (project_id, os.path.join(self.project_archive_dir, project_id)))
+            self._execute('mv %s %s' % (project_dir, os.path.join(self.project_archive_dir, project_id)))
 
     def delete_data(self):
         deletable_samples = self.deletable_samples()

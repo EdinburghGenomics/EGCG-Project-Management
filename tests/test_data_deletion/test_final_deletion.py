@@ -1,5 +1,8 @@
 import os
 from unittest.mock import patch, Mock
+
+from shutil import rmtree
+
 from data_deletion import FinalSample
 from egcg_core.exceptions import ArchivingError
 
@@ -22,7 +25,8 @@ sample1 = {
     'project_id': 'a_project',
     'user_sample_id': 'a_user_sample_id',
     'most_recent_proc': {'proc_id': 'a_proc_id'},
-    'run_elements': run_elements1
+    'run_elements': run_elements1,
+    'data_deleted': 'all'
 }
 sample2 = {
     'sample_id': 'yet_another_sample',
@@ -86,6 +90,18 @@ class TestFinalDataDeleter(TestDeleter):
 
     def setUp(self):
         self.deleter = FinalDataDeleter(self.cmd_args)
+        os.makedirs(os.path.join(self.deleter.fastq_dir, 'a_run'), exist_ok=True)
+        os.makedirs(os.path.join(self.deleter.projects_dir, 'a_project'), exist_ok=True)
+        os.makedirs(os.path.join(self.deleter.project_archive_dir), exist_ok=True)
+
+    def tearDown(self):
+        to_delete = [
+            os.path.join(self.deleter.run_archive_dir, 'a_run'),
+            os.path.join(self.deleter.project_archive_dir, 'a_project')
+        ]
+        for d in to_delete:
+            if os.path.exists(d):
+                rmtree(d)
 
     @patch.object(FinalSample, 'release_date', new='now')
     @patch.object(FinalDataDeleter, '_manually_deletable_samples')
@@ -142,3 +158,21 @@ class TestFinalDataDeleter(TestDeleter):
         mocked_archive_project.assert_called_once_with('project1')
         mocked_archive_run.assert_any_call('a_run')
         mocked_archive_run.assert_any_call('another_run')
+
+    @patch('egcg_core.rest_communication.get_documents', return_value=run_elements1)
+    @patch('egcg_core.rest_communication.get_document', return_value=sample1)
+    def test_try_archive_run(self, mocked_get_doc, mocked_get_docs):
+        assert os.path.exists(os.path.join(self.deleter.fastq_dir, 'a_run'))
+        assert not os.path.exists(os.path.join(self.deleter.run_archive_dir, 'a_run'))
+        self.deleter._try_archive_run('a_run')
+        assert not os.path.exists(os.path.join(self.deleter.fastq_dir, 'a_run'))
+        assert os.path.exists(os.path.join(self.deleter.run_archive_dir, 'a_run'))
+
+    @patch('egcg_core.rest_communication.get_documents', return_value=[sample1])
+    def test_try_archive_project(self, mocked_get_docs):
+        assert os.path.exists(os.path.join(self.deleter.projects_dir, 'a_project'))
+        assert not os.path.exists(os.path.join(self.deleter.project_archive_dir, 'a_project'))
+        self.deleter._try_archive_project('a_project')
+        assert not os.path.exists(os.path.join(self.deleter.projects_dir, 'a_project'))
+        assert os.path.exists(os.path.join(self.deleter.project_archive_dir, 'a_project'))
+

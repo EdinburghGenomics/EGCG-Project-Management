@@ -198,7 +198,8 @@ class TestDeleteFinalData(TestDeletion):
     def test_manual_release(self):
         for sample_id in ('sample_1', 'sample_2', 'sample_3'):
             assert all(archive_management.is_released(f) for f in self.all_files[sample_id])
-            assert rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'] == 'on lustre'
+            assert rest_communication.get_document('samples', where={'sample_id': sample_id})[
+                       'data_deleted'] == 'on lustre'
 
         self._run_main(
             ['final_deletion', '--manual_delete', 'sample_1', 'sample_2', 'sample_3',
@@ -208,9 +209,33 @@ class TestDeleteFinalData(TestDeletion):
             assert all(not os.path.exists(f) for f in self.all_files[sample_id])
             assert rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'] == 'all'
 
-        # sample 3 should not be released
+        # sample 3 should not be deleted
         assert all(archive_management.is_released(f) for f in self.all_files['sample_3'])
-        assert rest_communication.get_document('samples', where={'sample_id': 'sample_3'})['data_deleted'] == 'on lustre'
+        assert rest_communication.get_document('samples', where={'sample_id': 'sample_3'})[
+                   'data_deleted'] == 'on lustre'
+
+        assert os.path.exists(os.path.join(self.processed_data_dir, 'a_project'))
+        assert not os.path.exists(os.path.join(self.processed_archive_dir, 'a_project'))
+        assert os.path.exists(os.path.join(self.fastq_dir, 'a_run'))
+        assert not os.path.exists(os.path.join(self.fastq_archive_dir, 'a_run'))
+
+    def test_manual_release_and_archiving(self):
+        for sample_id in ('sample_1', 'sample_2', 'sample_3'):
+            assert all(archive_management.is_released(f) for f in self.all_files[sample_id])
+            assert rest_communication.get_document('samples', where={'sample_id': sample_id})[
+                       'data_deleted'] == 'on lustre'
+
+        self._run_main(
+            ['final_deletion', '--manual_delete', 'sample_1', 'sample_2', 'sample_3']
+        )
+        for sample_id in ('sample_1', 'sample_2', 'sample_3'):
+            assert all(not os.path.exists(f) for f in self.all_files[sample_id])
+            assert rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'] == 'all'
+
+        assert not os.path.exists(os.path.join(self.processed_data_dir, 'a_project'))
+        assert os.path.exists(os.path.join(self.processed_archive_dir, 'a_project'))
+        assert not os.path.exists(os.path.join(self.fastq_dir, 'a_run'))
+        assert os.path.exists(os.path.join(self.fastq_archive_dir, 'a_run'))
 
     def test_dry_run(self):
         for sample_id in ('sample_1', 'sample_2', 'sample_3'):
