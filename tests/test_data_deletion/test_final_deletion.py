@@ -93,11 +93,14 @@ class TestFinalDataDeleter(TestDeleter):
         os.makedirs(os.path.join(self.deleter.fastq_dir, 'a_run'), exist_ok=True)
         os.makedirs(os.path.join(self.deleter.projects_dir, 'a_project'), exist_ok=True)
         os.makedirs(os.path.join(self.deleter.project_archive_dir), exist_ok=True)
+        os.makedirs(os.path.join(self.deleter.run_archive_dir), exist_ok=True)
 
     def tearDown(self):
         to_delete = [
-            os.path.join(self.deleter.run_archive_dir, 'a_run'),
-            os.path.join(self.deleter.project_archive_dir, 'a_project')
+            os.path.join(self.deleter.run_archive_dir),
+            os.path.join(self.deleter.project_archive_dir),
+            os.path.join(self.deleter.projects_dir, 'a_project'),
+            os.path.join(self.deleter.fastq_dir, 'a_run'),
         ]
         for d in to_delete:
             if os.path.exists(d):

@@ -116,8 +116,12 @@ def setup_delivered_samples(processed_dir, delivered_dir, fastq_dir):
     return all_files
 
 
-def setup_samples_deleted_from_tier1(processed_dir, delivered_dir, fastq_dir):
+def setup_samples_deleted_from_tier1(processed_dir, delivered_dir, fastq_dir, processed_archive_dir, fastq_archive_dir):
     all_files = setup_delivered_samples(processed_dir, delivered_dir, fastq_dir)
+    for d in (processed_archive_dir, fastq_archive_dir):
+        if os.path.isdir(d):
+            rmtree(d)
+        os.makedirs(d)
 
     # Remove the delivered data
     rmtree(os.path.join(delivered_dir, 'a_project', 'a_delivery_date'))
