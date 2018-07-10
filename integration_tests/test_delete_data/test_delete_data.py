@@ -193,7 +193,10 @@ class TestDeleteFinalData(TestDeletion):
 
     def setUp(self):
         super().setUp()
-        self.all_files = setup_samples_deleted_from_tier1(self.processed_data_dir, self.delivered_data_dir, self.fastq_dir)
+        self.all_files = setup_samples_deleted_from_tier1(
+            self.processed_data_dir, self.delivered_data_dir, self.fastq_dir,
+            self.processed_archive_dir, self.fastq_archive_dir
+        )
 
     def test_manual_release(self):
         for sample_id in ('sample_1', 'sample_2', 'sample_3'):
