@@ -69,6 +69,8 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
         avg_q30 = 0
         pc_pass = 0
         pc_useable = 0
+        pc_waiting = 0
+        pc_waiting_useable = 0
 
     res = {
         'nb_runs': nb_runs,
@@ -78,7 +80,6 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
         'run_pc_waiting_pass': pc_waiting,
         'run_pc_useable': pc_useable,
         'run_pc_waiting_useable': pc_waiting_useable
-
     }
 
     seven_days_ago = meeting_date - timedelta(days=7)
