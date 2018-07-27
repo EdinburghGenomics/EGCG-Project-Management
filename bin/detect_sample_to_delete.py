@@ -76,9 +76,7 @@ class SampleToDeleteDetector(AppLogger):
         )
         projects = defaultdict(list)
         projects_to_release_dates = defaultdict(set)
-        self.info('Found %s sample to check', len(sample_records))
-        self.info('Found %s projects to check', len(set(s.get('project_id') for s in sample_records)))
-        self.info('Found %s sample to check', len(sample_records))
+        self.info('Found %s samples to check', len(sample_records))
         self.info('Found %s projects to check', len(set(s.get('project_id') for s in sample_records)))
 
         for r in sample_records:
