@@ -7,32 +7,33 @@ from egcg_core.archive_management import release_file_from_lustre
 
 
 class DeliveredDataDeleter(Deleter):
-    def __init__(self, work_dir, dry_run=False, deletion_limit=None, manual_delete=None, sample_ids=None):
-        super().__init__(work_dir, dry_run, deletion_limit)
-        self.data_dir = self.work_dir
-        self.samples = manual_delete or []
-        self.limit_samples = sample_ids
+    alias = 'delivered_data'
+
+    def __init__(self, cmd_args):
+        super().__init__(cmd_args)
+        self.limit_samples = self.cmd_args.sample_ids
 
     @staticmethod
-    def _get_sample_from_list(sample_ids):
+    def add_args(argparser):
+        Deleter.add_args(argparser)  # super() doesn't work when calling statically
+        argparser.add_argument('--sample_ids', type=str, nargs='+', default=[])
+
+    def _manually_deletable_samples(self):
         max_query = 20
         samples = []
-        for start in range(0, len(sample_ids), max_query):
+        for start in range(0, len(self.manual_delete), max_query):
             samples.extend(
                 rest_communication.get_documents(
                     'aggregate/samples',
                     quiet=True,
-                    match={'$or': [{'sample_id': s} for s in sample_ids[start:start + max_query]]},
+                    match={'$or': [{'sample_id': s} for s in self.manual_delete[start:start + max_query]]},
                     paginate=False
                 )
             )
         return samples
 
     def deletable_samples(self):
-        samples = []
-        if self.samples:
-            samples = [ProcessedSample(s) for s in self._get_sample_from_list(self.samples)]
-
+        samples = [ProcessedSample(s) for s in self._manually_deletable_samples()]
         return sorted(samples + self._auto_deletable_samples(), key=lambda e: e.sample_data['sample_id'])
 
     def _auto_deletable_samples(self):

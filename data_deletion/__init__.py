@@ -1,7 +1,8 @@
 import sys
+import argparse
 import traceback
 from os import listdir, stat
-from os.path import join, isdir
+from os.path import join, isdir, expanduser
 from datetime import datetime
 from cached_property import cached_property
 from egcg_core import app_logging, executor, clarity, rest_communication, util, notifications
@@ -30,11 +31,33 @@ def get_file_list_size(file_list):
 
 
 class Deleter(app_logging.AppLogger):
-    def __init__(self, work_dir, dry_run=False, deletion_limit=None):
-        self.work_dir = work_dir
-        self.dry_run = dry_run
-        self.deletion_limit = deletion_limit
+    alias = None
+
+    def __init__(self, cmd_args=None):
+        """
+        :param  cmd_args:
+        """
+        self.cmd_args = cmd_args
+        if not self.cmd_args:
+            a = argparse.ArgumentParser()
+            self.add_args(a)
+            self.cmd_args = a.parse_args()
+
+        self.work_dir = self.cmd_args.work_dir
+        self.dry_run = self.cmd_args.dry_run
+        self.deletion_limit = self.cmd_args.deletion_limit
+        self.manual_delete = self.cmd_args.manual_delete
         self.ntf = notifications.NotificationCentre('%s at %s' % (self.__class__.__name__, self._strnow()))
+
+    @staticmethod
+    def add_args(argparser):
+        """
+        :param argparse.ArgumentParser argparser:
+        """
+        argparser.add_argument('--dry_run', action='store_true')
+        argparser.add_argument('--work_dir', default=expanduser('~'))
+        argparser.add_argument('--deletion_limit', type=int, default=None)
+        argparser.add_argument('--manual_delete', type=str, nargs='+', default=[])
 
     @cached_property
     def deletion_dir(self):  # need caching because of reference to datetime.now

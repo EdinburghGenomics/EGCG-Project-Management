@@ -1,10 +1,12 @@
 import os
 from shutil import rmtree
+from datetime import timedelta
 from unittest.mock import patch
 from integration_tests import IntegrationTest, integration_cfg, setup_delivered_samples
 from egcg_core import rest_communication, archive_management
 from egcg_core.config import cfg
 from data_deletion import client
+from data_deletion.raw_data import RawDataDeleter, reporting_app_date_format
 
 work_dir = os.path.dirname(__file__)
 
@@ -21,6 +23,7 @@ class TestDeletion(IntegrationTest):
 
 class TestDeleteRawData(TestDeletion):
     raw_dir = os.path.join(work_dir, 'raw')
+    raw_run_dir = os.path.join(raw_dir, 'a_run')
     archive_dir = os.path.join(work_dir, 'archives')
 
     @classmethod
@@ -37,7 +40,7 @@ class TestDeleteRawData(TestDeletion):
         super().setUp()
 
         for d in ('Data', 'Logs', 'Thumbnail_Images', 'some_metadata'):
-            subdir = os.path.join(self.raw_dir, 'a_run', d)
+            subdir = os.path.join(self.raw_run_dir, d)
             os.makedirs(subdir, exist_ok=True)
             open(os.path.join(subdir, 'some_data.txt'), 'w').close()
 
@@ -45,11 +48,21 @@ class TestDeleteRawData(TestDeletion):
         for x in os.listdir(self.archive_dir):
             rmtree(os.path.join(self.archive_dir, x))
 
+        deletion_threshold = RawDataDeleter._now() - timedelta(days=15)
         rest_communication.post_entry(
             'run_elements',
             {
                 'run_element_id': 'a_run_element', 'run_id': 'a_run', 'lane': 1, 'project_id': 'a_project',
-                'library_id': 'a_library', 'sample_id': 'a_sample', 'reviewed': 'pass'
+                'library_id': 'a_library', 'barcode': 'ATGCATGC', 'sample_id': 'a_sample', 'reviewed': 'pass',
+                'useable': 'yes', 'useable_date': deletion_threshold.strftime(reporting_app_date_format)
+            }
+        )
+        # unknown barcode has no useable date, but should not prevent a run from being deletable
+        rest_communication.post_entry(
+            'run_elements',
+            {
+                'run_element_id': 'an_unknown_barcode', 'run_id': 'a_run', 'lane': 1, 'project_id': 'a_project',
+                'library_id': 'a_library', 'barcode': 'unknown', 'sample_id': 'a_sample'
             }
         )
         rest_communication.post_entry(
@@ -57,26 +70,45 @@ class TestDeleteRawData(TestDeletion):
             {'proc_id': 'a_proc', 'dataset_type': 'run', 'dataset_name': 'a_run', 'status': 'finished'}
         )
         rest_communication.post_entry('runs', {'run_id': 'a_run', 'analysis_driver_procs': ['a_proc']})
+        self._assert_deletion_not_occurred()
 
-    def test_raw_data(self):
-        run_dir = os.path.join(self.raw_dir, 'a_run')
-        assert os.path.isdir(run_dir)
-
+    def test_delete(self):
         self._run_main(['raw'])
+        self._assert_deletion_occurred()
 
-        assert not os.path.isdir(run_dir)
-        assert os.path.isfile(os.path.join(self.archive_dir, 'a_run', 'some_metadata', 'some_data.txt'))
-
-    def test_unreviewed_raw_data(self):
+    def test_review_status(self):
         rest_communication.patch_entry('run_elements', {'reviewed': 'not reviewed'}, 'run_element_id', 'a_run_element')
-        run_dir = os.path.join(self.raw_dir, 'a_run')
-        assert os.path.isdir(run_dir)
-
         self._run_main(['raw'])
+        self._assert_deletion_not_occurred()
 
-        # nothing should have happened
-        assert os.path.isdir(run_dir)
+    def test_proc_status(self):
+        rest_communication.patch_entry('analysis_driver_procs', {'status': 'processing'}, 'proc_id', 'a_proc')
+        self._run_main(['raw'])
+        self._assert_deletion_not_occurred()
+
+    def test_deletion_age(self):
+        deletion_threshold = RawDataDeleter._now() - timedelta(days=10)
+        rest_communication.patch_entry(
+            'run_elements',
+            {'useable_date': deletion_threshold.strftime(reporting_app_date_format)},
+            'run_element_id',
+            'a_run_element'
+        )
+        self._run_main(['raw'])
+        self._assert_deletion_not_occurred()
+
+    def test_manual_delete(self):
+        rest_communication.patch_entry('run_elements', {'reviewed': 'not reviewed'}, 'run_element_id', 'a_run_element')
+        self._run_main(['raw', '--manual_delete', 'a_run'])
+        self._assert_deletion_occurred()
+
+    def _assert_deletion_not_occurred(self):
+        assert os.path.isdir(self.raw_run_dir)
         assert not os.path.isdir(os.path.join(self.archive_dir, 'a_run'))
+
+    def _assert_deletion_occurred(self):
+        assert not os.path.isdir(self.raw_run_dir)
+        assert os.path.isfile(os.path.join(self.archive_dir, 'a_run', 'some_metadata', 'some_data.txt'))
 
 
 class TestDeleteDeliveredData(TestDeletion):
