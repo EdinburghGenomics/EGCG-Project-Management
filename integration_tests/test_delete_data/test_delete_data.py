@@ -2,7 +2,8 @@ import os
 from shutil import rmtree
 from datetime import timedelta
 from unittest.mock import patch
-from integration_tests import IntegrationTest, integration_cfg, setup_delivered_samples
+from integration_tests import IntegrationTest, integration_cfg, setup_delivered_samples, \
+    setup_samples_deleted_from_tier1
 from egcg_core import rest_communication, archive_management
 from egcg_core.config import cfg
 from data_deletion import client
@@ -172,3 +173,94 @@ class TestDeleteDeliveredData(TestDeletion):
         for sample_id in ('sample_1', 'sample_2', 'sample_3'):
             assert all(archive_management.is_archived(f) for f in self.all_files[sample_id])
             assert rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'] == 'none'
+
+
+class TestDeleteFinalData(TestDeletion):
+    fastq_dir = os.path.join(work_dir, 'fastqs')
+    fastq_archive_dir = os.path.join(work_dir, 'fastq_archives')
+    processed_data_dir = os.path.join(work_dir, 'processed_data')
+    processed_archive_dir = os.path.join(work_dir, 'processed_archives')
+    delivered_data_dir = os.path.join(work_dir, 'delivered_data')
+
+    patches = TestDeletion.patches + (
+        patch('data_deletion.clarity.get_sample_release_date', return_value='2016-12-01'),
+    )
+
+    @classmethod
+    def setUpClass(cls):
+        cfg.content = {
+            'executor': integration_cfg['executor'],
+            'data_deletion': {
+                'fastqs': cls.fastq_dir,
+                'fastq_archives': cls.fastq_archive_dir,
+                'processed_data': cls.processed_data_dir,
+                'processed_archives': cls.processed_archive_dir,
+                'delivered_data': cls.delivered_data_dir
+            }
+        }
+
+    def setUp(self):
+        super().setUp()
+        self.all_files = setup_samples_deleted_from_tier1(
+            self.processed_data_dir, self.delivered_data_dir, self.fastq_dir,
+            self.processed_archive_dir, self.fastq_archive_dir
+        )
+
+    def test_manual_release(self):
+        for sample_id in ('sample_1', 'sample_2', 'sample_3'):
+            assert all(archive_management.is_released(f) for f in self.all_files[sample_id])
+            assert rest_communication.get_document('samples', where={'sample_id': sample_id})[
+                       'data_deleted'] == 'on lustre'
+
+        self._run_main(
+            ['final_deletion', '--manual_delete', 'sample_1', 'sample_2', 'sample_3',
+             '--sample_ids', 'sample_1', 'sample_2']
+        )
+        for sample_id in ('sample_1', 'sample_2'):
+            assert all(not os.path.exists(f) for f in self.all_files[sample_id])
+            assert rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'] == 'all'
+
+        # sample 3 should not be deleted
+        assert all(archive_management.is_released(f) for f in self.all_files['sample_3'])
+        assert rest_communication.get_document('samples', where={'sample_id': 'sample_3'})[
+                   'data_deleted'] == 'on lustre'
+
+        assert os.path.exists(os.path.join(self.processed_data_dir, 'a_project'))
+        assert not os.path.exists(os.path.join(self.processed_archive_dir, 'a_project'))
+        assert os.path.exists(os.path.join(self.fastq_dir, 'a_run'))
+        assert not os.path.exists(os.path.join(self.fastq_archive_dir, 'a_run'))
+
+    def test_manual_release_and_archiving(self):
+        for sample_id in ('sample_1', 'sample_2', 'sample_3'):
+            assert all(archive_management.is_released(f) for f in self.all_files[sample_id])
+            assert rest_communication.get_document('samples', where={'sample_id': sample_id})[
+                       'data_deleted'] == 'on lustre'
+
+        self._run_main(
+            ['final_deletion', '--manual_delete', 'sample_1', 'sample_2', 'sample_3']
+        )
+        for sample_id in ('sample_1', 'sample_2', 'sample_3'):
+            assert all(not os.path.exists(f) for f in self.all_files[sample_id])
+            assert rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'] == 'all'
+
+        assert not os.path.exists(os.path.join(self.processed_data_dir, 'a_project'))
+        assert os.path.exists(os.path.join(self.processed_archive_dir, 'a_project'))
+        assert not os.path.exists(os.path.join(self.fastq_dir, 'a_run'))
+        assert os.path.exists(os.path.join(self.fastq_archive_dir, 'a_run'))
+
+    def test_dry_run(self):
+        for sample_id in ('sample_1', 'sample_2', 'sample_3'):
+            assert all(archive_management.is_released(f) for f in self.all_files[sample_id])
+            assert rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'] == 'on lustre'
+
+        self._run_main(
+            ['delivered_data', '--manual_delete', 'sample_1', 'sample_2', 'sample_3',
+             '--sample_ids', 'sample_1', 'sample_2', '--dry_run']
+        )
+
+        # nothing should have happened
+        for sample_id in ('sample_1', 'sample_2', 'sample_3'):
+            assert all(archive_management.is_released(f) for f in self.all_files[sample_id])
+            assert rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'] == 'on lustre'
+
+

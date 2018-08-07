@@ -146,8 +146,8 @@ class TestDeliveredDataDeleter(TestDeleter):
     def test_manually_deletable_samples(self, mocked_get):
         self.deleter.manual_delete = list(range(25))  # 2 pages worth
         assert self.deleter._manually_deletable_samples() == [{'some': 'data'}, {'some': 'data'}]
-        mocked_get.assert_any_call('aggregate/samples', quiet=True, match={'$or': [{'sample_id': s} for s in range(20)]}, paginate=False)
-        mocked_get.assert_any_call('aggregate/samples', quiet=True, match={'$or': [{'sample_id': s} for s in range(20, 25)]}, paginate=False)
+        mocked_get.assert_any_call('samples', quiet=True, where={'$or': [{'sample_id': s} for s in range(20)]}, all_pages=True)
+        mocked_get.assert_any_call('samples', quiet=True, where={'$or': [{'sample_id': s} for s in range(20, 25)]}, all_pages=True)
 
     @patch.object(ProcessedSample, 'release_date', new='now')
     @patch.object(DeliveredDataDeleter, '_manually_deletable_samples')
