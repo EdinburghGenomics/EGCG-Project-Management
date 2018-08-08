@@ -1,11 +1,12 @@
 Changelog for EGCG-Project-Management
 =====================================
 
-0.8 (unreleased)
+0.8 (2018-08-08)
 ----------------
 
-- Nothing changed yet.
-
+- New mode in delete_data.py to perform final data deletion.
+- detect_sample_to_delete.py has a mode to detect sample ready for final deletion
+- Raw data deletion now select run that have been reviewed 14 days ago. It also uses notification in case of a crash
 
 0.7 (2018-05-08)
 ----------------
@@ -16,7 +17,6 @@ Changelog for EGCG-Project-Management
   - removed `--mark_only`, `--project_id`, `--sample_id`
   - added `--process_id`
 - Added integration test suite
-
 
 
 0.6 (2018-01-17)
