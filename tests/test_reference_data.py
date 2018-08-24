@@ -1,5 +1,5 @@
 from unittest.mock import Mock, patch
-from bin import reference_data_download
+from bin import reference_data
 from tests import TestProjectManagement
 
 
@@ -12,7 +12,7 @@ def fake_check_output(argv):
 
 class TestDownloader(TestProjectManagement):
     def setUp(self):
-        self.downloader = reference_data_download.Downloader('A species', 'a_genome')
+        self.downloader = reference_data.Downloader('A species', 'a_genome')
         self.downloader.__dict__['ftp'] = Mock()
         self.downloader.__dict__['_logger'] = Mock()
 
@@ -28,7 +28,7 @@ class TestDownloader(TestProjectManagement):
         assert self.downloader.latest_genome_version() == 'a_genome'
         self.downloader.ftp.nlst.assert_called_with('a_release/fasta/a_species/dna')
 
-    @patch.object(reference_data_download.Downloader, 'download_file')
+    @patch.object(reference_data.Downloader, 'download_file')
     def test_download_data(self, mocked_download):
         files = [
             'release-1/fasta/a_species/A_species.a_genome.dna.toplevel.fa.gz',
@@ -49,7 +49,7 @@ class TestDownloader(TestProjectManagement):
 
     @patch('os.path.isfile', return_value=True)
     @patch('subprocess.Popen')
-    @patch('bin.reference_data_download.local_execute')
+    @patch('bin.reference_data.local_execute')
     @patch('egcg_core.util.find_file')
     @patch('egcg_core.util.find_files')
     def test_prepare_data(self, mocked_find_files, mocked_find_file, mocked_execute, mocked_popen, mocked_isfile):
@@ -109,7 +109,7 @@ class TestDownloader(TestProjectManagement):
     @patch('egcg_core.rest_communication.patch_entry')
     @patch('egcg_core.rest_communication.post_or_patch')
     @patch('egcg_core.util.find_files')
-    @patch('bin.reference_data_download.now', return_value='now')
+    @patch('bin.reference_data.now', return_value='now')
     @patch('builtins.input', side_effect=['project1,project2', 'Some comments', 'y', 'project1,project2', 'Some comments'])
     def test_finish_metadata(self, minput, mnow, m_find, mpostpatch, mpatch, mpost, mgetdoc, mget):
         self.downloader.finish_metadata({})
