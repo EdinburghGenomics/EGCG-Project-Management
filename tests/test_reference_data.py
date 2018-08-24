@@ -1,85 +1,141 @@
-from bin import reference_data
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
+from bin import reference_data_download
 from tests import TestProjectManagement
 
-ppath = 'bin.reference_data.'
+
+def fake_check_output(argv):
+    if 'java' in argv:  # gatk
+        return b'v1.0'
+    else:
+        return b'samtools v1.1'
 
 
-class TestReferenceData(TestProjectManagement):
-    fake_esummary = {
-        'result': {
-            'uids': ['11337', '11338'],
-            '11337': {'uid': '11337', 'assemblyname': 'tThi_1.337', 'speciesname': 'Thingius thingy',
-                      'organism': 'Thingius thingy (some kind of flappy swimmy thing)', 'speciestaxid': '1337',
-                      'seqreleasedate': 'then', 'ftppath_genbank': 'an_ftp_site/tThi_1.338/'},
-            '11338': {'uid': '11338', 'assemblyname': 'tThi_1.338', 'speciesname': 'Thingius thingy',
-                      'speciestaxid': '1337', 'seqreleasedate': 'now', 'ftppath_genbank': None}
+class TestDownloader(TestProjectManagement):
+    def setUp(self):
+        self.downloader = reference_data_download.Downloader('A species', 'a_genome')
+        self.downloader.__dict__['ftp'] = Mock()
+        self.downloader.__dict__['_logger'] = Mock()
+
+    def test_latest_genome_version(self):
+        self.downloader.__dict__['all_ensembl_releases'] = ['a_release']
+        self.downloader.ftp.nlst = Mock(
+            return_value=[
+                'A_species.a_genome.dna.nonchromosomal.fa.gz',
+                'A_species.a_genome.dna.toplevel.fa.gz',
+                'A_species.a_genome.dna_rm.chromosome.1.fa.gz'
+            ]
+        )
+        assert self.downloader.latest_genome_version() == 'a_genome'
+        self.downloader.ftp.nlst.assert_called_with('a_release/fasta/a_species/dna')
+
+    @patch.object(reference_data_download.Downloader, 'download_file')
+    def test_download_data(self, mocked_download):
+        files = [
+            'release-1/fasta/a_species/A_species.a_genome.dna.toplevel.fa.gz',
+            'release-1/variation/vcf/A_species.vcf.gz',
+            'release-1/variation/vcf/A_species.vcf.gz.tbi'
+        ]
+        self.downloader.ftp.nlst = Mock(
+            side_effect=[
+                ['dna'],
+                files[0:1],
+                files[1:]
+            ]
+        )
+        self.downloader.__dict__['ensembl_release'] = 'release-1'
+        self.downloader.download_data()
+        for f in files:
+            mocked_download.assert_any_call(f)
+
+    @patch('os.path.isfile', return_value=True)
+    @patch('subprocess.Popen')
+    @patch('bin.reference_data_download.local_execute')
+    @patch('egcg_core.util.find_file')
+    @patch('egcg_core.util.find_files')
+    def test_prepare_data(self, mocked_find_files, mocked_find_file, mocked_execute, mocked_popen, mocked_isfile):
+        mocked_find_files.side_effect = [
+            ['a_genome.dna.toplevel.fa.gz'],
+            [],  # pre-gzip
+            [],  # fa.fai
+            ['a_species.vcf.gz']
+        ]
+        mocked_find_file.side_effect = [
+            'a_genome.dna.toplevel.fa',  # post-gzip
+            None  # dict file
+        ]
+        self.downloader.prepare_data()
+
+        exp_cmds = (
+            'gzip -d a_genome.dna.toplevel.fa.gz',
+            'path/to/samtools faidx a_genome.dna.toplevel.fa',
+            'path/to/picard CreateSequenceDictionary R=a_genome.dna.toplevel.fa O=a_genome.dna.toplevel.dict'
+        )
+        for cmd in exp_cmds:
+            mocked_execute.assert_any_call(cmd)
+
+        mocked_popen.assert_called_with(
+            'java -jar path/to/gatk -T ValidateVariants -V a_species.vcf.gz -R a_genome.dna.toplevel.fa -warnOnErrors '
+            '> a_species.vcf.gz.validate_variants.log 2>&1',
+            shell=True
+        )
+
+    @patch('subprocess.check_output', new=fake_check_output)
+    @patch('subprocess.Popen', return_value=Mock(communicate=Mock(return_value=(None, b'v1.2'))))
+    @patch('requests.get', return_value=Mock(json=Mock(return_value={'karyotype': [1, 2, 3], 'base_pairs': 100, 'assembly_name': 'a_genome.1'})))
+    def test_prepare_ensembl_metadata(self, mocked_requests, mocked_popen):
+        self.downloader.__dict__['ensembl_release'] = 'release-1'
+        assert self.downloader.prepare_ensembl_metadata() == {
+            'tools_used': {'picard': 'v1.2', 'samtools': 'v1.1', 'gatk': 'v1.0'},
+            'data_source': 'ftp://ftp.ensembl.org/pub/release-1',
+            'chromosome_count': 3,
+            'genome_size': 100
         }
-    }
-    fake_mlsds = [
-        {'thing_11337': None},
-        {'VCF': None, '.': None, '..': None}
-    ]
 
-    @patch(ppath + 'requests.get')
-    def test_query_ncbi(self, mocked_get):
-        reference_data._query_ncbi('an_eutil', 'a_db', this='that', other='another')
-        mocked_get.assert_called_with(
-            'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/an_eutil.fcgi',
-            {'db': 'a_db', 'retmode': 'JSON', 'version': '2.0', 'this': 'that', 'other': 'another'}
+    @patch('builtins.input', side_effect=[3, 100, 'a_data_source', 'this:v0.1,that:v0.2'])
+    def test_prepare_manual_metadata(self, mocked_input):
+        assert self.downloader.prepare_manual_metadata() == {
+            'chromosome_count': 3,
+            'genome_size': 100,
+            'data_source': 'a_data_source',
+            'tools_used': {
+                'this': 'v0.1',
+                'that': 'v0.2'
+            }
+        }
+
+    @patch('requests.get', return_value=Mock(json=Mock(return_value=[{'id': 'a_taxid'}]), status_code=200))
+    @patch('egcg_core.rest_communication.get_document')
+    @patch('egcg_core.rest_communication.post_entry')
+    @patch('egcg_core.rest_communication.patch_entry')
+    @patch('egcg_core.rest_communication.post_or_patch')
+    @patch('egcg_core.util.find_files')
+    @patch('bin.reference_data_download.now', return_value='now')
+    @patch('builtins.input', side_effect=['project1,project2', 'Some comments', 'y', 'project1,project2', 'Some comments'])
+    def test_finish_metadata(self, minput, mnow, m_find, mpostpatch, mpatch, mpost, mgetdoc, mget):
+        self.downloader.finish_metadata({})
+        mpostpatch.assert_called_with(
+            'genomes',
+            {
+                'assembly_name': 'a_genome',
+                'species': 'A species',
+                'date_added': 'now',
+                'project_whitelist': ['project1', 'project2'],
+                'comments': 'Some comments',
+                'analyses_supported': ['qc', 'variant_calling']
+            },
+            id_field='assembly_name'
+        )
+        mpatch.assert_called_with(
+            'species',
+            {'genomes': ['a_genome'], 'default_version': 'a_genome'},
+            'name',
+            'A species',
+            update_lists=True
         )
 
-    @patch(ppath + '_query_ncbi', return_value={'esearchresult': {'count': 2, 'idlist': [1337]}})
-    def test_list_ids(self, mocked_query):
-        assert reference_data.list_ids('a_db', 'Thingius thingy') == [1337]
-        mocked_query.assert_called_with('esearch', 'a_db', term='Thingius thingy', retmax=20)
-
-    @patch(ppath + 'list_ids', return_value=['11337', '11338'])
-    @patch(ppath + '_query_ncbi', return_value=fake_esummary)
-    @patch('builtins.print')
-    def test_list_reference_genomes(self, mocked_print, mocked_query, mocked_list_ids):
-        reference_data.list_reference_genomes('Thingius thingy')
-        mocked_list_ids.assert_called_with('assembly', 'Thingius thingy')
-        mocked_query.assert_called_with('esummary', 'assembly', id='11337,11338')
-        for s in ('11337 tThi_1.337, species Thingius thingy (1337), released then, ftp=an_ftp_site/tThi_1.338/',
-                  '11338 tThi_1.338, species Thingius thingy (1337), released now, ftp=(no ftp available)'):
-            mocked_print.assert_any_call(s)
-
-    @patch(ppath + 'yaml')
-    @patch('builtins.open', return_value=MagicMock())
-    def test_record_reference_data(self, mocked_open, mocked_yaml):
-        with patch(ppath + '_now', return_value='now'), patch(ppath + 'os.makedirs'):
-            reference_data.record_reference_data('Thingius thingy', 'tThi_1.337', {'some': 'metadata'})
-
-        mocked_open.assert_called_with('path/to/reference_data/Thingius_thingy/metadata.yaml', 'w')
-        mocked_file = mocked_open().__enter__()
-        mocked_file.write.assert_any_call('# metadata for Thingius thingy, last modified now\n')
-        mocked_yaml.safe_dump.assert_called_with(
-            {'tThi_1.337': {'date_downloaded': 'now', 'some': 'metadata'}},
-            mocked_file, indent=4, default_flow_style=False
-        )
-
-    @patch(ppath + '_query_ncbi', return_value=fake_esummary)
-    @patch(ppath + 'record_reference_data')
-    def test_get_reference_genome(self, mocked_record, mocked_query):
-        reference_data.get_reference_genome('11337')
-        mocked_query.assert_called_with('esummary', 'assembly', id='11337')
-        mocked_record.assert_called_with(
-            'Thingius thingy',
-            'tThi_1.337',
-            {'uid': '11337', 'assemblyname': 'tThi_1.337',
-             'organism': 'Thingius thingy (some kind of flappy swimmy thing)', 'speciestaxid': '1337',
-             'seqreleasedate': 'then', 'ftppath_genbank': 'an_ftp_site/tThi_1.338/'}
-        )
-
-    @patch(ppath + 'record_reference_data')
-    @patch('ftplib.FTP', return_value=Mock(mlsd=Mock(side_effect=fake_mlsds)))
-    def test_get_dbsnp(self, mocked_ftp, mocked_record):
-        with patch(ppath + '_query_ncbi', return_value={'result': {'11337': {'scientificname': 'Thingius thingy'}}}):
-            reference_data.get_dbsnp('11337')
-        mocked_ftp().mlsd.assert_any_call('snp/organisms/thing_11337')
-        mocked_record.assert_called_with(
-            'Thingius thingy',
-            'dbsnp',
-            {'ftp': 'ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/thing_11337/VCF', 'taxid': '11337'}
+        mgetdoc.return_value = None
+        self.downloader.finish_metadata({})
+        mpost.assert_called_with(
+            'species',
+            {'name': 'A species', 'genomes': ['a_genome'], 'default_version': 'a_genome', 'taxid': 'a_taxid'},
         )

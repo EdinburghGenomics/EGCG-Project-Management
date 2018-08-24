@@ -39,6 +39,9 @@ clarity:
 
 genome_downloader:
     base_dir: path/to/reference_data
+    picard: path/to/picard
+    gatk: path/to/gatk
+    samtools: path/to/samtools
 
 species:
     Homo sapiens:
