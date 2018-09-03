@@ -3,18 +3,15 @@ from bin import reference_data
 from tests import TestProjectManagement
 
 
-def fake_check_output(argv):
-    if 'java' in argv:  # gatk
-        return b'v1.0'
-    else:
-        return b'samtools v1.1'
-
-
 class TestDownloader(TestProjectManagement):
     def setUp(self):
         self.downloader = reference_data.Downloader('A species', 'a_genome')
         self.downloader.__dict__['ftp'] = Mock()
         self.downloader.__dict__['_logger'] = Mock()
+
+    def test_all_ensembl_releases(self):
+        self.downloader.ftp.nlst.return_value = ['README', 'release-1', 'release-10', 'release-2']
+        assert self.downloader.all_ensembl_releases == ['release-10', 'release-2', 'release-1']
 
     def test_latest_genome_version(self):
         self.downloader.__dict__['all_ensembl_releases'] = ['a_release']
@@ -47,55 +44,73 @@ class TestDownloader(TestProjectManagement):
         for f in files:
             mocked_download.assert_any_call(f)
 
-    @patch('os.path.isfile', return_value=True)
-    @patch('subprocess.Popen')
-    @patch('bin.reference_data.local_execute')
+    @patch('os.path.isfile', side_effect=[False, True, False])
+    @patch('subprocess.check_call')
+    @patch('bin.reference_data.Downloader.run_background')
     @patch('egcg_core.util.find_file')
     @patch('egcg_core.util.find_files')
-    def test_prepare_data(self, mocked_find_files, mocked_find_file, mocked_execute, mocked_popen, mocked_isfile):
+    def test_prepare_data(self, mocked_find_files, mocked_find_file, mocked_run, mocked_check_call, mocked_isfile):
         mocked_find_files.side_effect = [
             ['a_genome.dna.toplevel.fa.gz'],
-            [],  # pre-gzip
-            [],  # fa.fai
+            [],  # no .fas
             ['a_species.vcf.gz']
         ]
         mocked_find_file.side_effect = [
-            'a_genome.dna.toplevel.fa',  # post-gzip
-            None  # dict file
+            'a_genome.dna.toplevel.fa',
+            None,  # no fa.fai, so run faidx
+            None,  # no .dict, so run picard
+            None
         ]
+
         self.downloader.prepare_data()
 
-        exp_cmds = (
-            'gzip -d a_genome.dna.toplevel.fa.gz',
-            'path/to/samtools faidx a_genome.dna.toplevel.fa',
-            'path/to/picard CreateSequenceDictionary R=a_genome.dna.toplevel.fa O=a_genome.dna.toplevel.dict'
-        )
-        for cmd in exp_cmds:
-            mocked_execute.assert_any_call(cmd)
+        mocked_check_call.assert_any_call(['gzip', '-d', 'a_genome.dna.toplevel.fa.gz']),
+        mocked_check_call.assert_any_call('gzip -dc a_species.vcf.gz > tmp.vcf', shell=True),
+        mocked_check_call.assert_any_call('path/to/bgzip -c tmp.vcf > a_species.vcf.gz', shell=True)
+        assert mocked_check_call.call_count == 3
 
-        mocked_popen.assert_called_with(
-            'java -jar path/to/gatk -T ValidateVariants -V a_species.vcf.gz -R a_genome.dna.toplevel.fa -warnOnErrors '
-            '> a_species.vcf.gz.validate_variants.log 2>&1',
-            shell=True
-        )
+        mocked_run.assert_any_call('path/to/samtools faidx a_genome.dna.toplevel.fa', 'faidx.log'),
+        mocked_run.assert_any_call('path/to/picard CreateSequenceDictionary R=a_genome.dna.toplevel.fa O=a_genome.dna.toplevel.dict', 'create_sequence_dict.log'),
+        mocked_run.assert_any_call('path/to/bwa index a_genome.dna.toplevel.fa', 'bwa_index.log'),
+        mocked_run.assert_any_call('path/to/tabix -p vcf a_species.vcf.gz', 'tabix.log'),
+        mocked_run.assert_any_call('java -jar path/to/gatk -T ValidateVariants -V a_species.vcf.gz -R a_genome.dna.toplevel.fa -warnOnErrors', 'a_species.vcf.gz.validate_variants.log')
+        assert mocked_run.call_count == 5
 
-    @patch('subprocess.check_output', new=fake_check_output)
-    @patch('subprocess.Popen', return_value=Mock(communicate=Mock(return_value=(None, b'v1.2'))))
-    @patch('requests.get', return_value=Mock(json=Mock(return_value={'karyotype': [1, 2, 3], 'base_pairs': 100, 'assembly_name': 'a_genome.1'})))
-    def test_prepare_ensembl_metadata(self, mocked_requests, mocked_popen):
+    @patch('bin.reference_data.Downloader.check_stdout', return_value='tool v1.0')
+    @patch('bin.reference_data.Downloader.check_stderr', return_value='tool v1.2\ntool v1.1')
+    @patch('requests.get')
+    def test_prepare_ensembl_metadata(self, mocked_get, mocked_stderr, mocked_stdout):
+        mocked_get.return_value.json.return_value = {
+            'karyotype': [1, 2, 3],
+            'base_pairs': 100,
+            'golden_path': 99,
+            'assembly_name': 'a_genome.1'
+        }
         self.downloader.__dict__['ensembl_release'] = 'release-1'
-        assert self.downloader.prepare_ensembl_metadata() == {
-            'tools_used': {'picard': 'v1.2', 'samtools': 'v1.1', 'gatk': 'v1.0'},
+        exp_tools_used = {
+            'picard': 'tool v1.2\ntool v1.1',
+            'tabix': 'v1.2',
+            'bwa': 'v1.1',
+            'bgzip': 'v1.1',
+            'samtools': 'v1.0',
+            'gatk': 'tool v1.0'
+        }
+        assert len(exp_tools_used) == len(self.downloader.tools)
+        obs = self.downloader.prepare_ensembl_metadata()
+        assert obs == {
+            'tools_used': exp_tools_used,
             'data_source': 'ftp://ftp.ensembl.org/pub/release-1',
             'chromosome_count': 3,
-            'genome_size': 100
+            'genome_size': 100,
+            'goldenpath': 99
         }
 
-    @patch('builtins.input', side_effect=[3, 100, 'a_data_source', 'this:v0.1,that:v0.2'])
+    @patch('builtins.input', side_effect=[3, 100, 99, 'a_data_source', 'this:v0.1,that:v0.2'])
     def test_prepare_manual_metadata(self, mocked_input):
         assert self.downloader.prepare_manual_metadata() == {
             'chromosome_count': 3,
             'genome_size': 100,
+            'goldenpath': 99,
             'data_source': 'a_data_source',
             'tools_used': {
                 'this': 'v0.1',
@@ -109,7 +124,7 @@ class TestDownloader(TestProjectManagement):
     @patch('egcg_core.rest_communication.patch_entry')
     @patch('egcg_core.rest_communication.post_or_patch')
     @patch('egcg_core.util.find_files')
-    @patch('bin.reference_data.now', return_value='now')
+    @patch('bin.reference_data.Downloader.now', return_value='now')
     @patch('builtins.input', side_effect=['project1,project2', 'Some comments', 'y', 'project1,project2', 'Some comments'])
     def test_finish_metadata(self, minput, mnow, m_find, mpostpatch, mpatch, mpost, mgetdoc, mget):
         self.downloader.finish_metadata({})

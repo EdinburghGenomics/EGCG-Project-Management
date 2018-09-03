@@ -8,7 +8,6 @@ from cached_property import cached_property
 from egcg_core import util, rest_communication
 from egcg_core.config import cfg
 from egcg_core.app_logging import AppLogger, logging_default
-from egcg_core.executor import local_execute
 from config import load_config
 
 
@@ -20,40 +19,38 @@ class DownloadError(Exception):
     pass
 
 
-def now():
-    return datetime.utcnow().strftime('%d_%m_%Y_%H:%M:%S')
-
-
 class Downloader(AppLogger):
-    def __init__(self, species, genome_version=None, upload=True, download=True):
+    def __init__(self, species, genome_version=None, upload=True, download=True, manual=False):
         self.species = species
         self.ftp_species = species.lower().replace(' ', '_')
         self.species_dir = self.ftp_species[0].upper() + self.ftp_species[1:]
         self.genome_version = genome_version or self.latest_genome_version()
         self.upload = upload
         self.download = download
+        self.manual = manual
 
         self.data_dir = os.path.join(
-            cfg['genome_downloader']['base_dir'],
+            cfg['reference_data']['base_dir'],
             self.species_dir,
             self.genome_version
         )
-        self.tools = {t: cfg['genome_downloader'][t] for t in ('picard', 'gatk', 'samtools')}
+        self.tools = {t: cfg['reference_data'][t] for t in ('picard', 'gatk', 'samtools', 'tabix', 'bgzip', 'bwa')}
         self.info('Data dir: %s', self.data_dir)
 
     def run(self):
-        if self.ensembl_release:  # and not self.manual:
+        if self.ensembl_release and not self.manual:
+            self.info('Running automated data download and metadata upload')
+            payload = self.prepare_ensembl_metadata()
+            self.finish_metadata(payload)
+
             if self.download:
                 self.download_data()
                 self.prepare_data()
-
-            payload = self.prepare_ensembl_metadata()
         else:
-            self.info('Running metadata upload only')
-            assert self.genome_version
+            self.info('Running manual metadata upload only')
+            assert self.genome_version, 'Genome version required for manual data preparation'
             payload = self.prepare_manual_metadata()
-
-        self.finish_metadata(payload)
+            self.finish_metadata(payload)
 
     @cached_property
     def ftp(self):
@@ -64,12 +61,13 @@ class Downloader(AppLogger):
 
     @cached_property
     def all_ensembl_releases(self):
-        releases = [
-            d for d in self.ftp.nlst()  # Ensembl doesn't support mlsd for some reason
-            if d.startswith('release-')
-        ]
-        releases.reverse()
-        return releases
+        releases = []
+        for d in self.ftp.nlst():  # Ensembl doesn't support mlsd for some reason
+            if d.startswith('release-'):
+                releases.append(int(d.split('-')[1]))
+
+        releases.sort(reverse=True)
+        return ['release-%s' % r for r in releases]
 
     @cached_property
     def ensembl_release(self):
@@ -95,7 +93,7 @@ class Downloader(AppLogger):
         base_dir = '%s/fasta/%s' % (self.ensembl_release, self.ftp_species)
 
         ls = self.ftp.nlst(base_dir)
-        if 'dna_index' in ls:
+        if os.path.join(base_dir, 'dna_index') in ls:
             ls = self.ftp.nlst(os.path.join(base_dir, 'dna_index'))
         else:
             ls = self.ftp.nlst(os.path.join(base_dir, 'dna'))
@@ -119,15 +117,6 @@ class Downloader(AppLogger):
         for f in files_to_download:
             self.download_file(f)
 
-    def download_file(self, fp):
-        local_file_path = os.path.join(self.data_dir, os.path.basename(fp))
-        dir_name = os.path.dirname(local_file_path)
-        if not os.path.isdir(dir_name):
-            os.makedirs(dir_name)
-
-        with open(local_file_path, 'wb') as f:
-            self.ftp.retrbinary('RETR ' + fp, f.write)
-
     def prepare_data(self):
         self.info('Preparing downloaded data')
         fa_gzs = util.find_files(self.data_dir, '*dna.toplevel.fa.gz')
@@ -138,15 +127,28 @@ class Downloader(AppLogger):
         if fastas:
             raise DownloadError('Unexpected .fa files found: %s' % fastas)
 
+        procs = []
+
         fasta_gz = fa_gzs[0]
-        local_execute('gzip -d %s' % fasta_gz).join()
+        subprocess.check_call(['gzip', '-d', fasta_gz])
         fasta = util.find_file(self.data_dir, '*dna.toplevel.fa')
-        if not util.find_files(self.data_dir, '*dna.toplevel.fa.gz.fai'):
-            local_execute(self.tools['samtools'] + ' faidx %s' % fasta).join()
+        if not util.find_file(fasta + '.fai'):
+            if os.path.isfile(fasta + '.gz.fai'):
+                os.rename(fasta + '.gz.fai', fasta + '.fai')
+            else:
+                procs.append(self.run_background(self.tools['samtools'] + ' faidx %s' % fasta, 'faidx.log'))
 
         dict_file = os.path.splitext(fasta)[0] + '.dict'
         if not util.find_file(dict_file):
-            local_execute(self.tools['picard'] + ' CreateSequenceDictionary R=%s O=%s' % (fasta, dict_file)).join()
+            procs.append(
+                self.run_background(
+                    self.tools['picard'] + ' CreateSequenceDictionary R=%s O=%s' % (fasta, dict_file),
+                    'create_sequence_dict.log'
+                )
+            )
+
+        if not util.find_file(fasta, '.bwt'):
+            procs.append(self.run_background(self.tools['bwa'] + ' index ' + fasta, 'bwa_index.log'))
 
         vcfs = util.find_files(self.data_dir, '*.vcf.gz')
         if len(vcfs) == 1:
@@ -158,27 +160,36 @@ class Downloader(AppLogger):
             self.info('Finishing with fasta reference genome only')
         else:
             assert os.path.isfile(vcf)
-            validation_log = '%s.validate_variants.log' % vcf
-            p = subprocess.Popen(
-                'java -jar %s -T ValidateVariants -V %s -R %s -warnOnErrors > %s 2>&1' % (
-                    self.tools['gatk'], vcf, fasta, validation_log
-                ),
-                shell=True
+            tbi = vcf + '.tbi'
+            if not os.path.isfile(tbi):
+                self.info('.tbi file not found - bgzipping VCF and indexing.')
+                subprocess.check_call('gzip -dc %s > tmp.vcf' % vcf, shell=True)
+                subprocess.check_call('%s -c tmp.vcf > %s' % (self.tools['bgzip'], vcf), shell=True)
+                tabix = self.run_background('%s -p vcf %s' % (self.tools['tabix'], vcf), 'tabix.log')
+                tabix.wait()
+                procs.append(tabix)
+
+            procs.append(
+                self.run_background(
+                    'java -jar %s -T ValidateVariants -V %s -R %s -warnOnErrors' % (self.tools['gatk'], vcf, fasta),
+                    '%s.validate_variants.log' % vcf
+                )
             )
-            exit_status = p.wait()
-            self.info('Validation completed with exit status %s - see log at %s', exit_status, validation_log)
+
+        for p in procs:
+            self.info("Completed cmd '%s' with exit status %s", p.args, p.wait())
+
+        self.info('Data download done')
 
     def prepare_ensembl_metadata(self):
         payload = {
             'tools_used': {
-                'picard': subprocess.Popen(  # picard --version gives exit status 1, so need to use Popen
-                    [self.tools['picard'], 'CreateSequenceDictionary', '--version'],
-                    stderr=subprocess.PIPE
-                ).communicate()[1].decode().strip(),
-                'samtools': subprocess.check_output(
-                    [self.tools['samtools'], '--version']
-                ).decode().split('\n')[0].split(' ')[1],
-                'gatk': subprocess.check_output(['java', '-jar', self.tools['gatk'], '--version']).decode().strip()
+                'picard': self.check_stderr([self.tools['picard'], 'CreateSequenceDictionary', '--version']),
+                'tabix': self.check_stderr([self.tools['tabix']]).split('\n')[0].split(' ')[1],
+                'bwa': self.check_stderr([self.tools['bwa']]).split('\n')[1].split(' ')[1],
+                'bgzip': self.check_stderr([self.tools['bgzip']]).split('\n')[1].split(' ')[1],
+                'samtools': self.check_stdout([self.tools['samtools'], '--version']).split('\n')[0].split(' ')[1],
+                'gatk': self.check_stdout(['java', '-jar', self.tools['gatk'], '--version'])
             },
             'data_source': 'ftp://ftp.ensembl.org/pub/' + self.ensembl_release
         }
@@ -189,24 +200,18 @@ class Downloader(AppLogger):
         if self.genome_version in assembly_data['assembly_name']:
             payload['chromosome_count'] = len(assembly_data['karyotype'])
             payload['genome_size'] = assembly_data['base_pairs']
+            payload['goldenpath'] = assembly_data['golden_path']
         else:
             self.info('Assembly not found in Ensembl Rest API')
-            for field in ('chromosome_count', 'genome_size'):
-                data = input('Enter a value to use for %s. ' % field)
-                if data:
-                    payload[field] = int(data)
+            self.add_manual_assembly_info(payload)
 
         return payload
 
-    @staticmethod
-    def prepare_manual_metadata():
+    def prepare_manual_metadata(self):
         payload = {}
-        for field in ('chromosome_count', 'genome_size'):
-            value = input('Enter a value to use for %s. ' % field)
-            if value:
-                payload[field] = int(value)
+        self.add_manual_assembly_info(payload)
 
-        data_source = input('Enter a value to use for data_source')
+        data_source = input('Enter a value to use for data_source. ')
         if data_source:
             payload['data_source'] = data_source
 
@@ -218,11 +223,18 @@ class Downloader(AppLogger):
 
         return payload
 
+    @staticmethod
+    def add_manual_assembly_info(payload):
+        for field in ('chromosome_count', 'genome_size', 'goldenpath'):
+            value = input('Enter a value to use for %s. ' % field)
+            if value:
+                payload[field] = int(value)
+
     def finish_metadata(self, payload):
         payload.update(
             assembly_name=self.genome_version,
             species=self.species,
-            date_added=now()
+            date_added=self.now()
         )
 
         project_whitelist = input('Enter a comma-separated list of projects to whitelist for this genome. ')
@@ -281,6 +293,33 @@ class Downloader(AppLogger):
                 }
             )
 
+    def download_file(self, fp):
+        local_file_path = os.path.join(self.data_dir, os.path.basename(fp))
+        dir_name = os.path.dirname(local_file_path)
+        if not os.path.isdir(dir_name):
+            os.makedirs(dir_name)
+
+        with open(local_file_path, 'wb') as f:
+            self.ftp.retrbinary('RETR ' + fp, f.write)
+
+    @staticmethod
+    def check_stdout(argv):
+        return subprocess.check_output(argv).decode().strip()
+
+    @staticmethod
+    def check_stderr(argv):
+        """Capture output from tabix and picard --version commands, which print to stderr and exit with status 1."""
+        p = subprocess.Popen(argv, stderr=subprocess.PIPE)
+        out, err = p.communicate()
+        return err.decode().strip()
+
+    def run_background(self, cmd, log_file):
+        return subprocess.Popen('%s > %s 2>&1' % (cmd, os.path.join(self.data_dir, log_file)), shell=True)
+
+    @staticmethod
+    def now():
+        return datetime.utcnow().strftime('%d_%m_%Y_%H:%M:%S')
+
 
 def main():
     a = argparse.ArgumentParser()
@@ -291,14 +330,12 @@ def main():
     a.add_argument('--genome_version', default=None)
     a.add_argument('--no_upload', dest='upload', action='store_false', help='Turn off the metadata upload')
     a.add_argument('--no_download', dest='download', action='store_false', help='Turn off the data download')
+    a.add_argument('--manual', action='store_true', help='Run manual metadata upload only, even if present in Ensembl')
     args = a.parse_args()
     load_config()
-    d = Downloader(args.species, args.genome_version, args.upload, args.download)
+    d = Downloader(args.species, args.genome_version, args.upload, args.download, args.manual)
     d.run()
 
 
 if __name__ == '__main__':
     main()
-
-
-# TODO: goldenpath

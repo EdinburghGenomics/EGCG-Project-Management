@@ -37,10 +37,13 @@ clarity:
     username: testuser
     password: password
 
-genome_downloader:
+reference_data:
     base_dir: path/to/reference_data
-    picard: path/to/picard
+    bwa: path/to/bwa
     gatk: path/to/gatk
+    bgzip: path/to/bgzip
+    tabix: path/to/tabix
+    picard: path/to/picard
     samtools: path/to/samtools
 
 species:
