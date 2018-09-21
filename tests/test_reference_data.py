@@ -44,37 +44,35 @@ class TestDownloader(TestProjectManagement):
         for f in files:
             mocked_download.assert_any_call(f)
 
+    @patch('builtins.input', return_value=None)
     @patch('os.path.isfile', side_effect=[False, True, False])
     @patch('subprocess.check_call')
     @patch('bin.reference_data.Downloader.run_background')
     @patch('egcg_core.util.find_file')
-    @patch('egcg_core.util.find_files')
-    def test_prepare_data(self, mocked_find_files, mocked_find_file, mocked_run, mocked_check_call, mocked_isfile):
-        mocked_find_files.side_effect = [
-            ['a_genome.dna.toplevel.fa.gz'],
-            [],  # no .fas
-            ['a_species.vcf.gz']
-        ]
-        mocked_find_file.side_effect = [
+    @patch('egcg_core.util.find_files', return_value=[])
+    def test_prepare_data(self, m_find_files, m_find_file, m_run, m_check_call, m_isfile, m_input):
+        m_find_file.side_effect = [
+            'a_genome.dna.toplevel.fa.gz',
             'a_genome.dna.toplevel.fa',
             None,  # no fa.fai, so run faidx
             None,  # no .dict, so run picard
-            None
+            None,  # no .bwt, so run bwa index
+            'a_species.vcf.gz'
         ]
 
         self.downloader.prepare_data()
 
-        mocked_check_call.assert_any_call(['gzip', '-d', 'a_genome.dna.toplevel.fa.gz']),
-        mocked_check_call.assert_any_call('gzip -dc a_species.vcf.gz > tmp.vcf', shell=True),
-        mocked_check_call.assert_any_call('path/to/bgzip -c tmp.vcf > a_species.vcf.gz', shell=True)
-        assert mocked_check_call.call_count == 3
+        m_check_call.assert_any_call(['gzip', '-d', 'a_genome.dna.toplevel.fa.gz']),
+        m_check_call.assert_any_call('gzip -dc a_species.vcf.gz > tmp.vcf', shell=True),
+        m_check_call.assert_any_call('path/to/bgzip -c tmp.vcf > a_species.vcf.gz', shell=True)
+        assert m_check_call.call_count == 3
 
-        mocked_run.assert_any_call('path/to/samtools faidx a_genome.dna.toplevel.fa', 'faidx.log'),
-        mocked_run.assert_any_call('path/to/picard CreateSequenceDictionary R=a_genome.dna.toplevel.fa O=a_genome.dna.toplevel.dict', 'create_sequence_dict.log'),
-        mocked_run.assert_any_call('path/to/bwa index a_genome.dna.toplevel.fa', 'bwa_index.log'),
-        mocked_run.assert_any_call('path/to/tabix -p vcf a_species.vcf.gz', 'tabix.log'),
-        mocked_run.assert_any_call('java -jar path/to/gatk -T ValidateVariants -V a_species.vcf.gz -R a_genome.dna.toplevel.fa -warnOnErrors', 'a_species.vcf.gz.validate_variants.log')
-        assert mocked_run.call_count == 5
+        m_run.assert_any_call('path/to/samtools faidx a_genome.dna.toplevel.fa', 'faidx.log'),
+        m_run.assert_any_call('path/to/picard CreateSequenceDictionary R=a_genome.dna.toplevel.fa O=a_genome.dna.toplevel.dict', 'create_sequence_dict.log'),
+        m_run.assert_any_call('path/to/bwa index a_genome.dna.toplevel.fa', 'bwa_index.log'),
+        m_run.assert_any_call('path/to/tabix -p vcf a_species.vcf.gz', 'tabix.log'),
+        m_run.assert_any_call('java -jar path/to/gatk -T ValidateVariants -V a_species.vcf.gz -R a_genome.dna.toplevel.fa -warnOnErrors', 'a_species.vcf.gz.validate_variants.log')
+        assert m_run.call_count == 5
 
     @patch('bin.reference_data.Downloader.check_stdout', return_value='tool v1.0')
     @patch('bin.reference_data.Downloader.check_stderr', return_value='tool v1.2\ntool v1.1')
@@ -96,8 +94,9 @@ class TestDownloader(TestProjectManagement):
             'gatk': 'tool v1.0'
         }
         assert len(exp_tools_used) == len(self.downloader.tools)
-        obs = self.downloader.prepare_ensembl_metadata()
+        obs = self.downloader.prepare_ensembl_metadata({'some': 'data_files'})
         assert obs == {
+            'data_files': {'some': 'data_files'},
             'tools_used': exp_tools_used,
             'data_source': 'ftp://ftp.ensembl.org/pub/release-1',
             'chromosome_count': 3,
@@ -107,7 +106,8 @@ class TestDownloader(TestProjectManagement):
 
     @patch('builtins.input', side_effect=[3, 100, 99, 'a_data_source', 'this:v0.1,that:v0.2'])
     def test_prepare_manual_metadata(self, mocked_input):
-        assert self.downloader.prepare_manual_metadata() == {
+        assert self.downloader.prepare_manual_metadata({'some': 'data_files'}) == {
+            'data_files': {'some': 'data_files'},
             'chromosome_count': 3,
             'genome_size': 100,
             'goldenpath': 99,
