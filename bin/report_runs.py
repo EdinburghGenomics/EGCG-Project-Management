@@ -13,6 +13,7 @@ from config import load_config
 
 cache = {
     'run_elements_data': {},
+    'lanes_data': {},
     'sample_data': {},
     'run_status_data': {}
 }
@@ -65,22 +66,23 @@ def get_run_success(run_id):
         lane_review_comment[re.get('lane')].add(re.get('review_comments'))
 
     failed_lanes = 0
-    reasons = set()
+    reasons = []
     for lane in sorted(lane_review):
         if len(lane_review.get(lane)) != 1:
             raise ValueError('More than one review status for lane %s in run %s' % (lane, run_id))
         if lane_review.get(lane).pop() == 'fail':
             failed_lanes += 1
-            reasons.update(
-                lane_review_comment.get(lane).pop()[len('failed due to '):].split(', ')
+            reasons.append(
+                'lane %s: %s' % (lane, lane_review_comment.get(lane).pop()[len('failed due to '):])
+
             )
 
     reasons = sorted(reasons)
     message = '%s: %s lanes failed ' % (run_id, failed_lanes)
     run_info['failed_lanes'] = failed_lanes
     if failed_lanes > 0:
-        message += ' due to %s' % ', '.join(reasons)
-    run_info['details'] = ', '.join(reasons)
+        message += ':\n%s' % '\n'.join(reasons)
+    run_info['details'] = reasons
     print(message)
     return run_info
 
@@ -122,9 +124,12 @@ def report_runs(run_ids, noemail=False):
                 elif clean_pc_q30 < 75:
                     reason = 'Low quality'
                 elif clean_yield < sdata['required_yield'] and mean_cov < sdata['required_coverage']:
-                    reason = 'Not enough data'
+                    reason = 'Not enough data: yield (%s < %s) and coverage (%s < %s)' % (
+                            round(clean_yield/1000000000,1), int(sdata['required_yield']/1000000000),
+                            round(mean_cov, 1), sdata['required_coverage']
+                    )
 
-                sample_repeats.append({'id': sample_id, 'reason': reason + ': ' + proc_status})
+                sample_repeats.append({'id': sample_id, 'reason': reason})
 
         sample_repeats.sort(key=lambda s: s['id'])
 
