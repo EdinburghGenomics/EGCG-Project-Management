@@ -65,10 +65,10 @@ def test_get_run_success(mocked_print):
     assert report_runs.get_run_success('a_run') == {
         'name': 'a_run',
         'failed_lanes': 2,
-        'details': 'things, thungs'
+        'details': ['lane 2: things', 'lane 3: thungs']
     }
 
-    mocked_print.assert_called_with('a_run: 2 lanes failed  due to things, thungs')
+    mocked_print.assert_called_with('a_run: 2 lanes failed:\nlane 2: things\nlane 3: thungs')
 
     report_runs.cache['run_elements_data']['a_run'].append(
         {'lane': 1, 'reviewed': 'fail', 'review_comments': 'this will break stuff'}
@@ -88,18 +88,17 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
     report_runs.cache['run_status_data'] = {
         'a_run': {
             'run_status': 'RunCompleted',
-            'sample_ids': ['passing', 'no_data', 'poor_quality', 'poor_yield', 'poor_coverage', 'poor_yield_and_coverage']
+            'sample_ids': ['passing', 'no_data', 'poor_yield', 'poor_coverage', 'poor_yield_and_coverage']
         },
         'errored_run': {
             'run_status': 'RunErrored',
-            'sample_ids': ['passing', 'no_data', 'poor_quality', 'poor_yield', 'poor_coverage', 'poor_yield_and_coverage']
+            'sample_ids': ['passing', 'no_data', 'poor_yield', 'poor_coverage', 'poor_yield_and_coverage']
         }
     }
 
     report_runs.cache['sample_data'] = {
         'passing': {'aggregated': {'clean_pc_q30': 75, 'clean_yield_in_gb': 2, 'from_run_elements': {'mean_coverage': 4}}},
         'no_data': {'aggregated': {}},
-        'poor_quality': {'aggregated': {'clean_pc_q30': 74, 'clean_yield_in_gb': 2, 'from_run_elements': {'mean_coverage': 4}}},
         'poor_yield': {'aggregated': {'clean_pc_q30': 75, 'clean_yield_in_gb': 1, 'from_run_elements': {'mean_coverage': 4}}},
         'poor_coverage': {'aggregated': {'clean_pc_q30': 75, 'clean_yield_in_gb': 2, 'from_run_elements': {'mean_coverage': 3}}},
         'poor_yield_and_coverage': {'aggregated': {'clean_pc_q30': 75, 'clean_yield_in_gb': 1, 'from_run_elements': {'mean_coverage': 3}}},
@@ -115,21 +114,20 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
         email_template=report_runs.email_template_report,
         runs=[
             {'name': 'successful_run', 'failed_lanes': 0, 'details': []},
-            {'name': 'errored_run', 'failed_lanes': 8, 'details': 'RunErrored'}
+            {'name': 'errored_run', 'failed_lanes': 8, 'details': ['RunErrored']}
         ]
     )
 
     exp_failing_samples = [
-        {'id': 'no_data', 'reason': 'No data: not processing'},
-        {'id': 'poor_quality', 'reason': 'Low quality: not processing'},
-        {'id': 'poor_yield_and_coverage', 'reason': 'Not enough data: not processing'}
+        {'id': 'no_data', 'reason': 'No data'},
+        {'id': 'poor_yield_and_coverage', 'reason': 'Not enough data: yield (1.0 < 2) and coverage (3 < 4)'}
     ]
 
     mocked_email.assert_any_call(
         subject='Sequencing repeats today',
         email_template=report_runs.email_template_repeats,
         runs=[
-            {'name': 'a_run', 'repeat_count': 3, 'repeats': exp_failing_samples},
-            {'name': 'errored_run', 'repeat_count': 3, 'repeats': exp_failing_samples}
+            {'name': 'a_run', 'repeat_count': 2, 'repeats': exp_failing_samples},
+            {'name': 'errored_run', 'repeat_count': 2, 'repeats': exp_failing_samples}
         ]
     )

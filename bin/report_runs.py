@@ -78,7 +78,7 @@ def get_run_success(run_id):
             )
 
     reasons = sorted(reasons)
-    message = '%s: %s lanes failed ' % (run_id, failed_lanes)
+    message = '%s: %s lanes failed' % (run_id, failed_lanes)
     run_info['failed_lanes'] = failed_lanes
     if failed_lanes > 0:
         message += ':\n%s' % '\n'.join(reasons)
@@ -97,7 +97,7 @@ def report_runs(run_ids, noemail=False):
             run_info = get_run_success(run_id)
         else:
             print('%s: 8 lanes failed due to %s' % (run_id, run_status))
-            run_info = {'name': run_id, 'failed_lanes': 8, 'details': str(run_status)}
+            run_info = {'name': run_id, 'failed_lanes': 8, 'details': [str(run_status)]}
         runs_info.append(run_info)
 
     print('\n_____________________________________\n')
@@ -109,7 +109,6 @@ def report_runs(run_ids, noemail=False):
         for sample_id in sorted(samples_from_run(run_id)):
             sdata = sample_data(sample_id) or {}
 
-            proc_status = query_dict(sdata, 'aggregated.most_recent_proc.status') or 'not processing'
             clean_pc_q30 = query_dict(sdata, 'aggregated.clean_pc_q30') or 0
             clean_yield_in_gb = query_dict(sdata, 'aggregated.clean_yield_in_gb') or 0
             clean_yield = clean_yield_in_gb * 1000000000
@@ -121,8 +120,6 @@ def report_runs(run_ids, noemail=False):
                 reason = 'unknown'
                 if not clean_pc_q30:
                     reason = 'No data'
-                elif clean_pc_q30 < 75:
-                    reason = 'Low quality'
                 elif clean_yield < sdata['required_yield'] and mean_cov < sdata['required_coverage']:
                     reason = 'Not enough data: yield (%s < %s) and coverage (%s < %s)' % (
                             round(clean_yield/1000000000,1), int(sdata['required_yield']/1000000000),
