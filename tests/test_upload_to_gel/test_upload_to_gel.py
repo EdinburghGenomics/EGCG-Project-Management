@@ -212,7 +212,7 @@ class TestGelDataDelivery(TestProjectManagement):
             mock_execute.assert_any_call(''.join(rsync_cmd))
 
             assert os.listdir(source) == [self.gel_data_delivery.external_id]
-            assert os.listdir(source + '/' + self.gel_data_delivery.external_id) == ['fastq', 'md5sum.txt']
+            assert sorted(os.listdir(source + '/' + self.gel_data_delivery.external_id)) == ['fastq', 'md5sum.txt']
 
             # Check API creation
             mocked_send_action.assert_any_call(

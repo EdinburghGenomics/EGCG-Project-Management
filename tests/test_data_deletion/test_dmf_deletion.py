@@ -31,10 +31,9 @@ class TestDMFDtatDeleter(TestDeleter):
         assert stderr == b''
 
         exist_status, stdout, stderr = self.deleter._get_cmd_output('ls non_existing_directory')
-        assert exist_status == 1
+        assert exist_status != 0
         assert stdout == b''
-        assert stderr == b'ls: non_existing_directory: No such file or directory\n'
-
+        assert b'No such file or directory' in stderr
 
     @patch.object(DMFDtatDeleter, '_get_cmd_output', return_value=(2, b'', b'No such file or directory'))
     def test_find_files_to_delete(self, mock_cmd_out):
