@@ -37,8 +37,14 @@ clarity:
     username: testuser
     password: password
 
-genome_downloader:
+reference_data:
     base_dir: path/to/reference_data
+    bwa: path/to/bwa
+    gatk: path/to/gatk
+    bgzip: path/to/bgzip
+    tabix: path/to/tabix
+    picard: path/to/picard
+    samtools: path/to/samtools
 
 species:
     Homo sapiens:
