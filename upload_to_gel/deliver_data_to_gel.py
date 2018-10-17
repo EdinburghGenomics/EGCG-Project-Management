@@ -1,11 +1,10 @@
 import os
 import re
-import glob
 import shutil
 import sqlite3
 from requests.exceptions import HTTPError
 from cached_property import cached_property
-from egcg_core import executor, clarity, rest_communication
+from egcg_core import executor, clarity, rest_communication, util
 from egcg_core.config import cfg
 from egcg_core.app_logging import AppLogger
 from egcg_core.constants import ELEMENT_SAMPLE_EXTERNAL_ID, ELEMENT_PROJECT_ID
@@ -32,7 +31,7 @@ class DeliveryDB:
     );'''
 
     def __init__(self):
-        self.delivery_db = sqlite3.connect(cfg.query('gel_upload', 'delivery_db'))
+        self.delivery_db = sqlite3.connect(cfg['gel_upload']['delivery_db'])
         self.cursor = self.delivery_db.cursor()
         self.cursor.execute(self.schema)
 
@@ -118,11 +117,7 @@ class GelDataDelivery(AppLogger):
 
     @cached_property
     def sample_data(self):
-        return rest_communication.get_document(
-            'samples',
-            quiet=True,
-            where={'sample_id': self.sample_id}
-        )
+        return rest_communication.get_document('samples', quiet=True, where={'sample_id': self.sample_id})
 
     @cached_property
     def deliver_db(self):
@@ -145,16 +140,13 @@ class GelDataDelivery(AppLogger):
 
     @cached_property
     def sample_delivery_folder(self):
-        delivery_dest = cfg.query('delivery', 'dest')
-        if self.fluidx_barcode:
-            path_to_glob = os.path.join(delivery_dest, self.project_id, '*', self.fluidx_barcode)
-        else:
-            path_to_glob = os.path.join(delivery_dest, self.project_id, '*', self.sample_id)
-        tmp = glob.glob(path_to_glob)
+        delivery_dest = cfg['delivery']['dest']
+        tmp = util.find_files(delivery_dest, self.project_id, '*', self.fluidx_barcode or self.sample_id)
+
         if len(tmp) == 1:
             return tmp[0]
         else:
-            raise ValueError('Could not find a single delivery folder: %s ' % path_to_glob)
+            raise ValueError('Unexpected number of delivery folders: expected 1, got %s' % tmp)
 
     @property
     def sample_barcode(self):
@@ -191,8 +183,8 @@ class GelDataDelivery(AppLogger):
         options = ['-rv', '-L', '--timeout=300', '--append', '--partial', '--chmod ug+rwx,o-rwx', '--perms']
         ssh_options = ['ssh', '-o StrictHostKeyChecking=no', '-o TCPKeepAlive=yes', '-o ServerAliveInterval=100',
                        '-o KeepAlive=yes', '-o BatchMode=yes', '-o LogLevel=Error',
-                       '-i %s' % cfg.query('gel_upload', 'ssh_key'), '-p 22']
-        destination = '%s@%s:%s' % (cfg.query('gel_upload', 'username'), cfg.query('gel_upload', 'host'), cfg.query('gel_upload', 'dest'))
+                       '-i %s' % cfg['gel_upload']['ssh_key'], '-p 22']
+        destination = '%s@%s:%s' % (cfg['gel_upload']['username'], cfg['gel_upload']['host'], cfg['gel_upload']['dest'])
 
         cmd = ' '.join(['rsync',  ' '.join(options), '-e "%s"' % ' '.join(ssh_options), delivery_id_path, destination])
         return executor.local_execute(cmd).join()
@@ -211,7 +203,8 @@ class GelDataDelivery(AppLogger):
         try:
             send_action_to_rest_api(action='get', delivery_id=self.delivery_id)
             return True
-        except HTTPError:
+        except HTTPError as e:
+            self.error(e)
             return False
 
     def deliver_data(self):

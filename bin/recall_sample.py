@@ -61,7 +61,7 @@ def check(sample_id):
 
 
 def restore(sample_id):
-    if disk_usage(cfg['data_deletion']['delivered_data']).free < 50000000000000:  # TODO: refactor config
+    if disk_usage(cfg['delivery']['dest']).free < 50000000000000:
         raise EGCGError('Unsafe to recall: less than 50Tb free')
 
     files_to_restore, files_not_released, files_not_archived, dirty_files = check(sample_id)

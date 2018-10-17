@@ -1,34 +1,33 @@
-default:
-    raw_data: tests/assets/data_deletion/raw
-    raw_archives: tests/assets/data_deletion/archive
-    fastqs: tests/assets/data_deletion/fastqs
-    delivered_data: tests/assets/data_deletion/delivered_data
+raw_data: tests/assets/data_deletion/raw
+raw_archives: tests/assets/data_deletion/archive
+fastqs: tests/assets/data_deletion/fastqs
+delivered_data: tests/assets/data_deletion/delivered_data
 
-    ncbi_cache: ':memory:'
+ncbi_cache: ':memory:'
 
-    delivery:
-        source: tests/assets/data_delivery/source
-        dest: tests/assets/data_delivery/dest
-        clarity_workflow_name: 'Data Release'
-        clarity_stage_name: 'Data Release'
-        email_notification:
-            mailhost: smtp.test.me
-            port: 25
-            sender: sender@email.com
-            recipients:
-              - recipient1@email.com
-              - recipient2@email.com
-
-    input_dir: tests/assets/data_delivery/runs
-
-    tools:
-        fastqc: fastqc
-        md5sum: md5sum
-    executor:
-        job_execution: local
-
+delivery:
+    source: tests/assets/data_delivery/source
+    dest: tests/assets/data_delivery/dest
+    clarity_workflow_name: 'Data Release workflow'
+    clarity_stage_name: 'Data Release stage'
     email_notification:
-        mailhost: 'a_mailhost'
-        port: 1337
-        sender: 'a_sender'
-        recipients: ['some', 'recipients']
+        mailhost: smtp.test.me
+        port: 25
+        sender: sender@email.com
+        recipients:
+          - recipient1@email.com
+          - recipient2@email.com
+
+input_dir: tests/assets/data_delivery/runs
+
+tools:
+    fastqc: fastqc
+    md5sum: md5sum
+executor:
+    job_execution: local
+
+email_notification:
+    mailhost: 'a_mailhost'
+    port: 1337
+    sender: 'a_sender'
+    recipients: ['some', 'recipients']

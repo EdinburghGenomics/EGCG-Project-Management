@@ -1,10 +1,28 @@
 Changelog for EGCG-Project-Management
 =====================================
 
-0.7 (unreleased)
+0.9 (unreleased)
 ----------------
 
-- Modification of the project report to incorporate signature (new config entry)
+- Nothing changed yet.
+
+
+0.8 (2018-08-08)
+----------------
+
+- New mode in delete_data.py to perform final data deletion.
+- detect_sample_to_delete.py has a mode to detect sample ready for final deletion
+- Raw data deletion now select run that have been reviewed 14 days ago. It also uses notification in case of a crash
+
+0.7 (2018-05-08)
+----------------
+
+- Added customer details and signatures to project report (new config entry)
+- Added additional reporting to GeL data delivery and enhancing --force option
+- Switched data delivery over to use a delivery step URI
+  - removed `--mark_only`, `--project_id`, `--sample_id`
+  - added `--process_id`
+- Added integration test suite
 
 
 0.6 (2018-01-17)

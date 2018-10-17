@@ -21,10 +21,6 @@ class TestReferenceData(TestProjectManagement):
         {'VCF': None, '.': None, '..': None}
     ]
 
-    @classmethod
-    def setUpClass(cls):
-        reference_data.cfg.load_config_file(cls.etc_config)
-
     @patch(ppath + 'requests.get')
     def test_query_ncbi(self, mocked_get):
         reference_data._query_ncbi('an_eutil', 'a_db', this='that', other='another')

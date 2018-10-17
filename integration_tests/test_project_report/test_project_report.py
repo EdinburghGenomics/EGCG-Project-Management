@@ -42,13 +42,13 @@ class FakeLims:
                     'Shipment Address Line 4': '-',
                     'Shipment Address Line 5': '-'
                 },
-                researcher=NamedMock(name='First Last', first_name='First', last_name='Last', email='first.last@email.com',
-                                     lab=NamedMock(name='Awesome lab'))
+                researcher=NamedMock(name='First Last', first_name='First', last_name='Last',
+                                     email='first.last@email.com', lab=NamedMock(name='Awesome lab'))
             )
         ]
 
-    def get_processes(self, type, projectname):
-        if type == 'Data Release Trigger EG 1.0 ST':
+    def get_processes(self, process_type, projectname):
+        if process_type == 'Data Release Trigger EG 1.0 ST':
             nb_process = 2
             samples = self.get_samples(projectname)
             sample_sets = [samples[i::nb_process] for i in range(nb_process)]
@@ -123,7 +123,7 @@ class TestProjectReport(IntegrationTest):
     @classmethod
     def setUpClass(cls):
         cfg.content = {
-            'delivery':{
+            'delivery': {
                 'source': cls.delivery_source,
                 'dest': cls.delivery_dest,
                 'signature_name': 'He-Man',

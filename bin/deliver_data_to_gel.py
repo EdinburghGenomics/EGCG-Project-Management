@@ -34,7 +34,8 @@ def main():
         report_all()
     else:
         gel_delivery = GelDataDelivery(args.sample_id, user_sample_id=args.user_sample_id, work_dir=args.work_dir,
-                                       no_cleanup=args.no_cleanup, dry_run=args.dry_run, force_new_delivery=args.force_new_delivery)
+                                       dry_run=args.dry_run, no_cleanup=args.no_cleanup,
+                                       force_new_delivery=args.force_new_delivery)
         gel_delivery.deliver_data()
 
 

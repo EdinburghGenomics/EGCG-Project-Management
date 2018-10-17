@@ -1,22 +1,22 @@
-import csv
-import datetime
 import os
-
-import matplotlib
-import pandas as pd
+import csv
 import yaml
-
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.collections as mpcollections
+import datetime
+import matplotlib
+from cached_property import cached_property
 from os import path, listdir
 from jinja2 import Environment, FileSystemLoader
 from egcg_core.util import find_file, query_dict
 from egcg_core.clarity import connection
 from egcg_core.app_logging import logging_default as log_cfg
-from config import cfg
 from egcg_core.rest_communication import get_documents, get_document
 from egcg_core.exceptions import EGCGError
+import pandas as pd
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.collections as mpcollections
+
+from config import cfg
 
 app_logger = log_cfg.get_logger(__name__)
 log_cfg.get_logger('weasyprint', 40)
@@ -26,18 +26,12 @@ try:
     from weasyprint.fonts import FontConfiguration
 except ImportError:
     HTML = None
+    FontConfiguration = None
 
-species_alias = {
-    'Homo sapiens': 'Human',
-    'Human': 'Human'
-}
+species_alias = {'Homo sapiens': 'Human', 'Human': 'Human'}
 
 
 class ProjectReport:
-    _lims_samples_for_project = None
-    _database_samples_for_project = None
-    _project = None
-
     workflow_alias = {
         'TruSeq Nano DNA Sample Prep': 'TruSeq Nano',
         'TruSeq PCR-Free DNA Sample Prep': 'TruSeq PCR-Free',
@@ -45,16 +39,13 @@ class ProjectReport:
         'TruSeq DNA PCR-Free Sample Prep': 'TruSeq PCR-Free'
     }
 
-    sample_qc_alias = {
-        'TruSeq Nano': 'sample_qc_nano',
-        'TruSeq PCR-free': 'sample_qc_pcrfree'
-    }
+    sample_qc_alias = {'TruSeq Nano': 'sample_qc_nano', 'TruSeq PCR-free': 'sample_qc_pcrfree'}
 
     def __init__(self, project_name, working_dir=None):
         self.project_name = project_name
         self.working_dir = working_dir or os.getcwd()
-        self.project_source = path.join(cfg.query('delivery', 'source'), project_name)
-        self.project_delivery = path.join(cfg.query('delivery', 'dest'), project_name)
+        self.project_source = path.join(cfg['delivery']['source'], project_name)
+        self.project_delivery = path.join(cfg['delivery']['dest'], project_name)
         self.lims = connection()
         self.params = {
             'project_name': project_name,
@@ -69,32 +60,27 @@ class ProjectReport:
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'etc', 'EG_logo_blackonwhite_300dpi.png'
         )
 
-    @property
+    @cached_property
     def project(self):
-        if self._project is None:
-            self._project = self.lims.get_projects(name=self.project_name)[0]
-        return self._project
+        return self.lims.get_projects(name=self.project_name)[0]
 
-    def sample_status(self, sample_id):
-        return get_document('lims/status/sample_status', match={"sample_id": sample_id})
+    @staticmethod
+    def sample_status(sample_id):
+        return get_document('lims/status/sample_status', match={'sample_id': sample_id})
 
-    @property
+    @cached_property
     def samples_for_project_lims(self):
-        if self._lims_samples_for_project is None:
-            self._lims_samples_for_project = self.lims.get_samples(projectname=self.project_name)
-        return self._lims_samples_for_project
+        return self.lims.get_samples(projectname=self.project_name)
 
-    @property
+    @cached_property
     def samples_for_project_restapi(self):
-        if self._database_samples_for_project is None:
-            self._database_samples_for_project = get_documents('samples', where={"project_id": self.project_name,
-                                                                                 'delivered': 'yes'}, all_pages=True)
-            if not self._database_samples_for_project:
-                raise EGCGError('No samples found for project %s' % (self.project_name))
-        return self._database_samples_for_project
+        samples = get_documents('samples', where={'project_id': self.project_name, 'delivered': 'yes'}, all_pages=True)
+        if not samples:
+            raise EGCGError('No samples found for project %s' % self.project_name)
+        return samples
 
     @property
-    def sample_name_delivered(self):
+    def sample_names_delivered(self):
         return [sample.get('sample_id') for sample in self.samples_for_project_restapi]
 
     def get_lims_sample(self, sample_name):
@@ -134,16 +120,13 @@ class ProjectReport:
         return genome_version
 
     def get_species(self, samples):
-        species = set()
-        for sample in samples:
-            species.add(self.get_species_from_sample(sample))
-        return species
+        return set(self.get_species_from_sample(s) for s in samples)
 
     def get_library_workflows(self, samples):
         library_workflows = set()
         for sample in samples:
             library_workflows.add(self.get_library_workflow_from_sample(sample))
-        unknown_libraries = library_workflows.difference(set(['TruSeq Nano', 'TruSeq PCR-Free']))
+        unknown_libraries = library_workflows.difference({'TruSeq Nano', 'TruSeq PCR-Free'})
         if len(unknown_libraries):
             raise ValueError('%s unknown library preparation: %s' % (len(unknown_libraries), unknown_libraries))
         return sorted(library_workflows)
@@ -153,14 +136,15 @@ class ProjectReport:
         for sample in samples:
             analysis_types.add(self.get_analysis_type_from_sample(sample))
         if len(analysis_types) != 1:
-            raise ValueError('%s analysis type used for this project: %s' % (len(analysis_types), analysis_types))
+            raise ValueError('%s analysis types used for this project: %s' % (len(analysis_types), analysis_types))
         return analysis_types.pop()
 
     def project_size_in_terabytes(self):
         project_size = self.get_folder_size(self.project_delivery)
         return project_size / 1099511627776.0
 
-    def parse_date(self, date):
+    @staticmethod
+    def parse_date(date):
         if not date:
             return 'NA'
         return datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y-%m-%d')
@@ -183,7 +167,7 @@ class ProjectReport:
 
     @property
     def number_quoted_samples(self):
-        return self.project.udf.get('Number of Quoted Samples', '') \
+        return self.project.udf.get('Number of Quoted Samples', '')
 
     @property
     def customer_name(self):
@@ -214,7 +198,8 @@ class ProjectReport:
             if p in all_programs:
                 self.params[p + '_version'] = all_programs.get(p)
 
-    def get_from_project_summary_yaml(self, summary_yaml):
+    @staticmethod
+    def get_from_project_summary_yaml(summary_yaml):
         with open(summary_yaml, 'r') as open_file:
             full_yaml = yaml.safe_load(open_file)
         sample_yaml = full_yaml['samples'][0]
@@ -229,8 +214,8 @@ class ProjectReport:
 
     def get_project_info(self):
         species_submitted = set()
-        library_workflows = self.get_library_workflows(self.sample_name_delivered)
-        for sample in self.sample_name_delivered:
+        library_workflows = self.get_library_workflows(self.sample_names_delivered)
+        for sample in self.sample_names_delivered:
             species = self.get_species_from_sample(sample)
             species_submitted.add(species)
         project_info = (
@@ -250,15 +235,6 @@ class ProjectReport:
         )
 
         return project_info
-
-    def get_list_of_sample_fields(self, samples, field, subfields=None):
-        if subfields:
-            sample_fields = [s.get(field, {}) for s in samples if s.get(field)]
-            for f in subfields:
-                sample_fields = [s.get(f, {}) for s in sample_fields]
-            return [s for s in sample_fields if s]
-        sample_fields = [s.get(field) for s in samples if s.get(field)]
-        return sample_fields
 
     @staticmethod
     def min_mean_max(list_values):
@@ -291,7 +267,7 @@ class ProjectReport:
     def store_sample_info(self):
         genome_versions = set()
         species_submitted = set()
-        for sample in set(self.sample_name_delivered):
+        for sample in set(self.sample_names_delivered):
             species = self.get_species_from_sample(sample)
             species_submitted.add(species)
             genome_version = None
@@ -380,55 +356,8 @@ class ProjectReport:
             })
         self.params['yield_cov_chart'] = list_plots
 
-    def duplicate_marking(self):
-        if 'biobambam_sortmapdup_version' in self.params:
-            return ('biobambam_sortmapdup', self.params['biobambam_sortmapdup_version'])
-        if 'samblaster_version' in self.params:
-            return ('samblaster', self.params['samblaster_version'])
-
-    def method_fields(self):
-        fields = {'sample_qc': {'title': 'Sample QC',
-                                'headings': ['Method', 'QC', 'Critical equipment', 'Pass criteria'],
-                                'rows': [('Sample picogreen', 'gDNA quantified against Lambda DNA standards',
-                                          'Hamilton robot', '> 1000ng'),
-                                         ('Fragment analyzer QC', 'Quality of gDNA determined', 'Fragment analyzer',
-                                          'Quality score > 5'),
-                                         ('gDNA QC Review Process', 'N/A', 'N/A', 'N/A')]},
-                  'library_prep': {'title': 'Library preparation',
-                                   'headings': ['Method', 'Purpose', 'Critical equipment'],
-                                   'rows': [('Sequencing plate preparation',
-                                             'Samples normalised to fall within 5-40ng/ul', 'Hamilton robot'),
-                                            ('Nano DNA', 'Libraries prepared using Illumina SeqLab %s' % (
-                                                self.params['library_workflow']),
-                                             'Hamilton, Covaris LE220, Gemini Spectramax XP, Hybex incubators, BioRad C1000/S1000 thermal cycler')]},
-                  'library_qc': {'title': 'Library QC',
-                                 'headings': ['Method', 'QC', 'Critical equipment', 'Pass criteria'],
-                                 'rows': [(
-                                     'Library QC as part of Nano DNA', 'Insert size evaluated', 'Caliper GX Touch',
-                                     'Fragment sizes fall between 530bp and 730bp'),
-                                     ('Library QC as part of Nano DNA', 'Library concentration calculated',
-                                      'Roche Lightcycler', 'Concentration between 5.5nM and 40nM')]},
-                  'sequencing': {'title': 'Sequencing',
-                                 'headings': ['Method', 'Steps', 'Critical equipment'],
-                                 'rows': [('Clustering and sequencing of libraries as part of %s' % (
-                                     self.params['library_workflow']), 'Clustering', 'cBot2'),
-                                          ('Clustering and Sequencing of libraries as part of %s' % (
-                                              self.params['library_workflow']), 'Sequencing', 'HiSeqX')]},
-                  'bioinformatics': {'title': 'Bioinformatics analysis',
-                                     'headings': ['Method', 'Software', 'Version'],
-                                     'rows': [('Demultiplexing', 'bcl2fastq', self.params['bcl2fastq_version']),
-                                              ('Alignment', 'bwa mem', self.params['bwa_version']),
-                                              ('Duplicates marking',) + self.duplicate_marking(),
-                                              ('Indel realignment', 'GATK IndelRealigner', self.params['gatk_version']),
-                                              ('Base recalibration', 'GATK BaseRecalibrator',
-                                               self.params['gatk_version']),
-                                              ('Genotype likelihood calculation', 'GATK HaplotypeCaller',
-                                               self.params['gatk_version'])]}
-                  }
-        return fields
-
     def get_authorization(self):
-        processes_from_projects = self.lims.get_processes(type='Data Release Trigger EG 1.0 ST',
+        processes_from_projects = self.lims.get_processes(process_type='Data Release Trigger EG 1.0 ST',
                                                           projectname=self.project_name)
         release_data = []
         for i, process in enumerate(processes_from_projects):
@@ -436,9 +365,9 @@ class ProjectReport:
             version = 'v' + str(i + 1)
             if process.udf.get('Is this the final data release for the project?', 'No') == 'Yes':
                 version += '-final'
-            NC = process.udf.get('Non-Conformances', '')
-            if NC.lower() in ['na', 'n/a']:
-                NC = ''
+            ncs = process.udf.get('Non-Conformances', '')
+            if ncs.lower() in ['na', 'n/a']:
+                ncs = ''
             release_data.append({
                 'samples': sample_names,
                 'version': version,
@@ -446,7 +375,7 @@ class ProjectReport:
                 'role': cfg.query('delivery', 'signature_role'),
                 'date': process.date_run,
                 'id': process.id,
-                'NCs': NC
+                'NCs': ncs
             })
         return release_data
 
@@ -455,9 +384,9 @@ class ProjectReport:
                     'glossary': [],
                     'charts_template': ['yield_cov_chart']}
 
-        species = self.get_species(self.sample_name_delivered)
-        analysis_type = self.get_analysis_type(self.sample_name_delivered)
-        library_workflows = self.get_library_workflows(self.sample_name_delivered)
+        species = self.get_species(self.sample_names_delivered)
+        analysis_type = self.get_analysis_type(self.sample_names_delivered)
+        library_workflows = self.get_library_workflows(self.sample_names_delivered)
         if len(species) == 1 and species.pop() == 'Human':
             bioinfo_template = ['bioinformatics_analysis_bcbio']
             formats_template = ['fastq', 'bam', 'vcf']
@@ -515,18 +444,7 @@ class ProjectReport:
             rows.append(row)
         return header, rows
 
-    def write_csv_file(self, authorisations):
-        csv_file = path.join(self.project_delivery, 'project_data.csv')
-        headers, rows = self.get_csv_data(authorisations)
-        with open(csv_file, 'w') as outfile:
-            writer = csv.writer(outfile, delimiter='\t')
-            writer.writerow(headers)
-            for row in rows:
-                writer.writerow(row)
-        return csv_file
-
     def get_html_content(self):
-
         self.yield_vs_coverage_plot()
 
         self.params['csv_path'] = 'summary_metrics.csv'
