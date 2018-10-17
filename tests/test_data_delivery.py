@@ -396,7 +396,7 @@ class TestDataDelivery(TestProjectManagement):
     def test_deliver_data_split(self):
         with patch_process, patch_get_document, patch_get_documents, patch_get_queue:
             self.delivery_dry_split_fluidx.deliver_data()
-            assert os.listdir(self.delivery_dry_split_fluidx.staging_dir) == ['Fluidx1', 'Fluidx2']
+            assert sorted(os.listdir(self.delivery_dry_split_fluidx.staging_dir)) == ['Fluidx1', 'Fluidx2']
             list_files = sorted(os.listdir(os.path.join(self.delivery_dry_split_fluidx.staging_dir, 'Fluidx1')))
             assert sorted(list_files) == sorted(self.final_files_split)
 
@@ -430,7 +430,7 @@ class TestDataDelivery(TestProjectManagement):
             assert os.listdir(self.dest_dir) == ['project2']
             today = datetime.date.today().isoformat()
             assert sorted(os.listdir(os.path.join(self.dest_dir, 'project2'))) == [today, 'all_md5sums.txt', 'summary_metrics.csv']
-            assert os.listdir(os.path.join(self.dest_dir, 'project2', today)) == ['Fluidx1', 'Fluidx2']
+            assert sorted(os.listdir(os.path.join(self.dest_dir, 'project2', today))) == ['Fluidx1', 'Fluidx2']
             assert sorted(self.final_files_split) == sorted(os.listdir(os.path.join(self.dest_dir, 'project2', today, 'Fluidx1')))
 
             assert sorted(

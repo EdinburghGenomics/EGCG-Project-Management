@@ -2,6 +2,7 @@ import argparse
 import logging
 from egcg_core.app_logging import logging_default as log_cfg
 
+from data_deletion.DMF_data import DMFDtatDeleter
 from data_deletion.final_data import FinalDataDeleter
 from data_deletion.raw_data import RawDataDeleter
 from data_deletion.delivered_data import DeliveredDataDeleter
@@ -13,7 +14,7 @@ def main(argv=None):
     p.add_argument('--debug', action='store_true', default=False)
     subparsers = p.add_subparsers()
 
-    for deleter_cls in (RawDataDeleter, DeliveredDataDeleter, FinalDataDeleter):
+    for deleter_cls in (RawDataDeleter, DeliveredDataDeleter, FinalDataDeleter, DMFDtatDeleter):
         subparser = subparsers.add_parser(deleter_cls.alias)
         deleter_cls.add_args(subparser)
         subparser.set_defaults(cls=deleter_cls)
