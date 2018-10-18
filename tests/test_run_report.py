@@ -1,6 +1,6 @@
 from bin import report_runs
 from pytest import raises
-from unittest.mock import patch
+from unittest.mock import patch, call
 
 
 @patch('egcg_core.rest_communication.get_documents')
@@ -52,8 +52,8 @@ def test_sample_data(mocked_get_docs):
     assert mocked_get_docs.call_count == 1  # not called again
 
 
-@patch('builtins.print')
-def test_get_run_success(mocked_print):
+@patch('bin.report_runs.logger')
+def test_get_run_success(mocked_logger):
     report_runs.cache['run_elements_data'] = {
         'a_run': [
             {'lane': 1, 'reviewed': 'pass'},
@@ -67,9 +67,11 @@ def test_get_run_success(mocked_print):
         'failed_lanes': 2,
         'details': ['lane 2: things', 'lane 3: thungs']
     }
-
-    mocked_print.assert_called_with('a_run: 2 lanes failed:\nlane 2: things\nlane 3: thungs')
-
+    assert mocked_logger.mock_calls == [
+        call.info('a_run: 2 lanes failed:'),
+        call.info('lane 2: things'),
+        call.info('lane 3: thungs')
+    ]
     report_runs.cache['run_elements_data']['a_run'].append(
         {'lane': 1, 'reviewed': 'fail', 'review_comments': 'this will break stuff'}
     )

@@ -3,6 +3,8 @@ import sys
 import argparse
 from datetime import date
 from collections import defaultdict
+
+from egcg_core.app_logging import logging_default
 from egcg_core.config import cfg
 from egcg_core.util import query_dict
 from egcg_core import rest_communication
@@ -25,6 +27,9 @@ email_template_report = os.path.join(
 email_template_repeats = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'etc', 'list_repeats.html'
 )
+
+logging_default.add_stdout_handler()
+logger = logging_default.get_logger(os.path.basename(__file__))
 
 
 def today():
@@ -83,7 +88,8 @@ def get_run_success(run_id):
     if failed_lanes > 0:
         message += ':\n%s' % '\n'.join(reasons)
     run_info['details'] = reasons
-    print(message)
+    for l in message.split('\n'):
+        logger.info(l)
     return run_info
 
 
@@ -96,11 +102,13 @@ def report_runs(run_ids, noemail=False):
         if run_status == 'RunCompleted':
             run_info = get_run_success(run_id)
         else:
-            print('%s: 8 lanes failed due to %s' % (run_id, run_status))
+            logger.info('%s: 8 lanes failed due to %s' % (run_id, run_status))
             run_info = {'name': run_id, 'failed_lanes': 8, 'details': [str(run_status)]}
         runs_info.append(run_info)
 
-    print('\n_____________________________________\n')
+    logger.info('')
+    logger.info('_____________________________________')
+    logger.info('')
 
     run_repeats = []
     for run_id in run_ids:
@@ -131,11 +139,11 @@ def report_runs(run_ids, noemail=False):
         sample_repeats.sort(key=lambda s: s['id'])
 
         if sample_repeats:
-            print('%s: Repeat samples' % run_id)
+            logger.info('%s: Repeat samples' % run_id)
             for s in sample_repeats:
-                print('%s: %s' % (s['id'], s['reason']))
+                logger.info('%s: %s' % (s['id'], s['reason']))
         else:
-            print('%s: No repeat samples' % run_id)
+            logger.info('%s: No repeat samples' % run_id)
 
         run_repeats.append({'name': run_id, 'repeat_count': len(sample_repeats), 'repeats': sample_repeats})
 
