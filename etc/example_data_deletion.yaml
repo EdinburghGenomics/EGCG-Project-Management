@@ -6,6 +6,8 @@ data_deletion:
     processed_data: tests/assets/data_deletion/projects
     processed_archives: tests/assets/data_deletion/projects/archive
     delivered_data: tests/assets/data_deletion/delivered_data
+    dmf_filesystem: tests/assets/dmf_filesystem
+    lustre_file_system: tests/assets/lustre_file_system
     email_notification:
         mailhost: smtp.mail.com
         port: 25
