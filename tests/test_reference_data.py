@@ -49,7 +49,7 @@ class TestDownloader(TestProjectManagement):
         self.downloader.validate_data()
 
         m_run.assert_called_once_with(
-            'java -Xmx20G   -jar path/to/gatk -T ValidateVariants -V a_species.vcf.gz -R a_genome.dna.toplevel.fa -warnOnErrors',
+            'java -Xmx20G -jar path/to/gatk -T ValidateVariants -V a_species.vcf.gz -R a_genome.dna.toplevel.fa -warnOnErrors',
             'a_species.vcf.gz.validate_variants.log')
 
         self.downloader.procs['faidx'].wait.assert_called_once_with()
