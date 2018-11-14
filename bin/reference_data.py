@@ -168,7 +168,7 @@ class Downloader(AppLogger):
             print(self.payload)
             return
 
-        rest_communication.post_or_patch('genomes', self.payload, id_field='assembly_name')
+        rest_communication.post_or_patch('genomes', [self.payload], id_field='assembly_name')
 
         species = rest_communication.get_document('species', where={'name': self.species})
         if species:

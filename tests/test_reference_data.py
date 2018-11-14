@@ -148,7 +148,7 @@ class TestDownloader(TestProjectManagement):
             self.downloader.upload_to_rest_api()
         mpostpatch.assert_called_with(
             'genomes',
-            {'stuff to upload': 'value', 'genome_size': '1300000'},
+            [{'stuff to upload': 'value', 'genome_size': '1300000'}],
             id_field='assembly_name'
         )
         mpatch.assert_called_with(
