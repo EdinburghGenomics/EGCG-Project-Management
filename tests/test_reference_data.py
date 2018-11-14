@@ -33,7 +33,7 @@ class TestDownloader(TestProjectManagement):
 
         m_run.assert_any_call('path/to/samtools faidx a_genome.dna.toplevel.fa', 'faidx.log'),
         m_run.assert_any_call(
-            'path/to/picard CreateSequenceDictionary R=a_genome.dna.toplevel.fa O=a_genome.dna.toplevel.dict',
+            'path/to/picard -Xmx20G CreateSequenceDictionary R=a_genome.dna.toplevel.fa O=a_genome.dna.toplevel.dict',
             'create_sequence_dict.log'),
         m_run.assert_any_call('path/to/bwa index a_genome.dna.toplevel.fa', 'bwa_index.log'),
         m_run.assert_any_call('path/to/tabix -p vcf a_species.vcf.gz', 'tabix.log'),
@@ -49,7 +49,7 @@ class TestDownloader(TestProjectManagement):
         self.downloader.validate_data()
 
         m_run.assert_called_once_with(
-            'java -jar path/to/gatk -T ValidateVariants -V a_species.vcf.gz -R a_genome.dna.toplevel.fa -warnOnErrors',
+            'java -Xmx20G   -jar path/to/gatk -T ValidateVariants -V a_species.vcf.gz -R a_genome.dna.toplevel.fa -warnOnErrors',
             'a_species.vcf.gz.validate_variants.log')
 
         self.downloader.procs['faidx'].wait.assert_called_once_with()
@@ -142,13 +142,13 @@ class TestDownloader(TestProjectManagement):
     @patch('egcg_core.rest_communication.patch_entry')
     @patch('egcg_core.rest_communication.post_or_patch')
     def test_upload_to_rest_api(self, mpostpatch, mpatch, mpost, mgetdoc, mget):
-        self.downloader.payload = {'stuff to upload': 'value'}
+        self.downloader.payload = {'stuff to upload': 'value', 'genome_size': '1300000'}
 
         with patch('builtins.input', return_value='y'):
             self.downloader.upload_to_rest_api()
         mpostpatch.assert_called_with(
             'genomes',
-            {'stuff to upload': 'value'},
+            {'stuff to upload': 'value', 'genome_size': '1300000'},
             id_field='assembly_name'
         )
         mpatch.assert_called_with(
@@ -158,15 +158,19 @@ class TestDownloader(TestProjectManagement):
             'A species',
             update_lists=True
         )
-        with patch('builtins.input', return_value='y'):
-            self.downloader.upload_to_rest_api()
+        # with patch('builtins.input', return_value='y'):
+        #     self.downloader.upload_to_rest_api()
 
         mgetdoc.return_value = None
-        with patch('builtins.input', return_value='y'):
+        with patch('builtins.input', side_effect=['', 'y']):
             self.downloader.upload_to_rest_api()
         mpost.assert_called_with(
             'species',
-            {'name': 'A species', 'genomes': ['a_genome'], 'default_version': 'a_genome', 'taxid': 'a_taxid'},
+            {
+                'name': 'A species', 'genomes': ['a_genome'],
+                'default_version': 'a_genome', 'taxid': 'a_taxid',
+                'approximate_genome_size': 1.3
+             },
         )
 
 

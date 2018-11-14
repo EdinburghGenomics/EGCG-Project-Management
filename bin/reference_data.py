@@ -26,9 +26,9 @@ class Downloader(AppLogger):
     def __init__(self, species, genome_version=None, upload=True):
         scientific_name = ncbi.get_species_name(species)
         if not scientific_name:
-            raise EGCGError('Species %s could not be resolved please checj the spelling.', species)
+            raise EGCGError('Species %s could not be resolved in NCBI please check the spelling.', species)
         self.species = scientific_name
-        self.ftp_species = species.lower().replace(' ', '_')
+        self.ftp_species = self.species.lower().replace(' ', '_')
         self.genome_version = genome_version or self.latest_genome_version()
         self.upload = upload
 
@@ -83,7 +83,7 @@ class Downloader(AppLogger):
         dict_file = os.path.splitext(self.reference_fasta)[0] + '.dict'
         if not util.find_file(dict_file):
             self.procs['CreateSequenceDictionary'] = self.run_background(
-                '%s CreateSequenceDictionary R=%s O=%s' % (self.tools['picard'], self.reference_fasta, dict_file),
+                '%s -Xmx20G CreateSequenceDictionary R=%s O=%s' % (self.tools['picard'], self.reference_fasta, dict_file),
                 'create_sequence_dict.log'
             )
 
@@ -113,7 +113,7 @@ class Downloader(AppLogger):
             self.procs['CreateSequenceDictionary'].wait()
 
             self.procs['ValidateVariants'] = self.run_background(
-                'java -jar %s -T ValidateVariants -V %s -R %s -warnOnErrors' % (
+                'java -Xmx20G -jar %s -T ValidateVariants -V %s -R %s -warnOnErrors' % (
                     self.tools['gatk'], self.reference_variation, self.reference_fasta),
                 '%s.validate_variants.log' % self.reference_variation
             )
@@ -184,6 +184,10 @@ class Downloader(AppLogger):
                 update_lists=True
             )
         else:
+            genome_size = float(int(self.payload.get('genome_size')) / 1000000)
+            genome_size = input(
+                "Enter species genome size to use for yield calculation. (default: %.0f) ", genome_size
+            ) or genome_size
             # FIXME: Probably should expose the taxid in EGCG-Core so we do not have to access the private method
             q, taxid, scientific_name, common_name = ncbi._fetch_from_cache(self.species)
             rest_communication.post_entry(
@@ -192,7 +196,8 @@ class Downloader(AppLogger):
                     'name': self.species,
                     'genomes': [self.genome_version],
                     'default_version': self.genome_version,
-                    'taxid': taxid
+                    'taxid': taxid,
+                    'approximate_genome_size': genome_size
                 }
             )
 
@@ -267,7 +272,7 @@ class EnsemblDownloader(Downloader):
         Download reference and variation file from Ensembl and decompress if necessary.
         """
         self.info('Downloading reference genome')
-        base_dir = '%s/fasta/%s/dna' % (self.ensembl_base_url, self.ftp_species)
+        base_dir = '%s/fasta/%s' % (self.ensembl_base_url, self.ftp_species)
 
         ls = self.ftp.nlst(base_dir)
         if os.path.join(base_dir, 'dna_index') in ls:
@@ -309,7 +314,7 @@ class EnsemblDownloader(Downloader):
         assembly_data = requests.get('%s/info/assembly/%s' % (self.rest_site, self.species),
                                      params={'content-type': 'application/json'}
                                      ).json()
-        if self.genome_version in assembly_data['assembly_name']:
+        if self.genome_version in assembly_data['assembly_name'].replace(' ','_'):
             self.payload['chromosome_count'] = len(assembly_data['karyotype'])
             self.payload['genome_size'] = assembly_data['base_pairs']
             self.payload['goldenpath'] = assembly_data['golden_path']
@@ -334,7 +339,7 @@ class EnsemblDownloader(Downloader):
 
 class EnsemblGenomeDownloader(EnsemblDownloader):
     ftp_site = 'ftp.ensemblgenomes.org'
-    rest_site = 'http://rest.ensembl.org'
+    rest_site = 'http://rest.ensemblgenomes.org'
     sub_sites = ['bacteria', 'fungi', 'metazoa', 'plants', 'protists']
 
     def variation_url(self, base_url):
