@@ -158,8 +158,6 @@ class TestDownloader(TestProjectManagement):
             'A species',
             update_lists=True
         )
-        # with patch('builtins.input', return_value='y'):
-        #     self.downloader.upload_to_rest_api()
 
         mgetdoc.return_value = None
         with patch('builtins.input', side_effect=['', 'y']):

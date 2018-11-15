@@ -24,6 +24,11 @@ class DownloadError(Exception):
 
 class Downloader(AppLogger):
     def __init__(self, species, genome_version=None, upload=True):
+        """
+        The abstract Downloader class.
+        It retrieve the official species' scientific name from NCBI and
+        ensure the species exists before probing starting the actual download.
+        """
         scientific_name = ncbi.get_species_name(species)
         if not scientific_name:
             raise EGCGError('Species %s could not be resolved in NCBI please check the spelling.', species)
@@ -186,7 +191,7 @@ class Downloader(AppLogger):
         else:
             genome_size = float(int(self.payload.get('genome_size')) / 1000000)
             genome_size = input(
-                "Enter species genome size to use for yield calculation. (default: %.0f) ", genome_size
+                "Enter species genome size to use for yield calculation. (default: %.0f) " % genome_size
             ) or genome_size
             # FIXME: Probably should expose the taxid in EGCG-Core so we do not have to access the private method
             q, taxid, scientific_name, common_name = ncbi._fetch_from_cache(self.species)
@@ -300,8 +305,6 @@ class EnsemblDownloader(Downloader):
                       'variants. ' % len(ls))
             if i:
                 files_to_download = [f for f in ls if i in f]  # this should include the index file
-            else:
-                files_to_download = []
 
         self.info('Variation: found %i files, downloading %i', len(ls), len(files_to_download))
         for f in files_to_download:
@@ -393,11 +396,10 @@ class ManualDownload(Downloader):
             copyfile(fa_gz, new_path)
             fa_gz = new_path
 
+        self.reference_fasta = fa_gz
         if fa_gz.endswith('.gz'):
             subprocess.check_call(['gzip', '-d', fa_gz])
             self.reference_fasta = fa_gz[:-3]
-        else:
-            self.reference_fasta = fa_gz
 
         vcf = input('Could not identify a vcf.gz file to use - enter one here.')
         if not vcf:
