@@ -50,6 +50,7 @@ class TestProcessedSample(TestProjectManagement):
 
     def setUp(self):
         self.sample = ProcessedSample(sample1)
+        self.sample.__dict__['sample_id'] = sample1['sample_id']
 
     @patch('data_deletion.util.find_fastqs')
     def test_find_fastqs_for_run_element(self, mocked_find_fastqs):
@@ -67,7 +68,7 @@ class TestProcessedSample(TestProjectManagement):
              patch('data_deletion.delivered_data.ProcessedSample._find_fastqs_for_run_element',
                    return_value=['path_2_fastq1', 'path_2_fastq2']):
             assert self.sample.raw_data_files == ['path_2_fastq1', 'path_2_fastq2',
-                                                   'path_2_fastq1', 'path_2_fastq2']
+                                                  'path_2_fastq1', 'path_2_fastq2']
 
     @patch(ppath + 'util.find_file', side_effect=fake_find_file)
     def test_processed_data_files(self, mocked_find_file):
@@ -82,10 +83,14 @@ class TestProcessedSample(TestProjectManagement):
             'tests/assets/data_deletion/projects/a_project/a_sample/a_user_sample_id.g.vcf.gz.tbi'
         ]
 
-    def test_released_data_folder(self):
-        with patch(ppath + 'util.find_files', side_effect=fake_find_files):
-            released_data_folder = self.sample.released_data_folder
-        assert released_data_folder == 'tests/assets/data_deletion/delivered_data/a_project/star/a_sample'
+    @patch(ppath + 'clarity.get_sample', return_value=Mock(udf={}))
+    @patch(ppath + 'util.find_files', side_effect=fake_find_files)
+    def test_released_data_folder(self, mocked_find_files, mocked_get_sample):
+        base_dir = 'tests/assets/data_deletion/delivered_data/a_project/star/'
+        assert self.sample.released_data_folder == base_dir + 'a_sample'
+        del self.sample.__dict__['released_data_folder']
+        mocked_get_sample.return_value.udf['2D Barcode'] = 'a_2d_barcode'
+        assert self.sample.released_data_folder == base_dir + 'a_2d_barcode'
 
     @patch(ppath + 'util.find_files', return_value=['a_deletion_dir/a_file'])
     def test_files_to_purge(self, mocked_find_files):

@@ -181,7 +181,13 @@ class ProcessedSample(app_logging.AppLogger):
 
     @cached_property
     def released_data_folder(self):
-        release_folders = util.find_files(cfg['data_deletion']['delivered_data'], self.project_id, '*', self.sample_id)
+        release_folders = util.find_files(
+            cfg['data_deletion']['delivered_data'],
+            self.project_id,
+            '*',
+            clarity.get_sample(self.sample_id).udf.get('2D Barcode') or self.sample_id
+        )
+
         if len(release_folders) != 1:
             self.warning(
                 'Found %s deletable directories for sample %s: %s',
@@ -226,25 +232,24 @@ class ProcessedSample(app_logging.AppLogger):
 
 
 class FinalSample(ProcessedSample):
-
     @cached_property
     def files_to_purge(self):
-        _file_to_purge = []
+        _files_to_purge = []
         if self.released_data_folder:
-            _file_to_purge.extend(util.find_files(self.released_data_folder, '*'))
+            _files_to_purge.extend(util.find_files(self.released_data_folder, '*'))
         raw_files = self.raw_data_files
         if raw_files:
-            _file_to_purge.extend(raw_files)
+            _files_to_purge.extend(raw_files)
 
         processed_files = self.processed_data_files
         if processed_files:
-            _file_to_purge.extend(processed_files)
+            _files_to_purge.extend(processed_files)
 
-        unreleased_files = [f for f in _file_to_purge if not is_released(f)]
+        unreleased_files = [f for f in _files_to_purge if not is_released(f)]
         if unreleased_files:
             raise ArchivingError('Files not yet remove from lustre cannot be removed from tape: %s' % unreleased_files)
 
-        return _file_to_purge
+        return _files_to_purge
 
     @cached_property
     def files_to_remove_from_lustre(self):

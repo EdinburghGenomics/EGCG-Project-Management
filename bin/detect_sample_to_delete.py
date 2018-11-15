@@ -65,7 +65,7 @@ class SampleToDeleteDetector(AppLogger):
         return self._cache_sample_to_release_date.get(sample_id)
 
     def check_samples_final_deletion(self, age_threshold=365):
-        date_threshold = datetime.now() - timedelta(days=age_threshold)
+        date_threshold = _utcnow() - timedelta(days=age_threshold)
 
         sample_records = rest_communication.get_documents(
             'samples',

@@ -1,10 +1,9 @@
 import os
 from egcg_core import rest_communication
 from egcg_core.constants import ELEMENT_RUN_NAME, ELEMENT_SAMPLE_INTERNAL_ID
-from egcg_core.util import query_dict, find_all_fastqs
+from egcg_core.util import find_all_fastqs
 from egcg_core.config import cfg
-
-from data_deletion import Deleter, FinalSample
+from data_deletion import FinalSample
 from data_deletion.delivered_data import DeliveredDataDeleter
 
 
@@ -127,5 +126,3 @@ class FinalDataDeleter(DeliveredDataDeleter):
 
         if self.deletion_dir and os.path.isdir(self.deletion_dir):
             self.delete_dir(self.deletion_dir)
-
-

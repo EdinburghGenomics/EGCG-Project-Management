@@ -68,17 +68,18 @@ class IntegrationTest(TestCase):
                 raise
 
 
-def setup_delivered_samples(processed_dir, delivered_dir, fastq_dir):
-    for d in (processed_dir, delivered_dir, fastq_dir):
+def setup_delivered_samples(processed_dir, delivery_dir, fastq_dir):
+    for d in (processed_dir, delivery_dir, fastq_dir):
         if os.path.isdir(d):
             rmtree(d)
 
     all_files = defaultdict(list)
-    for i in range(1, 4):
+
+    def _setup_delivered_sample(i, fluidx_barcode=None):
         sample_id = 'sample_' + str(i)
         ext_sample_id = 'ext_' + sample_id
         sample_dir = os.path.join(processed_dir, 'a_project', sample_id)
-        delivered_dir = os.path.join(delivered_dir, 'a_project', 'a_delivery_date', sample_id)
+        delivered_dir = os.path.join(delivery_dir, 'a_project', 'a_delivery_date', fluidx_barcode or sample_id)
         sample_fastq_dir = os.path.join(fastq_dir, 'a_run', 'a_project', sample_id)
 
         os.makedirs(sample_dir)
@@ -108,7 +109,12 @@ def setup_delivered_samples(processed_dir, delivered_dir, fastq_dir):
             os.link(f, os.path.join(delivered_dir, os.path.basename(f)))
             archive_management.register_for_archiving(f)
 
-    for sample_id in ('sample_1', 'sample_2', 'sample_3'):
+    _setup_delivered_sample(1)
+    _setup_delivered_sample(2)
+    _setup_delivered_sample(3)
+    _setup_delivered_sample(4, 'sample_4_2d_barcode')
+
+    for sample_id in ('sample_1', 'sample_2', 'sample_3', 'sample_4'):
         for f in all_files[sample_id]:
             while not archive_management.is_archived(f):
                 sleep(10)
