@@ -210,9 +210,7 @@ class TestGelDataDelivery(TestProjectManagement):
                          '-o KeepAlive=yes -o BatchMode=yes -o LogLevel=Error -i path/to/id_rsa.pub -p 22" ',
                          '{source} user@gelupload.com:/destination/'.format(source=source))
             mock_execute.assert_any_call(''.join(rsync_cmd))
-
-            assert os.listdir(source) == [self.gel_data_delivery.external_id]
-            assert os.listdir(source + '/' + self.gel_data_delivery.external_id) == ['fastq', 'md5sum.txt']
+            assert sorted(os.listdir(source + '/' + self.gel_data_delivery.external_id)) == ['fastq', 'md5sum.txt']
 
             # Check API creation
             mocked_send_action.assert_any_call(
