@@ -1,5 +1,6 @@
 import argparse
 import ftplib
+import logging
 import os
 import subprocess
 from datetime import datetime
@@ -13,9 +14,6 @@ from egcg_core.config import cfg
 from egcg_core.exceptions import EGCGError
 
 from config import load_config
-
-logging_default.set_log_level(10)
-logging_default.add_stdout_handler()
 
 
 class DownloadError(Exception):
@@ -186,7 +184,7 @@ class Downloader(AppLogger):
                 species_payload,
                 'name',
                 self.species,
-                update_lists=True
+                update_lists=['genomes']
             )
         else:
             genome_size = float(int(self.payload.get('genome_size')) / 1000000)
@@ -418,14 +416,18 @@ def main():
     a = argparse.ArgumentParser()
     a.add_argument(
         'species',
-        help="Species name as used by Ensembl's FTP site, with underscores and lower case, e.g. 'felis_catus'"
+        help="Species name as used by NCBI. If there are spaces in the species name, it should be quoted"
     )
     a.add_argument('--genome_version', default=None)
     a.add_argument('--no_upload', dest='upload', action='store_false', help='Turn off the metadata upload')
     a.add_argument('--manual', action='store_true', help='Run manual metadata upload only, even if present in Ensembl')
+    a.add_argument('--debug', action='store_true', help='Show debug statement in the output')
     args = a.parse_args()
     load_config()
 
+    logging_default.add_stdout_handler()
+    if args.debug:
+        logging_default.set_log_level(logging.DEBUG)
     if args.manual:
         d = ManualDownload(args.species, args.genome_version, args.upload)
         d.run()
