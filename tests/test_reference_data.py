@@ -156,7 +156,7 @@ class TestDownloader(TestProjectManagement):
             {'genomes': ['a_genome'], 'default_version': 'a_genome'},
             'name',
             'A species',
-            update_lists=True
+            update_lists=['genomes']
         )
 
         mgetdoc.return_value = None
