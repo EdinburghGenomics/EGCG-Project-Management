@@ -65,14 +65,23 @@ class Downloader(AppLogger):
         self.finish_metadata()
 
         for p in self.procs.values():
-            self.info("Completed cmd '%s' with exit status %s", p.args, p.wait())
+            exit_status = p.wait()
+            if exit_status != 0:
+                self.error('Error during execution of %s: exit status is %s',p.args, p.wait())
+            else:
+                self.info("Completed cmd '%s' with exit status %s", p.args, p.wait())
 
         self.upload_to_rest_api()
 
     def download_data(self):
+        """
+        Download data retrieve the reference fasta file and the vcf file.
+        It should provide the fasta file uncompressed but the vcf file compressed with gzip.
+        """
         raise NotImplementedError
 
     def prepare_data(self):
+        """Prepare the reference data by indexing the fasta and vcf files"""
         self.info('Indexing reference genome data')
 
         if not util.find_file(self.reference_fasta + '.fai'):
@@ -110,6 +119,11 @@ class Downloader(AppLogger):
                 self.procs['tabix'] = tabix
 
     def validate_data(self):
+        """
+        Validate that the reference data conforms to some expectation such as:
+
+         - The vcf file run through GATK ValidateVariants without error.
+        """
         if self.reference_variation:
             if 'faidx' in self.procs:
                 self.procs['faidx'].wait()
@@ -122,6 +136,7 @@ class Downloader(AppLogger):
             )
 
     def prepare_metadata(self):
+        """Initial preparation of the genome metadata that will be uploaded to the REST API."""
         self.payload.update({
             'tools_used': {
                 'picard': self.check_stderr([self.tools['picard'], 'CreateSequenceDictionary', '--version']),
@@ -144,6 +159,7 @@ class Downloader(AppLogger):
                     self.payload[field] = int(value)
 
     def finish_metadata(self):
+        """Finalise the genome metadata that will be uploaded to the REST API."""
         self.payload.update(
             assembly_name=self.genome_version,
             species=self.species,
@@ -167,6 +183,7 @@ class Downloader(AppLogger):
         self.payload['analyses_supported'] = analyses
 
     def upload_to_rest_api(self):
+        """Upload the genome and optionally the species metadata."""
         if not self.upload:
             print(self.payload)
             return
@@ -189,7 +206,7 @@ class Downloader(AppLogger):
         else:
             genome_size = float(int(self.payload.get('genome_size')) / 1000000)
             genome_size = input(
-                "Enter species genome size to use for yield calculation. (default: %.0f) " % genome_size
+                "Enter species genome size (in Mb) to use for yield calculation. (default: %.0f) " % genome_size
             ) or genome_size
             # FIXME: Probably should expose the taxid in EGCG-Core so we do not have to access the private method
             q, taxid, scientific_name, common_name = ncbi._fetch_from_cache(self.species)
