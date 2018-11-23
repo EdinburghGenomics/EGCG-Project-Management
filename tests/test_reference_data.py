@@ -1,3 +1,4 @@
+import os
 from unittest.mock import Mock, patch, PropertyMock
 from bin import reference_data
 from bin.reference_data import Downloader
@@ -170,6 +171,12 @@ class TestDownloader(TestProjectManagement):
                 'approximate_genome_size': 1.3
              },
         )
+
+    def test_genome_param_from_fai_file(self):
+        genome_fai = os.path.join(self.assets_path, 'genome.fa.fai')
+        genome_size, nb_contig = self.downloader.genome_param_from_fai_file(genome_fai)
+        assert genome_size == 1808681051
+        assert nb_contig == 10
 
 
 class TestEnsemblDownloader(TestProjectManagement):
