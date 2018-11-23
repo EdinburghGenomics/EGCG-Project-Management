@@ -66,6 +66,9 @@ class TestDownloader(TestProjectManagement):
         mock_input.side_effect = [
             3,    # chromosome_count
             100,  # genome_size
+            99,   # goldenpath
+            3,    # chromosome_count
+            100,  # genome_size
             99    # goldenpath
         ]
 
@@ -87,6 +90,20 @@ class TestDownloader(TestProjectManagement):
             'data_files': {
                 'fasta': 'A_species/a_genome/fasta_file.fa',
                 'variation': 'A_species/a_genome/vcf_file.vcf.gz'
+            },
+            'chromosome_count': 3,
+            'genome_size': 100,
+            'goldenpath': 99
+        }
+
+        self.downloader.payload = {}
+        self.downloader.reference_variation = None
+        self.downloader.prepare_metadata()
+        assert self.downloader.payload == {
+            'tools_used': exp_tools_used,
+            'data_source': 'a source',
+            'data_files': {
+                'fasta': 'A_species/a_genome/fasta_file.fa',
             },
             'chromosome_count': 3,
             'genome_size': 100,

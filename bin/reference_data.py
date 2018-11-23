@@ -149,9 +149,12 @@ class Downloader(AppLogger):
             'data_source': self.data_source,
             'data_files': {
                 'fasta': os.path.join(self.rel_data_dir, os.path.basename(self.reference_fasta)),
-                'variation': os.path.join(self.rel_data_dir, os.path.basename(self.reference_variation))
             }
         })
+        if self.reference_variation:
+            self.payload['data_files']['variation'] = os.path.join(
+                self.rel_data_dir, os.path.basename(self.reference_variation)
+            )
 
         if 'faidx' in self.procs:
             self.procs['faidx'].wait()
