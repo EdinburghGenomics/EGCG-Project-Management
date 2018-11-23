@@ -1,7 +1,7 @@
 import os
 from shutil import rmtree
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from integration_tests import IntegrationTest, integration_cfg, setup_delivered_samples, \
     setup_samples_deleted_from_tier1
 from egcg_core import rest_communication, archive_management
@@ -12,9 +12,18 @@ from data_deletion.raw_data import RawDataDeleter, reporting_app_date_format
 work_dir = os.path.dirname(__file__)
 
 
+def fake_get_sample(sample_id):
+    m = Mock(udf={})
+    if sample_id == 'sample_4':
+        m.udf['2D Barcode'] = 'sample_4_2d_barcode'
+
+    return m
+
+
 class TestDeletion(IntegrationTest):
     patches = (
         patch('data_deletion.client.load_config'),
+        patch('data_deletion.clarity.get_sample', new=fake_get_sample)
     )
 
     @staticmethod
@@ -151,12 +160,15 @@ class TestDeleteDeliveredData(TestDeletion):
         )
         for sample_id in ('sample_1', 'sample_2'):
             statuses = {f: archive_management.archive_states(f) for f in self.all_files[sample_id]}
+
             assert all(archive_management.is_released(f) for f in self.all_files[sample_id]), statuses
+            assert not self._delivered_files_exist(sample_id)
             assert rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'] == 'on lustre'
 
         # sample 3 should not be released
         statuses = {f: archive_management.archive_states(f) for f in self.all_files['sample_3']}
         assert all(archive_management.is_archived(f) and not archive_management.is_released(f) for f in self.all_files['sample_3']), statuses
+        assert self._delivered_files_exist('sample_3')
         assert rest_communication.get_document('samples', where={'sample_id': 'sample_3'})['data_deleted'] == 'none'
 
     def test_dry_run(self):
@@ -173,6 +185,29 @@ class TestDeleteDeliveredData(TestDeletion):
         for sample_id in ('sample_1', 'sample_2', 'sample_3'):
             assert all(archive_management.is_archived(f) for f in self.all_files[sample_id])
             assert rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'] == 'none'
+
+    def test_fluidx_deletion(self):
+        assert all(archive_management.is_archived(f) for f in self.all_files['sample_4'])
+        assert rest_communication.get_document('samples', where={'sample_id': 'sample_4'})['data_deleted'] == 'none'
+
+        self._run_main(['delivered_data', '--manual_delete', 'sample_4', '--sample_ids', 'sample_4'])
+
+        assert all(archive_management.is_released(f) for f in self.all_files['sample_4'])
+        assert not self._delivered_files_exist('sample_4', 'sample_4_2d_barcode')
+        assert rest_communication.get_document('samples', where={'sample_id': 'sample_4'})['data_deleted'] == 'on lustre'
+
+    def _delivered_files_exist(self, sample_id, fluidx_barcode=None):
+        basenames = sorted(os.path.basename(f) for f in self.all_files[sample_id])
+        delivered_dir = os.path.join(self.delivered_data_dir, 'a_project', 'a_delivery_date', fluidx_barcode or sample_id)
+        delivered_files = sorted(os.listdir(delivered_dir))
+
+        if not delivered_files:
+            return False
+
+        elif delivered_files == basenames:
+            return True
+
+        raise ValueError('Incomplete delivered files: %s' % delivered_files)
 
 
 class TestDeleteFinalData(TestDeletion):

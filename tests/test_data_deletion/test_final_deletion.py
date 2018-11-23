@@ -1,11 +1,8 @@
 import os
 from unittest.mock import patch, Mock
-
 from shutil import rmtree
-
-from data_deletion import FinalSample
 from egcg_core.exceptions import ArchivingError
-
+from data_deletion import FinalSample
 from data_deletion.final_data import FinalDataDeleter
 from tests import TestProjectManagement
 from tests.test_data_deletion import TestDeleter, patched_patch_entry
@@ -54,12 +51,14 @@ class TestFinalSample(TestProjectManagement):
 
     def setUp(self):
         self.sample = FinalSample(sample1)
+        self.sample.__dict__['sample_id'] = sample1['sample_id']
 
     @patch.object(FinalSample, 'raw_data_files', new=['R1.fastq.gz', 'R2.fastq.gz'])
     @patch.object(FinalSample, 'processed_data_files', new=['sample.vcf.gz', 'sample.bam'])
     @patch(ppath + 'is_released')
     @patch(ppath + 'util.find_files', return_value=['a_deletion_dir/a_file'])
     def test_files_to_purge(self, mocked_find_files, mocked_is_released):
+        self.sample.__dict__['released_data_folder'] = 'a_deletion_dir'
         exp = ['a_deletion_dir/a_file', 'R1.fastq.gz', 'R2.fastq.gz', 'sample.vcf.gz', 'sample.bam']
         mocked_is_released.return_value = False
         with self.assertRaises(ArchivingError) as e:
@@ -178,4 +177,3 @@ class TestFinalDataDeleter(TestDeleter):
         self.deleter._try_archive_project('a_project')
         assert not os.path.exists(os.path.join(self.deleter.projects_dir, 'a_project'))
         assert os.path.exists(os.path.join(self.deleter.project_archive_dir, 'a_project'))
-

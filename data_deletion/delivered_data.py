@@ -60,9 +60,11 @@ class DeliveredDataDeleter(Deleter):
 
     def setup_samples_for_deletion(self, samples):
         total_size_to_delete = 0
+
         for s in samples:
             total_size_to_delete += s.size_of_files
             deletable_data_dir = os.path.join(self.deletion_dir, s.sample_id)
+
             if not self.dry_run:
                 if len(s.files_to_purge):
                     self._execute('mkdir -p ' + deletable_data_dir)

@@ -4,7 +4,7 @@ from time import sleep
 from egcg_core import archive_management, rest_communication
 from egcg_core.config import cfg
 from egcg_core.exceptions import EGCGError
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from integration_tests import IntegrationTest, integration_cfg, setup_delivered_samples
 import data_deletion.client
 from bin import recall_sample
@@ -18,6 +18,9 @@ class TestRecall(IntegrationTest):
     delivered_data_dir = os.path.join(work_dir, 'delivered_data')
     fastq_archive_dir = os.path.join(work_dir, 'fastq_archives')
     processed_archive_dir = os.path.join(work_dir, 'processed_archives')
+    patches = (
+        patch('data_deletion.clarity.get_sample', return_value=Mock(udf={})),
+    )
 
     @classmethod
     def setUpClass(cls):

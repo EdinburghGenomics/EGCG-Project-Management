@@ -397,7 +397,7 @@ class TestDataDelivery(TestProjectManagement):
         with patch_process, patch_get_document, patch_get_documents, patch_get_queue:
             self.delivery_dry_split_fluidx.deliver_data()
             assert sorted(os.listdir(self.delivery_dry_split_fluidx.staging_dir)) == ['Fluidx1', 'Fluidx2']
-            list_files = sorted(os.listdir(os.path.join(self.delivery_dry_split_fluidx.staging_dir, 'Fluidx1')))
+            list_files = os.listdir(os.path.join(self.delivery_dry_split_fluidx.staging_dir, 'Fluidx1'))
             assert sorted(list_files) == sorted(self.final_files_split)
 
     def test_deliver_data_merged_real(self):
@@ -414,7 +414,7 @@ class TestDataDelivery(TestProjectManagement):
 
             assert self.delivery_real_merged.samples2files['p1sample2'] == [
                 {
-                    'file_path': 'project1/%s/p1sample2/%s'% (today, f),
+                    'file_path': 'project1/%s/p1sample2/%s' % (today, f),
                     'size': 0,
                     'md5': 'd41d8cd98f00b204e9800998ecf8427e'
                 }
@@ -431,25 +431,23 @@ class TestDataDelivery(TestProjectManagement):
             today = datetime.date.today().isoformat()
             assert sorted(os.listdir(os.path.join(self.dest_dir, 'project2'))) == [today, 'all_md5sums.txt', 'summary_metrics.csv']
             assert sorted(os.listdir(os.path.join(self.dest_dir, 'project2', today))) == ['Fluidx1', 'Fluidx2']
-            assert sorted(self.final_files_split) == sorted(os.listdir(os.path.join(self.dest_dir, 'project2', today, 'Fluidx1')))
+            assert sorted(os.listdir(os.path.join(self.dest_dir, 'project2', today, 'Fluidx1'))) == sorted(self.final_files_split)
 
             assert sorted(
                 self.delivery_real_split_fluidx.samples2files['p2sample1'],
                 key=operator.itemgetter('file_path')
-            ) == sorted(
-                [
-                    {
-                        'file_path': 'project2/%s/Fluidx1/%s' % (today, f),
-                        'size': 0,
-                        'md5': 'd41d8cd98f00b204e9800998ecf8427e'
-                    }
-                    for f in ('raw_data/run1_el_s1_id3_R1.fastq.gz', 'raw_data/run1_el_s1_id3_R2.fastq.gz',
-                              'raw_data/run1_el_s1_id4_R1.fastq.gz', 'raw_data/run1_el_s1_id4_R2.fastq.gz',
-                              'p2_user_s_id1.g.vcf.gz', 'p2_user_s_id1.g.vcf.gz.tbi', 'p2_user_s_id1.vcf.gz',
-                              'p2_user_s_id1.vcf.gz.tbi', 'p2_user_s_id1.bam', 'p2_user_s_id1.bam.bai')
-                ],
-                key=operator.itemgetter('file_path')
-            )
+            ) == [
+                {
+                    'file_path': 'project2/%s/Fluidx1/%s' % (today, f),
+                    'size': 0,
+                    'md5': 'd41d8cd98f00b204e9800998ecf8427e'
+                }
+                for f in ['p2_user_s_id1.bam', 'p2_user_s_id1.bam.bai', 'p2_user_s_id1.g.vcf.gz',
+                          'p2_user_s_id1.g.vcf.gz.tbi', 'p2_user_s_id1.vcf.gz', 'p2_user_s_id1.vcf.gz.tbi',
+                          'raw_data/run1_el_s1_id3_R1.fastq.gz', 'raw_data/run1_el_s1_id3_R2.fastq.gz',
+                          'raw_data/run1_el_s1_id4_R1.fastq.gz', 'raw_data/run1_el_s1_id4_R2.fastq.gz']
+
+            ]
 
     def test_get_email_data(self):
         with patch_process, patch_get_document, patch_get_documents, patch_get_queue,\
