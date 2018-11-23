@@ -451,16 +451,15 @@ class ManualDownload(Downloader):
             self.reference_fasta = fa_gz[:-3]
 
         vcf = input('Could not identify a vcf.gz file to use - enter one here.')
-        if not vcf:
-            raise DownloadError('No vcf file found')
-        elif not os.path.isfile(vcf):
+        if vcf and not os.path.isfile(vcf):
             raise DownloadError('vcf file provided %s was not found' % vcf)
-        if not os.path.abspath(os.path.dirname(vcf)) == self.abs_data_dir:
-            self.info('Copy %s to %s', os.path.basename(vcf), self.abs_data_dir)
-            new_path = os.path.join(self.abs_data_dir, os.path.basename(vcf))
-            copyfile(vcf, new_path)
-            vcf = new_path
-        self.reference_variation = vcf
+        if vcf:
+            if not os.path.abspath(os.path.dirname(vcf)) == self.abs_data_dir:
+                self.info('Copy %s to %s', os.path.basename(vcf), self.abs_data_dir)
+                new_path = os.path.join(self.abs_data_dir, os.path.basename(vcf))
+                copyfile(vcf, new_path)
+                vcf = new_path
+            self.reference_variation = vcf
 
 
 def main():

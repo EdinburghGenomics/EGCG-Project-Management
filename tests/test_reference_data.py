@@ -328,3 +328,14 @@ class TestManualDownload(TestProjectManagement):
             m_copyfile.assert_any_call('fasta_file.fa.gz', 'path/to/reference_data/A_species/a_genome/fasta_file.fa.gz')
             m_copyfile.assert_any_call('vcf_file.vcf.gz', 'path/to/reference_data/A_species/a_genome/vcf_file.vcf.gz')
             m_check_call.assert_called_once_with(['gzip', '-d', 'path/to/reference_data/A_species/a_genome/fasta_file.fa.gz'])
+
+    @patch('os.path.isfile', return_value=True)
+    @patch('bin.reference_data.copyfile')
+    @patch('subprocess.check_call')
+    def test_download_data_no_vcf(self, m_check_call, m_copyfile, m_isfile):
+        list_answers = ['fasta_file.fa.gz', '']
+        with patch('builtins.input', side_effect=list_answers):
+            self.downloader.download_data()
+            m_copyfile.assert_any_call('fasta_file.fa.gz', 'path/to/reference_data/A_species/a_genome/fasta_file.fa.gz')
+            m_check_call.assert_called_once_with(
+                ['gzip', '-d', 'path/to/reference_data/A_species/a_genome/fasta_file.fa.gz'])
