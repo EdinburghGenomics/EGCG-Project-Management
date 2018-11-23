@@ -241,6 +241,9 @@ class Downloader(AppLogger):
             )
     @staticmethod
     def genome_param_from_fai_file(fai_file):
+        """Read in the fai file and extract:
+         - the number of entry --> number of chromosome
+         - the sum of each entry's size (second column) --> genome size"""
         genome_size = 0
         nb_chromosome = 0
         with open(fai_file) as open_file:
