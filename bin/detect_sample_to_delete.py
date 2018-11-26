@@ -47,7 +47,11 @@ class SampleToDeleteDetector(AppLogger):
         if sample_id not in self._cache_sample_to_lims_statuses:
             self.debug('Query LIMS status for project %s', project_id)
             # It is much faster to query per project than querying each sample individually.
-            lims_statuses = rest_communication.get_documents('lims/sample_status', match={"project_id": project_id, 'project_status': 'all'}, quiet=True)
+            lims_statuses = rest_communication.get_documents(
+                'lims/sample_status',
+                match={'project_id': project_id, 'project_status': 'all'},
+                quiet=True
+            )
             for sample in lims_statuses:
                 self._cache_sample_to_lims_statuses[sample.get('sample_id')] = sample.get('statuses')
         return self._cache_sample_to_lims_statuses.get(sample_id)

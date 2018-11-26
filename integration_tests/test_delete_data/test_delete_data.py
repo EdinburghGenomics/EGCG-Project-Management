@@ -266,15 +266,15 @@ class TestDeleteFinalData(TestDeletion):
         assert not os.path.exists(os.path.join(self.fastq_archive_dir, 'a_run'))
 
     def test_manual_release_and_archiving(self):
-        for sample_id in ('sample_1', 'sample_2', 'sample_3'):
+        for sample_id in ('sample_1', 'sample_2', 'sample_3', 'sample_4'):
             assert all(archive_management.is_released(f) for f in self.all_files[sample_id])
             assert rest_communication.get_document('samples', where={'sample_id': sample_id})[
                        'data_deleted'] == 'on lustre'
 
         self._run_main(
-            ['final_deletion', '--manual_delete', 'sample_1', 'sample_2', 'sample_3']
+            ['final_deletion', '--manual_delete', 'sample_1', 'sample_2', 'sample_3', 'sample_4']
         )
-        for sample_id in ('sample_1', 'sample_2', 'sample_3'):
+        for sample_id in ('sample_1', 'sample_2', 'sample_3', 'sample_4'):
             assert all(not os.path.exists(f) for f in self.all_files[sample_id])
             assert rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'] == 'all'
 
@@ -297,5 +297,3 @@ class TestDeleteFinalData(TestDeletion):
         for sample_id in ('sample_1', 'sample_2', 'sample_3'):
             assert all(archive_management.is_released(f) for f in self.all_files[sample_id])
             assert rest_communication.get_document('samples', where={'sample_id': sample_id})['data_deleted'] == 'on lustre'
-
-

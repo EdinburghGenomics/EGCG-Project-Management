@@ -29,6 +29,13 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
 
     nb_runs = len(runs)
 
+    avg_yield = 0
+    avg_q30 = 0
+    pc_pass = 0
+    pc_useable = 0
+    pc_waiting = 0
+    pc_waiting_useable = 0
+
     if nb_runs > 0:
         avg_yield = sum([query_dict(run, 'aggregated.yield_in_gb') for run in runs]) / nb_runs
         avg_q30 = sum([query_dict(run, 'aggregated.pc_q30') for run in runs]) / nb_runs
@@ -63,14 +70,6 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
 
             pc_useable = pass_count / count * 100
             pc_waiting_useable = waiting_count / count * 100
-
-    else:
-        avg_yield = 0
-        avg_q30 = 0
-        pc_pass = 0
-        pc_useable = 0
-        pc_waiting = 0
-        pc_waiting_useable = 0
 
     res = {
         'nb_runs': nb_runs,
@@ -127,7 +126,7 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
     ]))
 
     for k in ['nb_runs', 'avg_yield', 'avg_q30', 'run_pc_pass', 'run_pc_waiting_pass', 'run_pc_useable',
-              'run_pc_waiting_useable', 'nb_samples_processed', 'nb_reviewed', 'sample_pc_pass','sample_pc_useable',
+              'run_pc_waiting_useable', 'nb_samples_processed', 'nb_reviewed', 'sample_pc_pass', 'sample_pc_useable',
               'review_errors']:
         print('%s: %s' % (k, res.get(k)))
 
