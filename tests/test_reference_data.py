@@ -1,3 +1,4 @@
+import os
 from unittest.mock import Mock, patch, PropertyMock
 from bin import reference_data
 from bin.reference_data import Downloader
@@ -65,6 +66,9 @@ class TestDownloader(TestProjectManagement):
         mock_input.side_effect = [
             3,    # chromosome_count
             100,  # genome_size
+            99,   # goldenpath
+            3,    # chromosome_count
+            100,  # genome_size
             99    # goldenpath
         ]
 
@@ -86,6 +90,20 @@ class TestDownloader(TestProjectManagement):
             'data_files': {
                 'fasta': 'A_species/a_genome/fasta_file.fa',
                 'variation': 'A_species/a_genome/vcf_file.vcf.gz'
+            },
+            'chromosome_count': 3,
+            'genome_size': 100,
+            'goldenpath': 99
+        }
+
+        self.downloader.payload = {}
+        self.downloader.reference_variation = None
+        self.downloader.prepare_metadata()
+        assert self.downloader.payload == {
+            'tools_used': exp_tools_used,
+            'data_source': 'a source',
+            'data_files': {
+                'fasta': 'A_species/a_genome/fasta_file.fa',
             },
             'chromosome_count': 3,
             'genome_size': 100,
@@ -170,6 +188,12 @@ class TestDownloader(TestProjectManagement):
                 'approximate_genome_size': 1.3
              },
         )
+
+    def test_genome_param_from_fai_file(self):
+        genome_fai = os.path.join(self.assets_path, 'genome.fa.fai')
+        genome_size, nb_contig = self.downloader.genome_param_from_fai_file(genome_fai)
+        assert genome_size == 1808681051
+        assert nb_contig == 10
 
 
 class TestEnsemblDownloader(TestProjectManagement):
@@ -321,3 +345,14 @@ class TestManualDownload(TestProjectManagement):
             m_copyfile.assert_any_call('fasta_file.fa.gz', 'path/to/reference_data/A_species/a_genome/fasta_file.fa.gz')
             m_copyfile.assert_any_call('vcf_file.vcf.gz', 'path/to/reference_data/A_species/a_genome/vcf_file.vcf.gz')
             m_check_call.assert_called_once_with(['gzip', '-d', 'path/to/reference_data/A_species/a_genome/fasta_file.fa.gz'])
+
+    @patch('os.path.isfile', return_value=True)
+    @patch('bin.reference_data.copyfile')
+    @patch('subprocess.check_call')
+    def test_download_data_no_vcf(self, m_check_call, m_copyfile, m_isfile):
+        list_answers = ['fasta_file.fa.gz', '']
+        with patch('builtins.input', side_effect=list_answers):
+            self.downloader.download_data()
+            m_copyfile.assert_any_call('fasta_file.fa.gz', 'path/to/reference_data/A_species/a_genome/fasta_file.fa.gz')
+            m_check_call.assert_called_once_with(
+                ['gzip', '-d', 'path/to/reference_data/A_species/a_genome/fasta_file.fa.gz'])
