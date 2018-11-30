@@ -35,7 +35,7 @@ class Deleter(app_logging.AppLogger):
 
     def __init__(self, cmd_args=None):
         """
-        :param  cmd_args:
+        :param list cmd_args:
         """
         self.cmd_args = cmd_args
         if not self.cmd_args:
