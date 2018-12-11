@@ -357,7 +357,7 @@ class ProjectReport:
         self.params['yield_cov_chart'] = list_plots
 
     def get_authorization(self):
-        processes_from_projects = self.lims.get_processes(process_type='Data Release Trigger EG 1.0 ST',
+        processes_from_projects = self.lims.get_processes(type='Data Release Trigger EG 1.0 ST',
                                                           projectname=self.project_name)
         release_data = []
         for i, process in enumerate(processes_from_projects):
@@ -385,7 +385,11 @@ class ProjectReport:
                     'charts_template': ['yield_cov_chart']}
 
         species = self.get_species(self.sample_names_delivered)
-        analysis_type = self.get_analysis_type(self.sample_names_delivered)
+        try:
+            analysis_type = self.get_analysis_type(self.sample_names_delivered)
+        except ValueError as e:
+            if len(species) != 1 or species.pop() is not 'Human':
+                raise e
         library_workflows = self.get_library_workflows(self.sample_names_delivered)
         if len(species) == 1 and species.pop() == 'Human':
             bioinfo_template = ['bioinformatics_analysis_bcbio']
