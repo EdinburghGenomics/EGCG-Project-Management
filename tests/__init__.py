@@ -1,5 +1,5 @@
 import hashlib
-from os.path import join, dirname
+from os.path import join, dirname, abspath
 from egcg_core.config import cfg
 from unittest import TestCase
 from unittest.mock import Mock
@@ -12,7 +12,7 @@ class NamedMock(Mock):
 
         
 class TestProjectManagement(TestCase):
-    root_path = dirname(dirname(__file__))
+    root_path = abspath(dirname(dirname(__file__)))
     etc_config = join(root_path, 'etc', 'example_project_management.yaml')
     root_test_path = join(root_path, 'tests')
     assets_path = join(root_test_path, 'assets')

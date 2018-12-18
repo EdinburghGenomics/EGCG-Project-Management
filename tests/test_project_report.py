@@ -7,6 +7,8 @@ from itertools import cycle
 from random import randint, random
 from unittest.mock import Mock, PropertyMock, patch
 from project_report import ProjectReport
+from project_report.project_information import ProjectReportInformation
+from project_report.project_report_latex import generate_document
 from tests import TestProjectManagement, NamedMock
 
 nb_samples = 50
@@ -388,3 +390,61 @@ class TestProjectReport(TestProjectManagement):
                 pr.generate_report('pdf')
             report = os.path.join(self.assets_path, 'project_report', 'dest', p, 'project_%s_report.pdf' % p)
             assert os.path.isfile(report)
+
+
+mocked_sample_status_latex = patch('project_report.project_information.ProjectReportInformation.sample_status',
+                             return_value={'started_date': '2017-08-02T11:25:14.659000'})
+
+
+def get_patch_sample_restapi_latex(project_name):
+    path = 'project_report.project_information.ProjectReportInformation.samples_for_project_restapi'
+    return patch(path, new_callable=PropertyMock(return_value=fake_rest_api_samples[project_name]))
+
+
+class TestProjectReportLatex(TestProjectManagement):
+    def setUp(self):
+        self.fake_samples = fake_samples['a_project_name']
+        self.source_dir = os.path.join(self.assets_path, 'project_report', 'source')
+        self.working_dir = os.path.join(self.assets_path, 'project_report', 'work')
+        os.makedirs(self.working_dir, exist_ok=True)
+        self.dest_dir = os.path.join(self.assets_path, 'project_report', 'dest')
+
+        self.pr = ProjectReportInformation('a_project_name')
+        self.pr.lims = FakeLims()
+
+        # Clean up previous reports
+        project_report_pdfs = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.pdf'))
+        for pdf in project_report_pdfs:
+            os.remove(pdf)
+
+        # create the source and dest folders
+        for project in fake_samples:
+            prj_dir = os.path.join(self.source_dir, project)
+            dest_dir = os.path.join(self.dest_dir, project)
+            os.makedirs(dest_dir, exist_ok=True)
+            os.makedirs(prj_dir, exist_ok=True)
+            for sample in fake_samples[project]:
+                smp_dir = os.path.join(prj_dir, sample.name.replace(':', '_'))
+                os.makedirs(smp_dir, exist_ok=True)
+                if sample.udf['Species'] == 'Homo sapiens':
+                    with open(os.path.join(smp_dir, 'programs.txt'), 'w') as open_file:
+                        open_file.write('bcbio,1.1\nbwa,1.2\ngatk,1.3\nsamblaster,1.4\n')
+                    with open(os.path.join(smp_dir, 'project-summary.yaml'), 'w') as open_file:
+                        open_file.write(
+                            'samples:\n- dirs:\n    galaxy: path/to/bcbio/bcbio-0.9.4/galaxy\n  genome_build: hg38\n')
+                else:
+                    with open(os.path.join(smp_dir, 'program_versions.yaml'), 'w') as open_file:
+                        open_file.write('biobambam_sortmapdup: 2\nbwa: 1.2\ngatk: v1.3\nbcl2fastq: 2.1\nsamtools: 0.3')
+
+    @mocked_sample_status_latex
+    def test_project_types(self, mocked_sample_status):
+        projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999')
+        for p in projects:
+            output_dir = os.path.join(self.assets_path, 'project_report', 'dest', p)
+            with get_patch_sample_restapi_latex(p):
+                pr = ProjectReportInformation(p)
+                pr.lims = FakeLims()
+
+                generate_document(pr, self.working_dir, output_dir)
+            report = glob.glob(os.path.join(output_dir, 'Project_%s_Report_*.pdf' % p))
+            assert len(report) == 1
