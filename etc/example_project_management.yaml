@@ -27,8 +27,8 @@ executor:
             interval: 1
 
 delivery:
-    signature_name: He-Man
-    signature_role: Prince
+    signature_name: Javier Santoyo
+    signature_role: Facility Manager
     source: tests/assets/project_report/source
     dest: tests/assets/project_report/dest
 

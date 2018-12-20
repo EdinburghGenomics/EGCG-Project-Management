@@ -119,7 +119,7 @@ d = datetime.datetime.strptime('2018-01-10', '%Y-%m-%d').date()
 
 fake_process_templates = {
     'a_project_name': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NC12: Description of major issue'},
-    'hmix999': {'nb_processes': 4, 'date': d, 'finished': 'Yes', 'NC': cycle(['NA', 'NA', 'NC25: Description minor issue', 'NA'])},
+    'hmix999': {'nb_processes': 9, 'date': d, 'finished': 'Yes', 'NC': cycle(['NA', 'NA', 'NC25: Description minor issue', 'NA'])},
     'nhtn999': {'nb_processes': 2, 'date': d, 'finished': 'Yes', 'NC': cycle(['NA', 'NC25: Major issue'])},
     'hpf999': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NA'},
     'nhpf999': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NC85: All samples were bad quality.'},
@@ -438,7 +438,9 @@ class TestProjectReportLatex(TestProjectManagement):
 
     @mocked_sample_status_latex
     def test_project_types(self, mocked_sample_status):
-        projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999')
+        #projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999')
+        projects = ('hmix999',)
+
         for p in projects:
             output_dir = os.path.join(self.assets_path, 'project_report', 'dest', p)
             with get_patch_sample_restapi_latex(p):

@@ -1,129 +1,27 @@
 import os
 
+import yaml
 from pylatex import Document, Section, Subsection, Package, PageStyle, Head, MiniPage, StandAloneGraphic, Foot, \
-    NewPage, HugeText, Tabu, Subsubsection, FootnoteText, LineBreak, Command, NoEscape, LongTabu
-from pylatex.base_classes import Environment
+    NewPage, HugeText, Tabu, Subsubsection, FootnoteText, LineBreak, Command, NoEscape, LongTabu, Hyperref, Marker, \
+    MultiColumn, MediumText, LargeText
+from pylatex.base_classes import Environment, CommandBase
 from pylatex.section import Paragraph
 from pylatex.utils import italic, bold
 
 from project_report.project_information import yield_vs_coverage_plot
 
+# Load all source texts from yaml.
+_report_text_yaml_file = os.path.join(os.path.dirname(__file__), 'report_texts.yaml')
+with open(_report_text_yaml_file) as open_file:
+    report_text = yaml.load(open_file)
 
-method_header = '''Edinburgh Genomics: Clinical Genomics utilises Illumina SeqLab, which integrates Illumina TruSeq 
-library preparation, Illumina cBot2 cluster generation, Illumina HiSeqX sequencing, Hamilton 
-Microlab STAR integrative automation, and Genologics Clarity LIMS X Edition.'''.replace('\n', '')
-
-
-sample_qc = '''Genomic DNA (gDNA) samples are evaluated for quantity using Quant-iT Picogreen reagent, Lambda Standard 
-DNA and a Molecular Devices, Spectramax XPS Gemini plate reader.  The quality of the gDNA samples are evaluated 
-using an AATI Fragment Analyzer and the Standard Sensitivity Genomic DNA Analysis Kit. Genomic DNA samples 
-found to have a total amount of >1000ng and a quality score >5 pass sample QC. Based on the quantification results, 
-gDNA samples are pre-normalised to fall within the 5-40ng/uL concentration range required for Illumina SeqLab 
-TruSeq Nano library preparation method using the Hamilton MicroLab STAR.'''.replace('\n', '')
-
-
-library_preparation_nano = '''Next Generation sequencing libraries are prepared using an Illumina SeqLab specific 
-TruSeq Nano High Throughput library preparation kit in conjunction with the Hamilton MicroLab STAR and 
-Clarity LIMS X (4.2) Edition. The 200ng gDNA sample input is normalised to the concentration and volume required for 
-the Illumina TruSeq Nano library preparation kit, then sheared to a 450bp mean insert size using a Covaris LE220 
-focused-ultrasonicator. The inserts are blunt ended, A-tailed, size selected, TruSeq adapters are ligated 
-onto the ends of each fragment before being PCR amplified.'''.replace('\n', '')
-
-
-library_qc_nano = '''The insert size for each library is evaluated using the Caliper GX Touch with a HT DNA 1k/12K/HI 
-SENS LabChip and HT DNA HI SENS Reagent Kit to ensure that the mean fragment sizes fall between 530bp and 950bp. 
-The concentration of each library is calculated using a Roche LightCycler 480 and a Kapa Illumina Library 
-Quantification kit and Standards to ensure that the concentration of each library is 
-between 5.5nM and 40nM.'''.replace('\n', '')
-
-
-library_preparation_pcr_free = '''Next Generation sequencing libraries are prepared using Illumina SeqLab specific 
-TruSeq PCR-Free High Throughput library preparation kits in conjunction with the Hamilton MicroLab STAR and 
-Clarity LIMS X Edition. The gDNA samples are normalised to the concentration and volume required for the Illumina 
-TruSeq PCR-Free library preparation kits then sheared to a 450bp mean insert size using a Covaris LE220 
-focused-ultrasonicator. The inserts are blunt ended, A-tailed, size selected and the TruSeq adapters are ligated onto 
-the ends.'''.replace('\n', '')
-
-
-library_qc_pcr_free = '''The insert size for each library is evaluated using the Caliper GX Touch with a HT DNA 
-1k/12K/HI SENS LabChip  and HT DNA HI SENS Reagent Kit to ensure that the mean fragment sizes fall between 300bp and 
-800bp. The concentration of each library is calculated using a Roche LightCycler 480 and a Kapa Illumina Library 
-Quantification kit and Standards to ensure that the concentration of each library is between 1.1nM and 
-8nM.'''.replace('\n', '')
-
-
-sequencing = '''The libraries are normalised to 1.5nM and are denatured for clustering and sequencing at 300pM using a 
-Hamilton MicroLab STAR with Genologics Clarity LIMS X (4.2) Edition. Libraries are clustered onto a HiSeqX Flow cell 
-v2.5 on cBot2s and the clustered flow cell is transferred to a HiSeqX for sequencing using a HiSeqX Ten 
-Reagent kit v2.5.'''.replace('\n', '')
-
-
-bioinformatics_qc = '''Demultiplexing is performed using bcl2fastq ({bcl2fastq_version}), allowing 1 mismatch when 
-assigning reads to barcodes. Adapters (Read1:  {adapter1}, Read2:  {adapter2}) are trimmed during the demultiplexing 
-process. Bwa mem ({bwa_version}) is used to align the raw reads to the  {species_submitted} genome(s) 
-({genome_version}), the duplicated fragments are marked using {biobambam_or_samblaster} 
-({biobambam_or_samblaster_version}) to mark the duplicated fragments, and samtools ({samtools_version}) is used to 
-assess coverage. The BAM file generated by the alignement is discarded and only the fastq files are 
-kept.'''.replace('\n', '')
-
-
-bioinformatics_analysis_bcbio = '''Demultiplexing is performed using bcl2fastq ({bcl2fastq_version}), allowing 1 
-mismatch when assigning reads to barcodes. Adapters (Read1:  {adapter1}, Read2:  {adapter2}) are trimmed during the 
-demultiplexing process. BCBio-Nextgen ({bcbio_version}) is used to perform alignment, BAM file preparation and variant 
-detection. BCBio uses bwa mem ({bwa_version}) to align the raw reads to the  {species_submitted} genome(s) 
-({genome_version}), then {biobambam_or_samblaster} ({biobambam_or_samblaster_version}) to mark the duplicated 
-fragments, and the Genome Analysis ToolKit ({gatk_version}) for the indel realignment and base recalibration. 
-The genotype likelihoods are calculated using Genome Analysis Toolkit ({gatk_version}) HaplotypeCaller creating a final 
-gvcf file.'''.replace('\n', '')
-
-
-bioinformatics_analysis = '''Demultiplexing is performed using bcl2fastq ({bcl2fastq_version}), allowing 1 mismatch 
-when assigning reads to barcodes. Adapters (Read1:  {adapter1}, Read2:  {adapter2}) are trimmed during the 
-demultiplexing process. Bwa mem ({bwa_version}) is used to align the raw reads to the  {species_submitted} genome(s) 
-({genome_version}), the duplicated fragments are marked using {biobambam_or_samblaster} 
-({biobambam_or_samblaster_version}) and indel realignment and base recalibration are performed using the Genome 
-Analysis ToolKit ({gatk_version}). This generate the final BAM file. The genotype likelihoods are calculated using 
-Genome Analysis Toolkit ({gatk_version}) HaplotypeCaller creating a gvcf file per sample.'''.replace('\n', '')
-
-
-yield_and_coverage = '''Yield is calculated as the number of in bases provided in the fastq files and is expressed in 
-gigabases (Gb). Coverage is the average number of bases covering each position of the reference 
-genome.'''.replace('\n', '')
-
-
-yield_and_coverage_chart = '''Chart showing the yield and coverage for {nb_sample} sample(s). The sections 
-in the graph highlight the expected yield ({req_yield} Gb) and the expected coverage ({req_cov}X).'''.replace('\n', '')
-
-
-fastq_format = '''Files ending in 'fastq.gz' are in gzipped Sanger fastq format, and contain the raw sequence data 
-after demultiplexing. Each sample has two files: an 'R1.fastq.gz' and an 'R2.fastq.gz', respectively containing the 
-first and second reads of each read pair.'''.replace('\n', '')
-fastq_link = 'https://en.wikipedia.org/wiki/FASTQ_format'
-
-
-bam_format = '''Files ending in '.bam' are in BAM format, and contain the reads aligned to the genome and ready for 
-variant calling. Each sample has one BAM file plus a '.bam.bai' file, which is the BAM index. This allows some 
-programmes fast random access to any part of the BAM file.'''.replace('\n', '')
-bam_link = 'https://samtools.github.io/hts-specs/SAMv1.pdf'
-
-
-vcf_format = '''Files ending in '.vcf.gz' are gzipped VCF files, and contain variants detected between the sample and 
-the reference genome. There is also a 'g.vcf.gz' file, which contains genotype likelihoods across the genome regardless 
-of the presence of a variant. Files ending in 'vcf.gz.tbi' are Tabix indexes allowing fast random access to any part of 
-their corresponding VCF.'''.replace('\n', '')
-vcf_link = 'https://samtools.github.io/hts-specs/VCFv4.2.pdf'
-
-formal_statement = '''The FASTQ data has been generated in accordance with the documented processes contained within 
-the Edinburgh Genomics Clinical Quality Management system as to meet agreed customer requirements. 
-The samples and outputted data have been inspected and tested by trained and competency evaluated personnel. 
-The instrumentation and materials used in the inspection and testing processes are traceable. 
-All the associated test instrumentation is maintained, calibrated and qualified as appropriate.'''.replace('\n', '')
-
-appendix_description = '''Full user and facility derived metrics for each sample can be found within the delivery 
-folder in summary_metrics.csv'''.replace('\n', '')
+EG_logo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'EG_logo_blackonwhite_300dpi.png')
+UoE_EG_logo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'UoE_EG_logo.png')
+Uni_logo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'UoE_Stacked_Logo_CMYK_v1_160215.png')
 
 
 class Landscape(Environment):
+    """Latex environment where the page will be roteted in landscape"""
     _latex_name = 'landscape'
     packages = [Package('pdflscape')]
 
@@ -144,7 +42,32 @@ class LatexSection(Environment):
         super().__init__(**kwargs)
 
 
-def create_vertical_table(container, header, rows, column_def=None):
+class HRef(CommandBase):
+    """A class that represents an hyperlink to a web address."""
+
+    _repr_attributes_mapping = {
+        'marker': 'options',
+        'text': 'arguments',
+    }
+
+    packages = [Package('hyperref')]
+
+    def __init__(self, url, text):
+        """
+        Args
+        ----
+        url: str
+            The url to use.
+        text: str
+            The text that will be shown as a link
+            to the url.
+        """
+
+        self.url = url
+        super().__init__(arguments=NoEscape(url), extra_arguments=text)
+
+
+def create_vertical_table(container, header, rows, column_def=None, footer=False):
     ncol = len(header)
     if not column_def:
         column_def = ' '.join(['X[r]'] * ncol)
@@ -152,6 +75,15 @@ def create_vertical_table(container, header, rows, column_def=None):
         data_table.add_hline()
         data_table.add_row(header, mapper=bold)
         data_table.add_hline()
+        data_table.end_table_header()
+        # Footer contains the next page notice
+        data_table.add_hline()
+        data_table.add_row((MultiColumn(ncol, align='r',data='Continued on Next Page'),))
+        data_table.add_hline()
+        data_table.end_table_footer()
+        # Last footer does not contain anything
+        data_table.end_table_last_footer()
+
         for r in rows:
             data_table.add_row(r)
         data_table.add_hline()
@@ -159,7 +91,7 @@ def create_vertical_table(container, header, rows, column_def=None):
 
 def create_horizontal_table(container, rows):
     """ Meant to be used for only two columns where the header is the first column"""
-    # convert lists into multilines cells
+    # Convert cell containing lists into multilines cells
     converted_rows = []
     for row in rows:
         converted_row = []
@@ -177,149 +109,192 @@ def create_horizontal_table(container, rows):
 
 
 def create_authorisation_section(doc, authorisations):
-    header = ['Version', 'Release date', 'Nb of Samples', 'Released by', 'Signature id']
-    columns = '|X|X|X|X[3]|X|'
-    with doc.create(Section('Authorisations', numbering=False)):
-        rows = [[
-            str(authorisation.get('version')),
-            str(authorisation.get('date')),
-            str(len(authorisation.get('samples'))),
-            '%s (%s)' % (authorisation.get('name'), authorisation.get('role')),
-            str(authorisation.get('id'))
-        ] for authorisation in authorisations]
-        create_vertical_table(doc, header, rows, columns)
+    header = ['Version', 'Release date', '# Samples', 'Released by', 'Signature id']
+    columns = '|p{1.5cm}|p{2.5cm}|p{2cm}|X|p{2.5cm}|'
+    #with doc.create(Section('Releases signature', numbering=True)):
+    rows = [[
+        str(authorisation.get('version')),
+        str(authorisation.get('date')),
+        str(len(authorisation.get('samples'))),
+        '%s (%s)' % (authorisation.get('name'), authorisation.get('role')),
+        str(authorisation.get('id'))
+    ] for authorisation in authorisations]
+    create_vertical_table(doc, header, rows, columns)
+
+    msg = report_text.get('releases_signatures_desc').format(
+        number_of_batches=len(authorisations),
+        batches='batch' if len(authorisations) == 1 else 'batches'
+    )
+    doc.append(msg + ' ')
+    doc.append(Hyperref(Marker('Appendix I. Per Sample Results', prefix='sec'), 'Appendix I'))
+    doc.append(NoEscape('.\n'))
 
 
-def create_summary_section(doc, project_infos):
-    with doc.create(Section('Summary', numbering=False)):
+def create_project_description_section(doc, project_infos):
+    with doc.create(Section('Project description', numbering=True)):
         create_horizontal_table(doc, project_infos)
         with doc.create(Paragraph('')):
-            doc.append('For detailed per-sample information, please see Appendix I.')
+            doc.append('For detailed per-sample information, please see ')
+            doc.append(Hyperref(Marker('Appendix I. Per Sample Results', prefix='sec'), 'Appendix I'))
+            doc.append(NoEscape('.\n'))
 
     doc.append(NewPage())
 
 
 def create_method_section(doc, library_preparation_types, bioinfo_analysis_types, bioinformatic_parameters):
-    with doc.create(Section('Methods', numbering=False)):
-        doc.append(method_header)
+    with doc.create(Section('Methods', numbering=True)):
+        doc.append(report_text.get('method_header'))
         for library_prep_type in library_preparation_types:
             if library_prep_type == 'TruSeq Nano':
-                library_prep = library_preparation_nano
-                library_qc = library_qc_nano
+                library_prep = report_text.get('library_preparation_nano')
+                library_qc = report_text.get('library_qc_nano')
             elif library_prep_type == 'TruSeq PCR-Free':
-                library_prep = library_preparation_pcr_free
-                library_qc = library_qc_pcr_free
+                library_prep = report_text.get('library_preparation_pcr_free')
+                library_qc = report_text.get('library_qc_pcr_free')
+            elif library_prep_type == 'User Prepared Library':
+                library_prep = None
+                library_qc = report_text.get('library_qc_nano')
             else:
                 raise ValueError('Unsuported library preparation type: %s' % library_prep_type)
 
-            with doc.create(Subsection(library_prep_type, numbering=False)):
-                with doc.create(Subsubsection('Sample QC', label=library_prep_type + '_Sample_QC', numbering=False)):
-                    doc.append(sample_qc)
-                with doc.create(Subsubsection('Library Preparation', label=library_prep_type + '_Library_Preparation',
-                                              numbering=False)):
-                    doc.append(library_prep)
-                with doc.create(Subsubsection('Library QC', label=library_prep_type + '_Library_QC', numbering=False)):
+            with doc.create(Subsection(library_prep_type, numbering=True)):
+                # Skip the sample QC and Library preparation description if UPL
+                if library_prep:
+                    with doc.create(Subsubsection('Sample QC', label=library_prep_type + '_Sample_QC', numbering=True)):
+                        doc.append(report_text.get('sample_qc'))
+                    with doc.create(Subsubsection('Library Preparation', label=library_prep_type + '_Library_Preparation',
+                                                  numbering=True)):
+                        doc.append(library_prep)
+                with doc.create(Subsubsection('Library QC', label=library_prep_type + '_Library_QC', numbering=True)):
                     doc.append(library_qc)
 
-        with doc.create(Subsection('Sequencing', numbering=False)):
-            doc.append(sequencing)
+        with doc.create(Subsection('Sequencing', numbering=True)):
+            doc.append(report_text.get('sequencing'))
 
         for bioinfo_analysis_type in bioinfo_analysis_types:
             if bioinfo_analysis_type is 'bioinformatics_qc':
-                with doc.create(Subsection('Bioinformatics QC', numbering=False)):
-                    doc.append(bioinformatics_qc.format(**bioinformatic_parameters))
+                with doc.create(Subsection('Bioinformatics QC', numbering=True)):
+                    doc.append(report_text.get('bioinformatics_qc').format(**bioinformatic_parameters))
             if bioinfo_analysis_type is 'bioinformatics_analysis_bcbio':
-                with doc.create(Subsection('Bioinformatics Analysis form Human samples', numbering=False)):
-                    doc.append(bioinformatics_analysis_bcbio.format(**bioinformatic_parameters))
+                with doc.create(Subsection('Bioinformatics Analysis for Human samples', numbering=True)):
+                    doc.append(report_text.get('bioinformatics_analysis_bcbio').format(**bioinformatic_parameters))
             if bioinfo_analysis_type is 'bioinformatics_analysis':
-                with doc.create(Subsection('Bioinformatics Analysis', numbering=False)):
-                    doc.append(bioinformatics_analysis.format(**bioinformatic_parameters))
+                with doc.create(Subsection('Bioinformatics Analysis', numbering=True)):
+                    doc.append(report_text.get('bioinformatics_analysis').format(**bioinformatic_parameters))
     doc.append(NewPage())
 
 
 def create_results_section(doc, result_summary, charts_info):
-    with doc.create(Section('Results', numbering=False)):
+    with doc.create(Section('Results', numbering=True)):
         create_horizontal_table(doc, result_summary)
 
-        with doc.create(Subsection('Yield and Coverage', numbering=False)):
-            doc.append(yield_and_coverage)
+        with doc.create(Subsection('Yield and Coverage', numbering=True)):
+            doc.append(report_text.get('yield_and_coverage'))
             doc.append(LineBreak())
 
             for chart_dict in charts_info:
                 doc.append(StandAloneGraphic(image_options=r'width=1\textwidth', filename=chart_dict['file']))
                 doc.append(LineBreak())
-                doc.append(italic(yield_and_coverage_chart.format(**chart_dict)))
+                doc.append(italic(report_text.get('yield_and_coverage_chart').format(**chart_dict)))
                 doc.append(NoEscape('\n\n'))
 
     doc.append(NewPage())
 
 
 def create_file_format_section(doc, formats_delivered):
-    with doc.create(Section('Format of the Files Delivered', numbering=False)):
+    with doc.create(Section('Format of the Files Delivered', numbering=True)):
         for format_delivered in formats_delivered:
             if format_delivered == 'fastq':
-                with doc.create(Subsection('Fastq format', numbering=False)):
-                    doc.append(fastq_format)
+                with doc.create(Subsection('Fastq format', numbering=True)):
+                    doc.append(report_text.get('fastq_format'))
                     doc.append(NoEscape('\n'))
                     doc.append('More detail about the format in ')
-                    doc.append(Command('href', arguments=NoEscape(fastq_link), extra_arguments='Fastq specification'))
+                    doc.append(HRef(url=NoEscape(report_text.get('fastq_link')), text='Fastq specification'))
             if format_delivered == 'bam':
-                with doc.create(Subsection('BAM format', numbering=False)):
-                    doc.append(bam_format)
+                with doc.create(Subsection('BAM format', numbering=True)):
+                    doc.append(report_text.get('bam_format'))
                     doc.append(NoEscape('\n'))
                     doc.append('More detail about the format in ')
-                    doc.append(Command('href', arguments=NoEscape(bam_link), extra_arguments='BAM specification'))
+                    doc.append(HRef(url=NoEscape(report_text.get('bam_link')), text='BAM specification'))
             if format_delivered == 'vcf':
-                with doc.create(Subsection('VCF format', numbering=False)):
-                    doc.append(vcf_format)
+                with doc.create(Subsection('VCF format', numbering=True)):
+                    doc.append(report_text.get('vcf_format'))
                     doc.append(NoEscape('\n'))
                     doc.append('More detail about the format in ')
-                    doc.append(Command('href', arguments=NoEscape(vcf_link), extra_arguments='VCF specification'))
+                    doc.append(HRef(url=report_text.get('vcf_link'), text='VCF specification'))
 
     doc.append(NewPage())
 
 
 def create_formal_statement_section(doc, project_name, authorisations):
-    with doc.create(Section('Deviations, Additions and Exclusions', numbering=False)):
+    with doc.create(Section('Deviations, Additions and Exclusions', numbering=True)):
         for authorisation in authorisations:
             if 'NCs' in authorisation:
                 title = '{project} {version}: {date}'.format(
                     project=project_name, version=authorisation.get('version'), date=authorisation.get('date')
                 )
-                doc.create(Subsubsection(title, numbering=False))
+                doc.create(Subsubsection(title, numbering=True))
                 doc.append(authorisation.get('NCs'))
-    with doc.create(Section('Declaration of Compliance', numbering=False)):
-        doc.append(formal_statement)
+    with doc.create(Section('Declaration of Compliance', numbering=True)):
+        doc.append(report_text.get('formal_statement'))
 
 
-def create_appendix_table(doc, csv_headers, csv_rows):
-    with doc.create(Landscape()) as landscape:
+def create_appendix_table(doc, appendix_tables):
+    with doc.create(Section('Appendix I. Per sample metadata', numbering=True)):
+        doc.append(report_text.get('appendix_description'))
+        doc.append(LineBreak())
 
-        with landscape.create(Section('Appendix I. Per Sample Results', numbering=False)):
-            landscape.append(appendix_description)
-            landscape.append(LineBreak())
+        with doc.create(LatexSection('scriptsize',)) as small_section:
+            create_vertical_table(
+                small_section,
+                appendix_tables['appendix I']['header'],
+                appendix_tables['appendix I']['rows']
+            )
+    with doc.create(Section('Appendix II. Per Sample Results', numbering=True)):
+        doc.append(report_text.get('appendix_description'))
+        doc.append(LineBreak())
 
-            with landscape.create(LatexSection('scriptsize',)) as small_section:
-                create_vertical_table(small_section, csv_headers, csv_rows)
+        with doc.create(LatexSection('scriptsize',)) as small_section:
+            create_vertical_table(
+                small_section,
+                appendix_tables['appendix II']['header'],
+                appendix_tables['appendix II']['rows']
+            )
+
+
+def first_pages_style():
+    # Generating first page style
+    page = PageStyle("firstpage")
+
+    # Address in small print in footer
+    address = 'Edinburgh Genomics Clinical, The Roslin Institute Easter Bush, Midlothian EH25 9RG Scotland, UK'
+    with page.create(Foot("C")) as footer:
+        footer.append(FootnoteText(address))
+
+    return page
 
 
 def all_pages_style(title):
-    # Generating first page style
+    # Generating report page style
     page = PageStyle("allpages")
 
     # EG logo in header
     with page.create(Head("L")) as header_left:
         with header_left.create(MiniPage(pos='c', align='l')) as logo_wrapper:
-            logo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc',
-                                     'EG_logo_blackonwhite_300dpi.png')
-            logo_wrapper.append(StandAloneGraphic(image_options="height=40px", filename=logo_file))
+
+            logo_wrapper.append(HRef(
+                url='https://genomics.ed.ac.uk',
+                text=StandAloneGraphic(image_options="height=40px", filename=Uni_logo_file)
+            ))
 
     # UoE logo in header
     with page.create(Head("R")) as right_header:
         with right_header.create(MiniPage(pos='c', align='r')) as logo_wrapper:
-            logo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc',
-                                     'UoE_Stacked_Logo_CMYK_v1_160215.png')
-            logo_wrapper.append(StandAloneGraphic(image_options="height=30px", filename=logo_file))
+
+            logo_wrapper.append(HRef(
+                url='https://www.ed.ac.uk/',
+                text=StandAloneGraphic(image_options="height=50px", filename=EG_logo_file)
+            ))
 
     # Document revision in footer
     with page.create(Foot("L")) as footer:
@@ -333,20 +308,28 @@ def all_pages_style(title):
     with page.create(Foot("R")) as footer:
         footer.append(FootnoteText(title))
 
-    # TODO: Add the address back elsewhere
-    # Add EG address in header
-    # with first_page.create(Head("R")) as right_header:
-    #     with right_header.create(MiniPage(width=NoEscape(r"0.49\textwidth"), pos='c', align='r')) as addr_wrapper:
-    #         addr_wrapper.append('Edinburgh Genomics Clinical')
-    #         addr_wrapper.append(LineBreak())
-    #         addr_wrapper.append('The Roslin Institute Easter Bush,')
-    #         addr_wrapper.append(LineBreak())
-    #         addr_wrapper.append('Midlothian')
-    #         addr_wrapper.append(LineBreak())
-    #         addr_wrapper.append('EH25 9RG Scotland, UK')
-    #         addr_wrapper.append(LineBreak())
-
     return page
+
+
+def front_page(doc, project_name, report_version, authorisations):
+    with doc.create(MiniPage(height='5cm', pos='c', align='c')) as logo_wrapper:
+        logo_wrapper.append(HRef(
+            url='https://genomics.ed.ac.uk',
+            text=StandAloneGraphic(image_options="height=80px", filename=UoE_EG_logo_file)
+        ))
+    doc.append(LineBreak())
+    with doc.create(MiniPage(height='3cm', pos='c', align='c')) as title_wrapper:
+        title_wrapper.append(HugeText('Whole genome sequencing report'))
+    doc.append(LineBreak())
+    with doc.create(MiniPage(height='3cm', pos='c', align='c')) as title_wrapper:
+        title_wrapper.append(LargeText('Project: ' + project_name))
+    doc.append(LineBreak())
+    with doc.create(MiniPage(height='3cm', pos='c', align='c')) as title_wrapper:
+        title_wrapper.append(MediumText('Report version: ' + report_version))
+    doc.append(LineBreak())
+
+    create_authorisation_section(doc, authorisations)
+    doc.append(NewPage())
 
 
 def generate_document(project_information, working_dir, output_dir):
@@ -358,7 +341,7 @@ def generate_document(project_information, working_dir, output_dir):
     library_prep_type, bioinfo_analysis_types, format_delivered = project_information.get_library_prep_analysis_types_and_format()
     bioinformatic_parameters = project_information.params
     result_summary = project_information.calculate_project_statistsics()
-    csv_table_headers, csv_table_rows = project_information.get_csv_data(authorisations)
+    appendix_tables = project_information.get_sample_data_in_tables(authorisations)
     charts_info = yield_vs_coverage_plot(project_information, working_dir)
     last_auth = authorisations[-1]
 
@@ -368,7 +351,7 @@ def generate_document(project_information, working_dir, output_dir):
 
     # Prepare the document geometry
     geometry_options = {
-        'headheight': '56pt',  # TODO: transfer the header space to pagestyle
+        'headheight': '66pt',  # TODO: transfer the header space to pagestyle
         "margin": "1.5cm",
         "bottom": "1cm",
         "top": "1cm",
@@ -376,33 +359,35 @@ def generate_document(project_information, working_dir, output_dir):
         "a4paper": True
     }
 
-    report_file = os.path.join(output_dir, document_title.replace(' ', '_') )
+    report_file = os.path.join(output_dir, document_title.replace(' ', '_'))
     # Create the standard document with 12pt font size https://en.wikibooks.org/wiki/LaTeX/Fonts#Sizing_text
     doc = Document(
         report_file,
         document_options=['12pt'],
         geometry_options=geometry_options,
-        lmodern=False
+        lmodern=False,  # Do not use latin modern font
+        indent=False  # Remove the default paragraph indentation throughout the document
     )
     # Add the required packages
     doc.packages.append(Package('roboto', 'sfdefault'))  # Add roboto as the default Font
     doc.packages.append(Package('array'))  # Array package https://ctan.org/pkg/array?lang=en
-    doc.packages.append(Package('hyperref', ['colorlinks=true', 'urlcolor=blue']))
+    doc.packages.append(Package('hyperref', ['colorlinks=true', 'linkcolor=blue', 'urlcolor=blue']))
 
+    doc.preamble.append(first_pages_style())  # Create the footer and header for first page
     doc.preamble.append(all_pages_style(document_title))  # Create the footer and header for all pages
-    doc.change_document_style('allpages')
-    # Remove the default indentation throughout the document
-    doc.append(Command('setlength{\parindent}{0pt}'))
 
+    doc.change_document_style('firstpage')
     # First page of the document
-    with doc.create(MiniPage(height='400pt', pos='c', align='c')) as title_wrapper:
-        title_wrapper.append(HugeText(document_title))
-    create_authorisation_section(doc, authorisations)
+    front_page(doc, project_name, last_auth.get('version'), authorisations)
+
+    doc.change_document_style('allpages')
+    #
+    doc.append(NoEscape('{\n\hypersetup{linkcolor=black}\n' + r'\tableofcontents' + '\n}'))
+
     doc.append(NewPage())
 
-
     # Subsequent sections
-    create_summary_section(doc, project_info)
+    create_project_description_section(doc, project_info)
     create_method_section(doc, library_prep_type, bioinfo_analysis_types, bioinformatic_parameters)
     create_results_section(doc, result_summary, charts_info)
     create_file_format_section(doc, format_delivered)
@@ -413,6 +398,8 @@ def generate_document(project_information, working_dir, output_dir):
 
     doc.append(NewPage())
 
-    create_appendix_table(doc, csv_table_headers, csv_table_rows)
-    doc.generate_pdf(clean_tex=True, silent=True)
+    # Appendix
+    create_appendix_table(doc, appendix_tables)
+
+    doc.generate_pdf(clean_tex=False, silent=True)
 

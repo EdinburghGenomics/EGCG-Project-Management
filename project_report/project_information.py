@@ -40,12 +40,6 @@ class ProjectReportInformation:
             'adapter2': 'AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT'
         }
 
-    @property
-    def eglogo_path(self):
-        return 'file://' + os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'etc', 'EG_logo_blackonwhite_300dpi.png'
-        )
-
     @cached_property
     def project(self):
         return self.lims.get_projects(name=self.project_name)[0]
@@ -131,7 +125,7 @@ class ProjectReportInformation:
     def parse_date(date):
         if not date:
             return 'NA'
-        return datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y-%m-%d')
+        return datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f').strftime('%d-%b-%Y')
 
     @staticmethod
     def calculate_mean(values):
@@ -209,11 +203,11 @@ class ProjectReportInformation:
             ('Enquiry no', self.enquiry_number),
             ('Quote no', self.quote_number),
             ('Customer name', self.customer_name),
-            ('Customer address', self.customer_address_lines),
+            ('Customer address', '\n'.join(self.customer_address_lines)),
             ('Number of samples', self.number_quoted_samples),
             ('Number of samples delivered', len(self.samples_for_project_restapi)),
             ('Date samples received', 'Detailed in appendix I'),
-            ('Project size', '%.2f terabytes' % self.project_size_in_terabytes()),
+            ('Total download size', '%.2f terabytes' % self.project_size_in_terabytes()),
             ('Laboratory protocol', ', '.join(library_workflows)),
             ('Submitted species', ', '.join(list(species_submitted))),
             ('Genome version', self.params['genome_version'])
@@ -318,17 +312,16 @@ class ProjectReportInformation:
                 'version': version,
                 'name': cfg.query('delivery', 'signature_name'),
                 'role': cfg.query('delivery', 'signature_role'),
-                'date': process.date_run,
+                'date': datetime.datetime.strptime(process.date_run, '%Y-%m-%d').strftime('%d %b %Y'),
                 'id': process.id,
                 'NCs': ncs
             })
         return release_data
 
-    def get_csv_data(self, authorisations):
+    def get_sample_data_in_tables(self, authorisations):
+        tables = {}
         header = [
-            'Internal ID', 'External ID', 'Date reviewed', 'DNA QC (>1000 ng)', 'Date received',
-            'Species', 'Workflow', 'Yield quoted (Gb)', 'Yield provided (Gb)', '% Q30 > 75%',
-            'Quoted coverage', 'Provided coverage'
+            'User ID', 'Internal ID', 'Date received', 'Date reviewed', 'Species', 'Library prep.'
         ]
 
         def find_sample_release_date_in_auth(sample):
@@ -339,13 +332,24 @@ class ProjectReportInformation:
             date_reviewed = find_sample_release_date_in_auth(sample.get('sample_id'))
             internal_sample_name = self.get_fluidx_barcode(sample.get('sample_id')) or sample.get('sample_id')
             row = [
-                internal_sample_name,
                 sample.get('user_sample_id', 'None'),
-                ', '.join(date_reviewed),
-                round(self.get_sample_total_dna(sample.get('sample_id')), 1),
+                internal_sample_name,
                 self.parse_date(self.sample_status(sample.get('sample_id')).get('started_date')),
+                ', '.join(date_reviewed),
                 sample.get('species_name'),
-                self.get_library_workflow_from_sample(sample.get('sample_id')),
+                self.get_library_workflow_from_sample(sample.get('sample_id'))
+            ]
+
+            rows.append(row)
+        tables['appendix I'] = {'header': header, 'rows': rows}
+        header = [
+            'User ID', 'Yield quoted (Gb)', 'Yield provided (Gb)', '% Q30 > 75%', 'Quoted coverage', 'Provided coverage'
+        ]
+
+        rows = []
+        for sample in self.samples_for_project_restapi:
+            row = [
+                sample.get('user_sample_id', 'None'),
                 self.get_required_yield(sample.get('sample_id')),
                 round(query_dict(sample, 'aggregated.clean_yield_in_gb'), 1),
                 round(query_dict(sample, 'aggregated.clean_pc_q30'), 1),
@@ -354,7 +358,9 @@ class ProjectReportInformation:
             ]
 
             rows.append(row)
-        return header, rows
+        tables['appendix II'] = {'header': header, 'rows': rows}
+
+        return tables
 
     def get_library_prep_analysis_types_and_format(self):
         species = self.get_species()
