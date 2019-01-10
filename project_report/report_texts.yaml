@@ -2,20 +2,26 @@
 # each entry will be reported as single line without new line character at the end
 # See https://yaml-multiline.info/ for detail
 
+# Each text will be pasted as single paragraph
+# Each text can contain python string formatting {} which will be replace by value in the project _report script
+# Each text can contain the tag latex::<text>::latex where the text will be pasted as latex without any escaping
+
+
 releases_signatures_desc: >-
-  This project have been approved for release in {number_of_batches} {batches}. Detail of samples released is available in
+  This project has been approved for release in {number_of_batches} {batches}.
+  Details of samples released are available in
 
 method_header: >-
-  Edinburgh Genomics: Clinical Genomics utilises Illumina SeqLab, which integrates Illumina TruSeq
+  Edinburgh Genomics Clinical utilises Illumina SeqLab, which integrates Illumina TruSeq
   library preparation, Illumina cBot2 cluster generation, Illumina HiSeqX sequencing, Hamilton
   Microlab STAR integrative automation, and Genologics Clarity LIMS X Edition.
 
 sample_qc: >-
   Genomic DNA (gDNA) samples are evaluated for quantity using Quant-iT Picogreen reagent, Lambda Standard 
-  DNA and a Molecular Devices, Spectramax XPS Gemini plate reader.  The quality of the gDNA samples are evaluated 
+  DNA and a Molecular Devices, Spectramax XPS Gemini plate reader. The quality of the gDNA samples are evaluated
   using an AATI Fragment Analyzer and the Standard Sensitivity Genomic DNA Analysis Kit. Genomic DNA samples 
   found to have a total amount of >-1000ng and a quality score >-5 pass sample QC. Based on the quantification results, 
-  gDNA samples are pre-normalised to fall within the 5-40ng/uL concentration range required for Illumina SeqLab 
+  gDNA samples are pre-normalised to fall within the 5-40latex::$ng/\mu L$::latex concentration range required for Illumina SeqLab
   TruSeq Nano library preparation method using the Hamilton MicroLab STAR.
 
 library_preparation_nano: >-
@@ -83,12 +89,12 @@ bioinformatics_analysis: >-
   Genome Analysis Toolkit ({gatk_version}) HaplotypeCaller creating a gvcf file per sample.
 
 yield_and_coverage: >-
-  Yield is calculated as the number of in bases provided in the fastq files and is expressed in 
+  Yield is calculated as the number of bases provided in the fastq files and is expressed in
   gigabases (Gb). Coverage is the average number of bases covering each position of the reference 
   genome.
 
 yield_and_coverage_chart: >-
-  Chart showing the yield and coverage for {nb_sample} sample(s). The sections 
+  Chart showing the yield and coverage for {nb_sample} sample(s). The sections
   in the graph highlight the expected yield ({req_yield} Gb) and the expected coverage ({req_cov}X).
 
 fastq_format: >-

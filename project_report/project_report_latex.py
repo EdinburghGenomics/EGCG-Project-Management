@@ -1,4 +1,5 @@
 import os
+import re
 
 import yaml
 from pylatex import Document, Section, Subsection, Package, PageStyle, Head, MiniPage, StandAloneGraphic, Foot, \
@@ -10,20 +11,29 @@ from pylatex.utils import italic, bold
 
 from project_report.project_information import yield_vs_coverage_plot
 
+
 # Load all source texts from yaml.
 _report_text_yaml_file = os.path.join(os.path.dirname(__file__), 'report_texts.yaml')
 with open(_report_text_yaml_file) as open_file:
     report_text = yaml.load(open_file)
+
 
 EG_logo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'EG_logo_blackonwhite_300dpi.png')
 UoE_EG_logo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'UoE_EG_logo.png')
 Uni_logo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'UoE_Stacked_Logo_CMYK_v1_160215.png')
 
 
-class Landscape(Environment):
-    """Latex environment where the page will be roteted in landscape"""
-    _latex_name = 'landscape'
-    packages = [Package('pdflscape')]
+def add_text(doc, t):
+    """
+    Split the provided text to escape latex commands and then add to the container
+    """
+    current_pos = 0
+    for m in re.finditer('latex::(.+)::latex', t):
+        doc.append(t[current_pos: m.start()])
+        doc.append(NoEscape(' ' + m.group(1) + ' '))
+        current_pos = m.end()
+    doc.append(t[current_pos:])
+    return doc
 
 
 class LatexSection(Environment):
@@ -111,7 +121,6 @@ def create_horizontal_table(container, rows):
 def create_authorisation_section(doc, authorisations):
     header = ['Version', 'Release date', '# Samples', 'Released by', 'Signature id']
     columns = '|p{1.5cm}|p{2.5cm}|p{2cm}|X|p{2.5cm}|'
-    #with doc.create(Section('Releases signature', numbering=True)):
     rows = [[
         str(authorisation.get('version')),
         str(authorisation.get('date')),
@@ -126,7 +135,7 @@ def create_authorisation_section(doc, authorisations):
         batches='batch' if len(authorisations) == 1 else 'batches'
     )
     doc.append(msg + ' ')
-    doc.append(Hyperref(Marker('Appendix I. Per Sample Results', prefix='sec'), 'Appendix I'))
+    doc.append(Hyperref(Marker('Appendix I. Per sample metadata', prefix='sec'), 'Appendix I'))
     doc.append(NoEscape('.\n'))
 
 
@@ -135,7 +144,7 @@ def create_project_description_section(doc, project_infos):
         create_horizontal_table(doc, project_infos)
         with doc.create(Paragraph('')):
             doc.append('For detailed per-sample information, please see ')
-            doc.append(Hyperref(Marker('Appendix I. Per Sample Results', prefix='sec'), 'Appendix I'))
+            doc.append(Hyperref(Marker('Appendix I. Per sample metadata', prefix='sec'), 'Appendix I'))
             doc.append(NoEscape('.\n'))
 
     doc.append(NewPage())
@@ -143,7 +152,7 @@ def create_project_description_section(doc, project_infos):
 
 def create_method_section(doc, library_preparation_types, bioinfo_analysis_types, bioinformatic_parameters):
     with doc.create(Section('Methods', numbering=True)):
-        doc.append(report_text.get('method_header'))
+        add_text(doc, report_text.get('method_header'))
         for library_prep_type in library_preparation_types:
             if library_prep_type == 'TruSeq Nano':
                 library_prep = report_text.get('library_preparation_nano')
@@ -161,43 +170,49 @@ def create_method_section(doc, library_preparation_types, bioinfo_analysis_types
                 # Skip the sample QC and Library preparation description if UPL
                 if library_prep:
                     with doc.create(Subsubsection('Sample QC', label=library_prep_type + '_Sample_QC', numbering=True)):
-                        doc.append(report_text.get('sample_qc'))
+                        add_text(doc, report_text.get('sample_qc'))
                     with doc.create(Subsubsection('Library Preparation', label=library_prep_type + '_Library_Preparation',
                                                   numbering=True)):
-                        doc.append(library_prep)
+                        add_text(doc, library_prep)
                 with doc.create(Subsubsection('Library QC', label=library_prep_type + '_Library_QC', numbering=True)):
-                    doc.append(library_qc)
+                    add_text(doc, library_qc)
 
         with doc.create(Subsection('Sequencing', numbering=True)):
-            doc.append(report_text.get('sequencing'))
+            add_text(doc, report_text.get('sequencing'))
 
         for bioinfo_analysis_type in bioinfo_analysis_types:
             if bioinfo_analysis_type is 'bioinformatics_qc':
                 with doc.create(Subsection('Bioinformatics QC', numbering=True)):
-                    doc.append(report_text.get('bioinformatics_qc').format(**bioinformatic_parameters))
+                    add_text(doc, report_text.get('bioinformatics_qc').format(**bioinformatic_parameters))
             if bioinfo_analysis_type is 'bioinformatics_analysis_bcbio':
                 with doc.create(Subsection('Bioinformatics Analysis for Human samples', numbering=True)):
-                    doc.append(report_text.get('bioinformatics_analysis_bcbio').format(**bioinformatic_parameters))
+                    add_text(doc, report_text.get('bioinformatics_analysis_bcbio').format(**bioinformatic_parameters))
             if bioinfo_analysis_type is 'bioinformatics_analysis':
                 with doc.create(Subsection('Bioinformatics Analysis', numbering=True)):
-                    doc.append(report_text.get('bioinformatics_analysis').format(**bioinformatic_parameters))
+                    add_text(doc, report_text.get('bioinformatics_analysis').format(**bioinformatic_parameters))
     doc.append(NewPage())
 
 
 def create_results_section(doc, result_summary, charts_info):
     with doc.create(Section('Results', numbering=True)):
         create_horizontal_table(doc, result_summary)
+        doc.append('For detailed per-sample information, please see ')
+        doc.append(Hyperref(Marker('Appendix II. Per Sample Results', prefix='sec'), 'Appendix II'))
+        doc.append(NoEscape('.\n'))
 
         with doc.create(Subsection('Yield and Coverage', numbering=True)):
-            doc.append(report_text.get('yield_and_coverage'))
+            add_text(doc, report_text.get('yield_and_coverage'))
             doc.append(LineBreak())
 
             for chart_dict in charts_info:
-                doc.append(StandAloneGraphic(image_options=r'width=1\textwidth', filename=chart_dict['file']))
-                doc.append(LineBreak())
-                doc.append(italic(report_text.get('yield_and_coverage_chart').format(**chart_dict)))
+                with doc.create(MiniPage()) as chart_mp:
+                    with chart_mp.create(LatexSection('center')) as chart_wrapper:
+                        chart_wrapper.append(
+                            StandAloneGraphic(image_options=r'width=.8\textwidth', filename=chart_dict['file'])
+                        )
+                        chart_wrapper.append(LineBreak())
+                    chart_mp.append(italic(report_text.get('yield_and_coverage_chart').format(**chart_dict)))
                 doc.append(NoEscape('\n\n'))
-
     doc.append(NewPage())
 
 
@@ -206,19 +221,19 @@ def create_file_format_section(doc, formats_delivered):
         for format_delivered in formats_delivered:
             if format_delivered == 'fastq':
                 with doc.create(Subsection('Fastq format', numbering=True)):
-                    doc.append(report_text.get('fastq_format'))
+                    add_text(doc, report_text.get('fastq_format'))
                     doc.append(NoEscape('\n'))
                     doc.append('More detail about the format in ')
                     doc.append(HRef(url=NoEscape(report_text.get('fastq_link')), text='Fastq specification'))
             if format_delivered == 'bam':
                 with doc.create(Subsection('BAM format', numbering=True)):
-                    doc.append(report_text.get('bam_format'))
+                    add_text(doc, report_text.get('bam_format'))
                     doc.append(NoEscape('\n'))
                     doc.append('More detail about the format in ')
                     doc.append(HRef(url=NoEscape(report_text.get('bam_link')), text='BAM specification'))
             if format_delivered == 'vcf':
                 with doc.create(Subsection('VCF format', numbering=True)):
-                    doc.append(report_text.get('vcf_format'))
+                    add_text(doc, report_text.get('vcf_format'))
                     doc.append(NoEscape('\n'))
                     doc.append('More detail about the format in ')
                     doc.append(HRef(url=report_text.get('vcf_link'), text='VCF specification'))
@@ -236,12 +251,12 @@ def create_formal_statement_section(doc, project_name, authorisations):
                 doc.create(Subsubsection(title, numbering=True))
                 doc.append(authorisation.get('NCs'))
     with doc.create(Section('Declaration of Compliance', numbering=True)):
-        doc.append(report_text.get('formal_statement'))
+        add_text(doc, report_text.get('formal_statement'))
 
 
 def create_appendix_table(doc, appendix_tables):
     with doc.create(Section('Appendix I. Per sample metadata', numbering=True)):
-        doc.append(report_text.get('appendix_description'))
+        add_text(doc, report_text.get('appendix_description'))
         doc.append(LineBreak())
 
         with doc.create(LatexSection('scriptsize',)) as small_section:
@@ -251,7 +266,7 @@ def create_appendix_table(doc, appendix_tables):
                 appendix_tables['appendix I']['rows']
             )
     with doc.create(Section('Appendix II. Per Sample Results', numbering=True)):
-        doc.append(report_text.get('appendix_description'))
+        add_text(doc, report_text.get('appendix_description'))
         doc.append(LineBreak())
 
         with doc.create(LatexSection('scriptsize',)) as small_section:
@@ -394,8 +409,8 @@ def generate_document(project_information, working_dir, output_dir):
     create_formal_statement_section(doc, project_name, authorisations)
 
     doc.append(NoEscape(r'\noindent\makebox[\linewidth]{\rule{\linewidth}{0.4pt}}'))
-    doc.append(NoEscape(r'\begin{center} End of ' + document_title + r'\end{center}'))
-
+    with doc.create(LatexSection('center')) as center_sec:
+        center_sec.append('End of ' + document_title)
     doc.append(NewPage())
 
     # Appendix
