@@ -403,6 +403,7 @@ def get_patch_sample_restapi_latex(project_name):
 
 class TestProjectReportLatex(TestProjectManagement):
     def setUp(self):
+        self.current_dir = os.curdir
         self.fake_samples = fake_samples['a_project_name']
         self.source_dir = os.path.join(self.assets_path, 'project_report', 'source')
         self.working_dir = os.path.join(self.assets_path, 'project_report', 'work')
@@ -411,6 +412,7 @@ class TestProjectReportLatex(TestProjectManagement):
 
         self.pr = ProjectReportInformation('a_project_name')
         self.pr.lims = FakeLims()
+
 
         # Clean up previous reports
         project_report_pdfs = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.pdf'))
@@ -436,9 +438,18 @@ class TestProjectReportLatex(TestProjectManagement):
                     with open(os.path.join(smp_dir, 'program_versions.yaml'), 'w') as open_file:
                         open_file.write('biobambam_sortmapdup: 2\nbwa: 1.2\ngatk: v1.3\nbcl2fastq: 2.1\nsamtools: 0.3')
 
+    def tearDown(self):
+        # delete the source folders
+        for project in fake_samples:
+            shutil.rmtree(os.path.join(self.source_dir, project))
+        shutil.rmtree(self.working_dir)
+
+        # go back to the original directory
+        os.chdir(self.current_dir)
+
     @mocked_sample_status_latex
     def test_project_types(self, mocked_sample_status):
-        #projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999')
+        projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999')
         projects = ('hmix999',)
 
         for p in projects:
