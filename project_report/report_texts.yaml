@@ -4,7 +4,7 @@
 
 # Each text will be pasted as single paragraph
 # Each text can contain python string formatting {} which will be replace by value in the project _report script
-# Each text can contain the tag latex::<text>::latex where the text will be pasted as latex without any escaping
+# Each text can contain the tag latex::<text>:: where the text will be pasted as latex without any escaping
 
 
 releases_signatures_desc: >-
@@ -22,13 +22,13 @@ sample_qc: >-
   using an AATI Fragment Analyzer and the Standard Sensitivity Genomic DNA Analysis Kit. Genomic DNA samples 
   found to have a total amount of >-1000ng and a quality score >-5 pass sample QC. Based on the quantification results, 
   gDNA samples are pre-normalised to fall within the
-  5-40latex::\si{\nano\gram\per\micro\litre}::latex concentration range required for Illumina SeqLab
+  5-40latex::\si{\nano\gram\per\micro\litre}:: concentration range required for Illumina SeqLab
   TruSeq Nano library preparation method using the Hamilton MicroLab STAR.
 
 library_preparation_nano: >-
   Next Generation sequencing libraries are prepared using an Illumina SeqLab specific 
   TruSeq Nano High Throughput library preparation kit in conjunction with the Hamilton MicroLab STAR and 
-  Clarity LIMS X (4.2) Edition. The 200latex::\si{\nano\gram}::latex
+  Clarity LIMS X (4.2) Edition. The 200latex::\si{\nano\gram}::
   gDNA sample input is normalised to the concentration and volume required for
   the Illumina TruSeq Nano library preparation kit, then sheared to a 450bp mean insert size using a Covaris LE220 
   focused-ultrasonicator. The inserts are blunt ended, A-tailed, size selected, TruSeq adapters are ligated 
@@ -39,7 +39,7 @@ library_qc_nano: >-
   SENS LabChip and HT DNA HI SENS Reagent Kit to ensure that the mean fragment sizes fall between 530bp and 950bp. 
   The concentration of each library is calculated using a Roche LightCycler 480 and a Kapa Illumina Library 
   Quantification kit and Standards to ensure that the concentration of each library is 
-  between 5.5nM and 40nM.
+  between 5.5latex::\si{\nano\mole}:: and 40latex::\si{\nano\mole}::.
 
 library_preparation_pcr_free: >-
   Next Generation sequencing libraries are prepared using Illumina SeqLab specific 
@@ -53,14 +53,14 @@ library_qc_pcr_free: >-
   The insert size for each library is evaluated using the Caliper GX Touch with a HT DNA 
   1k/12K/HI SENS LabChip  and HT DNA HI SENS Reagent Kit to ensure that the mean fragment sizes fall between 300bp and 
   800bp. The concentration of each library is calculated using a Roche LightCycler 480 and a Kapa Illumina Library 
-  Quantification kit and Standards to ensure that the concentration of each library is between 1.1nM and 
-  8nM.
+  Quantification kit and Standards to ensure that the concentration of each library is between
+  1.1latex::\si{\nano\mole}:: and 8latex::\si{\nano\mole}::.
 
 sequencing: >-
-  The libraries are normalised to 1.5nM and are denatured for clustering and sequencing at 300pM using a 
-  Hamilton MicroLab STAR with Genologics Clarity LIMS X (4.2) Edition. Libraries are clustered onto a HiSeqX Flow cell 
-  v2.5 on cBot2s and the clustered flow cell is transferred to a HiSeqX for sequencing using a HiSeqX Ten 
-  Reagent kit v2.5.
+  The libraries are normalised to 1.5latex::\si{\nano\mole}:: and are denatured for clustering and sequencing at
+  300latex::\si{\pico\mole}:: using a Hamilton MicroLab STAR with Genologics Clarity LIMS X (4.2) Edition.
+  Libraries are clustered onto a HiSeqX Flow cell v2.5 on cBot2s and the clustered flow cell is transferred to a HiSeqX
+  for sequencing using a HiSeqX Ten Reagent kit v2.5.
 
 bioinformatics_qc: >-
   Demultiplexing is performed using bcl2fastq ({bcl2fastq_version}), allowing 1 mismatch when 

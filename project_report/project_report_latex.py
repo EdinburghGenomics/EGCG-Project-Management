@@ -28,7 +28,7 @@ def add_text(doc, t):
     Split the provided text to escape latex commands and then add to the container
     """
     current_pos = 0
-    for m in re.finditer('latex::(.+)::latex', t):
+    for m in re.finditer(r'latex::(.+?)::', t):
         doc.append(t[current_pos: m.start()])
         doc.append(NoEscape(' ' + m.group(1) + ' '))
         current_pos = m.end()
