@@ -244,17 +244,17 @@ def create_file_format_section(doc, formats_delivered):
 def create_formal_statement_section(doc, project_name, authorisations):
     with doc.create(Section('Deviations, Additions and Exclusions', numbering=True)):
         for authorisation in authorisations:
-            if 'NCs' in authorisation:
+            if 'NCs' in authorisation and authorisation.get('NCs'):
                 title = '{project} {version}: {date}'.format(
                     project=project_name, version=authorisation.get('version'), date=authorisation.get('date')
                 )
-                doc.create(Subsubsection(title, numbering=True))
-                doc.append(authorisation.get('NCs'))
+                with doc.create(Subsection(title, numbering=True)):
+                    doc.append(authorisation.get('NCs'))
     with doc.create(Section('Declaration of Compliance', numbering=True)):
         add_text(doc, report_text.get('formal_statement'))
 
 
-def create_appendix_table(doc, appendix_tables):
+def create_appendix_tables(doc, appendix_tables):
     with doc.create(Section('Appendix I. Per sample metadata', numbering=True)):
         add_text(doc, report_text.get('appendix_description'))
         doc.append(LineBreak())
@@ -265,6 +265,8 @@ def create_appendix_table(doc, appendix_tables):
                 appendix_tables['appendix I']['header'],
                 appendix_tables['appendix I']['rows']
             )
+    doc.append(NewPage())
+
     with doc.create(Section('Appendix II. Per Sample Results', numbering=True)):
         add_text(doc, report_text.get('appendix_description'))
         doc.append(LineBreak())
@@ -366,7 +368,7 @@ def generate_document(project_information, working_dir, output_dir):
 
     # Prepare the document geometry
     geometry_options = {
-        'headheight': '66pt',  # TODO: transfer the header space to pagestyle
+        'headheight': '66pt',  # TODO: transfer the header space to pagestyle if possible
         "margin": "1.5cm",
         "bottom": "1cm",
         "top": "1cm",
@@ -387,18 +389,20 @@ def generate_document(project_information, working_dir, output_dir):
     doc.packages.append(Package('roboto', 'sfdefault'))  # Add roboto as the default Font
     doc.packages.append(Package('array'))  # Array package https://ctan.org/pkg/array?lang=en
     doc.packages.append(Package('hyperref', ['colorlinks=true', 'linkcolor=blue', 'urlcolor=blue']))
+    # SI units package https://ctan.org/pkg/siunitx?lang=en
+    doc.packages.append(Package('siunitx', NoEscape('per-mode=symbol')))
 
     doc.preamble.append(first_pages_style())  # Create the footer and header for first page
-    doc.preamble.append(all_pages_style(document_title))  # Create the footer and header for all pages
-
+    doc.preamble.append(all_pages_style(document_title))  # Create the footer and header for rest of the pages
     doc.change_document_style('firstpage')
     # First page of the document
     front_page(doc, project_name, last_auth.get('version'), authorisations)
 
+    # Main document
     doc.change_document_style('allpages')
-    #
-    doc.append(NoEscape('{\n\hypersetup{linkcolor=black}\n' + r'\tableofcontents' + '\n}'))
 
+    # Table of content
+    doc.append(NoEscape('{\n\hypersetup{linkcolor=black}\n' + r'\tableofcontents' + '\n}'))
     doc.append(NewPage())
 
     # Subsequent sections
@@ -413,8 +417,8 @@ def generate_document(project_information, working_dir, output_dir):
         center_sec.append('End of ' + document_title)
     doc.append(NewPage())
 
-    # Appendix
-    create_appendix_table(doc, appendix_tables)
+    # Appendices
+    create_appendix_tables(doc, appendix_tables)
 
     doc.generate_pdf(clean_tex=False, silent=True)
 

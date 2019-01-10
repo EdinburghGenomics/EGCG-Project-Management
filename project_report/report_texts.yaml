@@ -21,13 +21,15 @@ sample_qc: >-
   DNA and a Molecular Devices, Spectramax XPS Gemini plate reader. The quality of the gDNA samples are evaluated
   using an AATI Fragment Analyzer and the Standard Sensitivity Genomic DNA Analysis Kit. Genomic DNA samples 
   found to have a total amount of >-1000ng and a quality score >-5 pass sample QC. Based on the quantification results, 
-  gDNA samples are pre-normalised to fall within the 5-40latex::$ng/\mu L$::latex concentration range required for Illumina SeqLab
+  gDNA samples are pre-normalised to fall within the
+  5-40latex::\si{\nano\gram\per\micro\litre}::latex concentration range required for Illumina SeqLab
   TruSeq Nano library preparation method using the Hamilton MicroLab STAR.
 
 library_preparation_nano: >-
   Next Generation sequencing libraries are prepared using an Illumina SeqLab specific 
   TruSeq Nano High Throughput library preparation kit in conjunction with the Hamilton MicroLab STAR and 
-  Clarity LIMS X (4.2) Edition. The 200ng gDNA sample input is normalised to the concentration and volume required for 
+  Clarity LIMS X (4.2) Edition. The 200latex::\si{\nano\gram}::latex
+  gDNA sample input is normalised to the concentration and volume required for
   the Illumina TruSeq Nano library preparation kit, then sheared to a 450bp mean insert size using a Covaris LE220 
   focused-ultrasonicator. The inserts are blunt ended, A-tailed, size selected, TruSeq adapters are ligated 
   onto the ends of each fragment before being PCR amplified.
