@@ -63,7 +63,7 @@ class TestFinalSample(TestProjectManagement):
         mocked_is_released.return_value = False
         with self.assertRaises(ArchivingError) as e:
             _ = self.sample.files_to_purge
-        assert str(e.exception) == 'Files not yet remove from lustre cannot be removed from tape: ' + str(exp)
+        assert str(e.exception) == 'Files not yet removed from Lustre cannot be removed from tape: ' + str(exp)
 
         mocked_is_released.return_value = True
         assert self.sample.files_to_purge == exp
