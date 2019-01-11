@@ -5,7 +5,7 @@ import yaml
 from pylatex import Document, Section, Subsection, Package, PageStyle, Head, MiniPage, StandAloneGraphic, Foot, \
     NewPage, HugeText, Tabu, Subsubsection, FootnoteText, LineBreak, Command, NoEscape, LongTabu, Hyperref, Marker, \
     MultiColumn, MediumText, LargeText
-from pylatex.base_classes import Environment, CommandBase
+from pylatex.base_classes import Environment, ContainerCommand
 from pylatex.section import Paragraph
 from pylatex.utils import italic, bold
 
@@ -52,7 +52,7 @@ class LatexSection(Environment):
         super().__init__(**kwargs)
 
 
-class HRef(CommandBase):
+class HRef(ContainerCommand):
     """A class that represents an hyperlink to a web address."""
 
     _repr_attributes_mapping = {
@@ -75,7 +75,7 @@ class HRef(CommandBase):
         self.url = url
         if text is None:
             text = url
-        super().__init__(arguments=NoEscape(url), extra_arguments=text)
+        super().__init__(arguments=NoEscape(url), data=text)
 
 
 class ProjectReportLatex:
