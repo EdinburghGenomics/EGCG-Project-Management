@@ -225,6 +225,7 @@ class Downloader(AppLogger):
             genome_size = input(
                 "Enter species genome size (in Mb) to use for yield calculation. (default: %.0f) " % genome_size
             ) or genome_size
+
             # FIXME: Probably should expose the taxid in EGCG-Core so we do not have to access the private methods
             info = ncbi._fetch_from_cache(self.species)
             if info:
@@ -368,6 +369,7 @@ class EnsemblDownloader(Downloader):
         assembly_data = requests.get('%s/info/assembly/%s' % (self.rest_site, self.species),
                                      params={'content-type': 'application/json'}
                                      ).json()
+
         if 'assembly_name' in assembly_data and self.genome_version in assembly_data['assembly_name'].replace(' ','_'):
             self.payload['chromosome_count'] = len(assembly_data.get('karyotype'))
             self.payload['genome_size'] = assembly_data.get('base_pairs')
