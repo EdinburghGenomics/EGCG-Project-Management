@@ -333,7 +333,7 @@ class TestProjectReport(TestProjectManagement):
             'bwa_version': '1.2',
             'gatk_version': '1.3',
             'samblaster_version': '1.4',
-            'bcl2fastq_version': '2.17.1.14'
+            'bcl2fastq_version': '2.20.0.422'
         }
         assert all(self.pr.params[k] == v for k, v in exp.items())
 

@@ -193,7 +193,7 @@ class ProjectReport:
                 for row in csv.reader(open_prog):
                     all_programs[row[0]] = row[1]
         # TODO: change the hardcoded version of bcl2fastq
-        all_programs['bcl2fastq'] = '2.17.1.14'
+        all_programs['bcl2fastq'] = '2.20.0.422'
         for p in ['bcl2fastq', 'bcbio', 'bwa', 'gatk', 'samblaster']:
             if p in all_programs:
                 self.params[p + '_version'] = all_programs.get(p)
