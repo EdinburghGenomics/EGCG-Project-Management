@@ -8,7 +8,7 @@ from random import randint, random
 from unittest.mock import Mock, PropertyMock, patch
 from project_report import ProjectReport
 from project_report.project_information import ProjectReportInformation
-from project_report.project_report_latex import generate_document
+from project_report.project_report_latex import ProjectReportLatex
 from tests import TestProjectManagement, NamedMock
 
 nb_samples = 50
@@ -442,7 +442,7 @@ class TestProjectReportLatex(TestProjectManagement):
         # delete the source folders
         for project in fake_samples:
             shutil.rmtree(os.path.join(self.source_dir, project))
-        shutil.rmtree(self.working_dir)
+        #shutil.rmtree(self.working_dir)
 
         # go back to the original directory
         os.chdir(self.current_dir)
@@ -458,6 +458,7 @@ class TestProjectReportLatex(TestProjectManagement):
                 pr = ProjectReportInformation(p)
                 pr.lims = FakeLims()
 
-                generate_document(pr, self.working_dir, output_dir)
+                report = ProjectReportLatex(pr, self.working_dir, output_dir)
+                report.generate_pdf()
             report = glob.glob(os.path.join(output_dir, 'Project_%s_Report_*.pdf' % p))
             assert len(report) == 1
