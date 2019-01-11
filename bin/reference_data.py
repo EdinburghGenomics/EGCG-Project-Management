@@ -59,8 +59,8 @@ class Downloader(AppLogger):
 
     def run(self):
         self.download_data()
-        self.prepare_metadata()
         self.prepare_data()
+        self.prepare_metadata()
         self.validate_data()
         self.finish_metadata()
 
@@ -149,12 +149,29 @@ class Downloader(AppLogger):
             'data_source': self.data_source,
             'data_files': {
                 'fasta': os.path.join(self.rel_data_dir, os.path.basename(self.reference_fasta)),
-                'variation': os.path.join(self.rel_data_dir, os.path.basename(self.reference_variation))
             }
         })
+        if self.reference_variation:
+            self.payload['data_files']['variation'] = os.path.join(
+                self.rel_data_dir, os.path.basename(self.reference_variation)
+            )
+
+        if 'faidx' in self.procs:
+            self.procs['faidx'].wait()
+        defaults = {}
+        if os.path.exists(self.reference_fasta + '.fai'):
+            genome_size, chromosome_count = self.genome_param_from_fai_file(self.reference_fasta + '.fai')
+            defaults = {
+                'genome_size': genome_size,
+                'chromosome_count': chromosome_count,
+                'goldenpath': genome_size
+            }
         for field in ('chromosome_count', 'genome_size', 'goldenpath'):
-            if field not in self.payload:
-                value = input('Enter a value to use for %s. ' % field)
+            if field not in self.payload or self.payload[field] is None:
+                msg = 'Enter a value to use for %s.' % field
+                if field in defaults:
+                    msg = msg + ' (%s)' % defaults[field]
+                value = input(msg) or defaults.get(field)
                 if value:
                     self.payload[field] = int(value)
 
@@ -208,8 +225,14 @@ class Downloader(AppLogger):
             genome_size = input(
                 "Enter species genome size (in Mb) to use for yield calculation. (default: %.0f) " % genome_size
             ) or genome_size
-            # FIXME: Probably should expose the taxid in EGCG-Core so we do not have to access the private method
-            q, taxid, scientific_name, common_name = ncbi._fetch_from_cache(self.species)
+
+            # FIXME: Probably should expose the taxid in EGCG-Core so we do not have to access the private methods
+            info = ncbi._fetch_from_cache(self.species)
+            if info:
+                q, taxid, scientific_name, common_name = info
+            else:
+                taxid, scientific_name, common_name = ncbi._fetch_from_eutils(self.species)
+
             rest_communication.post_entry(
                 'species',
                 {
@@ -217,9 +240,22 @@ class Downloader(AppLogger):
                     'genomes': [self.genome_version],
                     'default_version': self.genome_version,
                     'taxid': taxid,
-                    'approximate_genome_size': genome_size
+                    'approximate_genome_size': float(genome_size)
                 }
             )
+    @staticmethod
+    def genome_param_from_fai_file(fai_file):
+        """Read in the fai file and extract:
+         - the number of entry --> number of chromosome
+         - the sum of each entry's size (second column) --> genome size"""
+        genome_size = 0
+        nb_chromosome = 0
+        with open(fai_file) as open_file:
+            for line in open_file:
+                sp_line = line.strip().split()
+                genome_size += int(sp_line[1])
+                nb_chromosome += 1
+        return genome_size, nb_chromosome
 
     @property
     def data_source(self):
@@ -274,6 +310,7 @@ class EnsemblDownloader(Downloader):
             ls = self.ftp.nlst('%s/fasta/%s/dna' % (release, self.ftp_species))
             top_level_fastas = [f for f in ls if f.endswith('dna.toplevel.fa.gz')]
             if top_level_fastas and self.genome_version in top_level_fastas[0]:
+                self.info('Found %s in Ensembl %s', self.genome_version, release)
                 return release
 
         raise DownloadError('Could not find any Ensembl releases for ' + self.genome_version)
@@ -332,10 +369,11 @@ class EnsemblDownloader(Downloader):
         assembly_data = requests.get('%s/info/assembly/%s' % (self.rest_site, self.species),
                                      params={'content-type': 'application/json'}
                                      ).json()
-        if self.genome_version in assembly_data['assembly_name'].replace(' ','_'):
-            self.payload['chromosome_count'] = len(assembly_data['karyotype'])
-            self.payload['genome_size'] = assembly_data['base_pairs']
-            self.payload['goldenpath'] = assembly_data['golden_path']
+
+        if 'assembly_name' in assembly_data and self.genome_version in assembly_data['assembly_name'].replace(' ','_'):
+            self.payload['chromosome_count'] = len(assembly_data.get('karyotype'))
+            self.payload['genome_size'] = assembly_data.get('base_pairs')
+            self.payload['goldenpath'] = assembly_data.get('golden_path')
         else:
             self.info('Assembly not found in Ensembl Rest API')
         # Run parent function after so metadata is not requested from user if available in ensembl
@@ -370,6 +408,7 @@ class EnsemblGenomeDownloader(EnsemblDownloader):
                 ls = self.ftp.nlst('%s/%s/fasta/%s/dna' % (release, site, self.ftp_species))
                 top_level_fastas = [f for f in ls if f.endswith('dna.toplevel.fa.gz')]
                 if top_level_fastas and self.genome_version in top_level_fastas[0]:
+                    self.info('Found %s in EnsemblGenomes %s', self.genome_version, release + '/' + site)
                     return release + '/' + site
 
         raise DownloadError('Could not find any Ensembl releases for ' + self.genome_version)
@@ -417,16 +456,15 @@ class ManualDownload(Downloader):
             self.reference_fasta = fa_gz[:-3]
 
         vcf = input('Could not identify a vcf.gz file to use - enter one here.')
-        if not vcf:
-            raise DownloadError('No vcf file found')
-        elif not os.path.isfile(vcf):
+        if vcf and not os.path.isfile(vcf):
             raise DownloadError('vcf file provided %s was not found' % vcf)
-        if not os.path.abspath(os.path.dirname(vcf)) == self.abs_data_dir:
-            self.info('Copy %s to %s', os.path.basename(vcf), self.abs_data_dir)
-            new_path = os.path.join(self.abs_data_dir, os.path.basename(vcf))
-            copyfile(vcf, new_path)
-            vcf = new_path
-        self.reference_variation = vcf
+        if vcf:
+            if not os.path.abspath(os.path.dirname(vcf)) == self.abs_data_dir:
+                self.info('Copy %s to %s', os.path.basename(vcf), self.abs_data_dir)
+                new_path = os.path.join(self.abs_data_dir, os.path.basename(vcf))
+                copyfile(vcf, new_path)
+                vcf = new_path
+            self.reference_variation = vcf
 
 
 def main():
@@ -453,6 +491,9 @@ def main():
             try:
                 d = downloader(args.species, args.genome_version, args.upload)
                 d.run()
+                # Some species are in both the Ensembl and EnsemblGenome ftp site
+                # break when one is successful
+                break
             except DownloadError as e:
                 print(str(e))
 

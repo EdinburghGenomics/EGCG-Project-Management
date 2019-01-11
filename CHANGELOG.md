@@ -1,10 +1,19 @@
 Changelog for EGCG-Project-Management
 =====================================
 
-0.9 (unreleased)
-----------------
+0.10 (unreleased)
+-----------------
 
 - Nothing changed yet.
+
+
+0.9 (2018-11-30)
+----------------
+
+- `reference_data.py` now downloads reference genomes from Ensembl and EnsemblGenomes. It also prepare the data, upload metadata and perform simple validation.
+- `delete_data.py` has a new mode for deletion of orphan filestub in the DMF filesystem
+- Fix bug in data deletion where fluidX samples where ignored in the delivered folder
+- New report run script that generate email to report successes/failures/repeats to the lab 
 
 
 0.8 (2018-08-08)
