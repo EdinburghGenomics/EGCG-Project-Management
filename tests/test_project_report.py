@@ -410,9 +410,6 @@ class TestProjectReportLatex(TestProjectManagement):
         os.makedirs(self.working_dir, exist_ok=True)
         self.dest_dir = os.path.join(self.assets_path, 'project_report', 'dest')
 
-        self.pr = ProjectReportInformation('a_project_name')
-        self.pr.lims = FakeLims()
-
 
         # Clean up previous reports
         project_reports = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.pdf'))
@@ -454,12 +451,9 @@ class TestProjectReportLatex(TestProjectManagement):
         for p in projects:
             output_dir = os.path.join(self.assets_path, 'project_report', 'dest', p)
             with get_patch_sample_restapi_latex(p):
-                pr = ProjectReportInformation(p)
-                pr.lims = FakeLims()
-
-                report = ProjectReportLatex(pr, self.working_dir, output_dir)
-                report.generate_tex()
+                report = ProjectReportLatex(p, self.working_dir)
+                report.project_information.lims = FakeLims()
+                tex_file = report.generate_tex()
                 # Uncomment to generate the pdf files (it requires latex to be installed locally)
-                # report.generate_pdf()
-            report = glob.glob(os.path.join(output_dir, 'Project_%s_Report_*.tex' % p))
-            assert len(report) == 1
+                # pdf_file = report.generate_pdf()
+            assert os.path.isfile(tex_file)

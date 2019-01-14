@@ -9,8 +9,7 @@ from pylatex.base_classes import Environment, ContainerCommand
 from pylatex.section import Paragraph
 from pylatex.utils import italic, bold
 
-from project_report.project_information import yield_vs_coverage_plot
-
+from project_report.project_information import yield_vs_coverage_plot, ProjectReportInformation
 
 # Load all source texts from yaml.
 _report_text_yaml_file = os.path.join(os.path.dirname(__file__), 'report_texts.yaml')
@@ -80,12 +79,12 @@ class HRef(ContainerCommand):
 
 class ProjectReportLatex:
 
-    def __init__(self, project_information, working_dir, output_dir):
-        self.project_information = project_information
+    def __init__(self, project_name, working_dir):
+        self.project_information = ProjectReportInformation(project_name)
         self.working_dir = working_dir
-        self.output_dir = output_dir
-        self.doc = self.generate_document()
-        self.populate_document()
+        self.output_dir = self.project_information.project_delivery
+        self.report_file_path = None
+        self.doc = None
 
     @staticmethod
     def create_vertical_table(container, header, rows, column_def=None, footer=False):
@@ -421,10 +420,11 @@ class ProjectReportLatex:
             "a4paper": True
         }
 
-        report_file = os.path.join(self.output_dir, document_title.replace(' ', '_'))
+        self.report_file_path = os.path.join(self.output_dir, document_title.replace(' ', '_'))
+
         # Create the standard document with 12pt font size https://en.wikibooks.org/wiki/LaTeX/Fonts#Sizing_text
         return Document(
-            report_file,
+            self.report_file_path,
             document_options=['12pt'],
             geometry_options=geometry_options,
             lmodern=False,  # Do not use latin modern font
@@ -432,7 +432,13 @@ class ProjectReportLatex:
         )
 
     def generate_tex(self):
+        self.doc = self.generate_document()
+        self.populate_document()
         self.doc.generate_tex()
+        return self.report_file_path + '.tex'
 
     def generate_pdf(self):
+        self.doc = self.generate_document()
+        self.populate_document()
         self.doc.generate_pdf(clean_tex=False, silent=True)
+        return self.report_file_path + '.pdf'

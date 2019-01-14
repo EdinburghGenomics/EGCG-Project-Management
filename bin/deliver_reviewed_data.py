@@ -19,6 +19,8 @@ from egcg_core.notifications.email import send_html_email
 from egcg_core.util import find_files, find_fastqs, query_dict
 from pyclarity_lims.entities import Process
 
+from project_report.project_report_latex import ProjectReportLatex
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from project_report import ProjectReport
 from config import load_config
@@ -423,11 +425,11 @@ class DataDelivery(AppLogger):
         # Generate project report
         project_to_reports = {}
         for project in self.deliverable_samples:
-            project_report = join(self.delivery_dest, project, 'project_%s_report.pdf' % project)
+            project_report = None
             try:
                 if not self.dry_run:
-                    pr = ProjectReport(project, self.staging_dir)
-                    pr.generate_report('pdf')
+                    pr = ProjectReportLatex(project, self.staging_dir)
+                    project_report = pr.generate_pdf()
             except Exception as e:
                 self.critical('Project report generation for %s failed: %s' % (project, e))
                 etype, value, tb = sys.exc_info()
