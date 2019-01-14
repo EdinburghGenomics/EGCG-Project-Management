@@ -415,9 +415,10 @@ class TestProjectReportLatex(TestProjectManagement):
 
 
         # Clean up previous reports
-        project_report_pdfs = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.pdf'))
-        for pdf in project_report_pdfs:
-            os.remove(pdf)
+        project_reports = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.pdf'))
+        project_report_texs = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.tex'))
+        for f in project_reports + project_report_texs:
+            os.remove(f)
 
         # create the source and dest folders
         for project in fake_samples:
@@ -442,15 +443,13 @@ class TestProjectReportLatex(TestProjectManagement):
         # delete the source folders
         for project in fake_samples:
             shutil.rmtree(os.path.join(self.source_dir, project))
-        #shutil.rmtree(self.working_dir)
-
+        shutil.rmtree(self.working_dir)
         # go back to the original directory
         os.chdir(self.current_dir)
 
     @mocked_sample_status_latex
     def test_project_types(self, mocked_sample_status):
         projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999')
-        projects = ('hmix999',)
 
         for p in projects:
             output_dir = os.path.join(self.assets_path, 'project_report', 'dest', p)
@@ -459,6 +458,8 @@ class TestProjectReportLatex(TestProjectManagement):
                 pr.lims = FakeLims()
 
                 report = ProjectReportLatex(pr, self.working_dir, output_dir)
-                report.generate_pdf()
-            report = glob.glob(os.path.join(output_dir, 'Project_%s_Report_*.pdf' % p))
+                report.generate_tex()
+                # Uncomment to generate the pdf files (it requires latex to be installed locally)
+                # report.generate_pdf()
+            report = glob.glob(os.path.join(output_dir, 'Project_%s_Report_*.tex' % p))
             assert len(report) == 1
