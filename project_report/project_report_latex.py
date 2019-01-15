@@ -86,6 +86,26 @@ class ProjectReportLatex:
         self.report_file_path = None
         self.doc = None
 
+    def _limit_cell_width(self, rows, cell_widths):
+        """
+        Limit the size of a
+        :param rows:
+        :param cell_widths:
+        :return:
+        """
+        new_rows = []
+        for row in rows:
+            new_row = []
+            new_rows.append(new_row)
+            for i, cell in enumerate(row):
+                if i in cell_widths and len(str(cell)) > cell_widths.get(i):
+                    new_row.append(
+                        str(cell)[:cell_widths[i]] + '\n' + str(cell)[cell_widths.get(i):]
+                    )
+                else:
+                    new_row.append(cell)
+        return new_rows
+
     @staticmethod
     def create_vertical_table(container, header, rows, column_def=None, footer=False):
         ncol = len(header)
@@ -314,7 +334,9 @@ class ProjectReportLatex:
                 self.create_vertical_table(
                     small_section,
                     appendix_tables['appendix I']['header'],
-                    appendix_tables['appendix I']['rows']
+                    self._limit_cell_width(appendix_tables['appendix I']['rows'], {0: 30}),
+                    # Set the column width to fix width for all but first column
+                    'X[l] p{2.5cm} p{2cm} p{2cm} p{2cm} p{2.5cm}'
                 )
         self.doc.append(NewPage())
 
@@ -326,7 +348,10 @@ class ProjectReportLatex:
                 self.create_vertical_table(
                     small_section,
                     appendix_tables['appendix II']['header'],
-                    appendix_tables['appendix II']['rows']
+                    self._limit_cell_width(appendix_tables['appendix II']['rows'], {0: 30}),
+                    # Set the column width to fix width for all but first column
+                    # R: is the newly defined column type in the preamble
+                    'X[l] R{2.2cm} R{2.4cm} R{1.9cm} R{2.2cm} R{2.5cm}'
                 )
 
     def front_page(self, project_name, report_version, authorisations):
@@ -375,6 +400,11 @@ class ProjectReportLatex:
 
         self.doc.preamble.append(self.first_pages_style())  # Create the footer and header for first page
         self.doc.preamble.append(self.all_pages_style(document_title))  # Create the footer and header for rest of the pages
+        # New column type that aligned on the right and allow to specify fixed column width
+        # See https://bit.ly/2RMlZgS
+        self.doc.preamble.append(NoEscape(
+            r'\newcolumntype{R}[1]{>{\raggedleft\let\newline\\\arraybackslash\hspace{0pt}}p{#1}}'
+        ))
         self.doc.change_document_style('firstpage')
         # First page of the document
         self.front_page( project_name, last_auth.get('version'), authorisations)
@@ -440,5 +470,5 @@ class ProjectReportLatex:
     def generate_pdf(self):
         self.doc = self.generate_document()
         self.populate_document()
-        self.doc.generate_pdf(clean_tex=False, silent=True)
+        self.doc.generate_pdf(clean_tex=True, silent=True)
         return self.report_file_path + '.pdf'

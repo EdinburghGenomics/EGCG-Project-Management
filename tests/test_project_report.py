@@ -42,7 +42,7 @@ fake_sample_templates = {
         }
     },
     'hmix999': {
-        'name': 'HS_mix_',
+        'name': 'samples_HSmix_',
         'udf': {
             'Prep Workflow': cycle(['TruSeq Nano DNA Sample Prep', 'TruSeq PCR-Free DNA Sample Prep']),
             'Species': 'Homo sapiens',
@@ -214,7 +214,8 @@ for project in fake_samples:
             clean_yield_in_gb = randint(int(req_yield * .9), int(req_yield * 1.5))
             fake_rest_api_samples[project].append({
                 'sample_id': sample.name,
-                'user_sample_id': 'user_' + sample.name,
+                # Add variable padding to see the effect of long user sample names
+                'user_sample_id': '_' * randint(0,15) + 'user_' + sample.name,
                 'project_id': project,
                 'species_name': sample.udf['Species'],
                 'aggregated': {
@@ -382,7 +383,8 @@ class TestProjectReport(TestProjectManagement):
 
     @mocked_sample_status
     def test_project_types(self, mocked_sample_status):
-        projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999')
+        #projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999')
+        projects = ('hmix999', 'nhtn999',)
         for p in projects:
             with get_patch_sample_restapi(p):
                 pr = ProjectReport(p, self.working_dir)
@@ -447,13 +449,15 @@ class TestProjectReportLatex(TestProjectManagement):
     @mocked_sample_status_latex
     def test_project_types(self, mocked_sample_status):
         projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999')
+        projects = ('hmix999',)
 
         for p in projects:
             output_dir = os.path.join(self.assets_path, 'project_report', 'dest', p)
             with get_patch_sample_restapi_latex(p):
                 report = ProjectReportLatex(p, self.working_dir)
                 report.project_information.lims = FakeLims()
-                tex_file = report.generate_tex()
+                # tex_file = report.generate_tex()
                 # Uncomment to generate the pdf files (it requires latex to be installed locally)
-                # pdf_file = report.generate_pdf()
-            assert os.path.isfile(tex_file)
+                pdf_file = report.generate_pdf()
+            #assert os.path.isfile(tex_file)
+            assert os.path.isfile(pdf_file)
