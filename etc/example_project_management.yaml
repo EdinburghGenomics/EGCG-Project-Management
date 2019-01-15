@@ -51,6 +51,3 @@ species:
         default: hg38
     Thingius thingy:
         default: thingius47
-
-tools:
-    latex: 'latexmk'

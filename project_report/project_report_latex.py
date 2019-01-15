@@ -473,9 +473,5 @@ class ProjectReportLatex:
     def generate_pdf(self):
         self.doc = self.generate_document()
         self.populate_document()
-        if 'latex' in cfg['tools']:
-            print('Compile with %s' %cfg['tools']['latex'])
-            self.doc.generate_pdf(clean_tex=True, silent=True, compiler=cfg['tools']['latex'], compiler_args=['--pdf'])
-        else:
-            self.doc.generate_pdf(clean_tex=True, silent=True)
+        self.doc.generate_pdf(clean_tex=True, silent=True)
         return self.report_file_path + '.pdf'
