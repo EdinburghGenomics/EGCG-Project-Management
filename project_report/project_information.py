@@ -6,6 +6,8 @@ import yaml
 import datetime
 from cached_property import cached_property
 from os import path, listdir
+
+from egcg_core.app_logging import AppLogger
 from egcg_core.util import find_file, query_dict
 from egcg_core.clarity import connection
 from egcg_core.rest_communication import get_documents, get_document
@@ -19,7 +21,7 @@ from config import cfg
 species_alias = {'Homo sapiens': 'Human', 'Human': 'Human'}
 
 
-class ProjectReportInformation:
+class ProjectReportInformation(AppLogger):
     workflow_alias = {
         'TruSeq Nano DNA Sample Prep': 'TruSeq Nano',
         'TruSeq PCR-Free DNA Sample Prep': 'TruSeq PCR-Free',
@@ -31,6 +33,7 @@ class ProjectReportInformation:
 
     def __init__(self, project_name):
         self.project_name = project_name
+        self.run_folders = cfg['sample']['input_dir']
         self.project_source = path.join(cfg['delivery']['source'], project_name)
         self.project_delivery = path.join(cfg['delivery']['dest'], project_name)
         self.lims = connection()
@@ -46,7 +49,7 @@ class ProjectReportInformation:
 
     @staticmethod
     def sample_status(sample_id):
-        return get_document('lims/status/sample_status', match={'sample_id': sample_id})
+        return get_document('lims/status/sample_status', match={'sample_id': sample_id, "project_status": "all"})
 
     @cached_property
     def samples_for_project_lims(self):
@@ -171,7 +174,7 @@ class ProjectReportInformation:
                 for row in csv.reader(open_prog):
                     all_programs[row[0]] = row[1]
         # TODO: change the hardcoded version of bcl2fastq
-        all_programs['bcl2fastq'] = '2.17.1.14'
+        #all_programs['bcl2fastq'] = '2.17.1.14'
         for p in ['bcl2fastq', 'bcbio', 'bwa', 'gatk', 'samblaster']:
             if p in all_programs:
                 self.params[p + '_version'] = all_programs.get(p)
@@ -183,10 +186,24 @@ class ProjectReportInformation:
         sample_yaml = full_yaml['samples'][0]
         return path.basename(path.dirname(sample_yaml['dirs']['galaxy'])), sample_yaml['genome_build']
 
+    def get_bcl2fastq_version(self, run_elements):
+        bcl2fastq_versions = set()
+        for run_element in run_elements:
+            run_id = '_'.join(run_element.split('_')[:4])
+            prog_vers_yaml = os.path.join(self.run_folders, run_id, 'program_versions.yaml')
+            with open(prog_vers_yaml, 'r') as open_file:
+                full_yaml = yaml.safe_load(open_file)
+                if 'bcl2fastq' in full_yaml and full_yaml.get('bcl2fastq'):
+                    bcl2fastq_versions.add(full_yaml.get('bcl2fastq'))
+                else:
+                    self.warning('Run %s has no bcl2fastq version: default to v2.17.1.14', run_id)
+                    bcl2fastq_versions.add('v2.17.1.14')
+        return ', '.join(bcl2fastq_versions)
+
     def update_from_program_version_yaml(self, prog_vers_yaml):
         with open(prog_vers_yaml, 'r') as open_file:
             full_yaml = yaml.safe_load(open_file)
-            for p in ['bcl2fastq', 'bwa', 'gatk', 'samtools', 'samblaster', 'biobambam_sortmapdup']:
+            for p in ['bwa', 'gatk', 'samtools', 'samblaster', 'biobambam_sortmapdup']:
                 if p in full_yaml:
                     self.params[p + '_version'] = full_yaml.get(p)
 
@@ -246,7 +263,8 @@ class ProjectReportInformation:
     def store_sample_info(self):
         genome_versions = set()
         species_submitted = set()
-        for sample in set(self.sample_names_delivered):
+        for sample_data in self.samples_for_project_restapi:
+            sample = sample_data.get('sample_id')
             species = self.get_species_from_sample(sample)
             species_submitted.add(species)
             genome_version = None
@@ -263,11 +281,16 @@ class ProjectReportInformation:
                 self.update_from_program_version_yaml(program_yaml)
 
             if not genome_version:
+                self.warning('Resolve genome version for sample %s from config file', sample)
                 genome_version = self.get_genome_version(sample)
 
             if genome_version == 'hg38':
                 genome_version = 'GRCh38 (with alt, decoy and HLA sequences)'
             genome_versions.add(genome_version)
+
+            self.params['bcl2fastq_version'] = self.get_bcl2fastq_version(
+                query_dict(sample_data, 'aggregated.from_run_elements.useable_run_elements')
+            )
 
         if 'biobambam_sortmapdup_version' in self.params:
             self.params['biobambam_or_samblaster'] = 'biobambam'
@@ -282,7 +305,6 @@ class ProjectReportInformation:
     def get_sample_yield_coverage_metrics(self):
         req_to_metrics = {}
         for sample in self.samples_for_project_restapi:
-
             req = (self.get_required_yield(sample.get('sample_id')), self.get_quoted_coverage(sample.get('sample_id')))
             if req not in req_to_metrics:
                 req_to_metrics[req] = {'samples': [], 'clean_yield': [], 'coverage': []}

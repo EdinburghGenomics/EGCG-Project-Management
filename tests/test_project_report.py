@@ -6,6 +6,9 @@ import collections
 from itertools import cycle
 from random import randint, random
 from unittest.mock import Mock, PropertyMock, patch
+
+from egcg_core.util import query_dict
+
 from project_report import ProjectReport
 from project_report.project_information import ProjectReportInformation
 from project_report.project_report_latex import ProjectReportLatex
@@ -223,6 +226,9 @@ for project in fake_samples:
                     'clean_pc_q30': clean_yield_in_gb * .8,
                     'pc_duplicate_reads': round(random() * 25, 1),
                     'pc_mapped_reads': round(95 + random() * 5, 1),
+                    'from_run_elements': {
+                        'useable_run_elements': ['date_machine_number_flowcell1_foo', 'date_machine_number_flowcell2_bar'],
+                    }
                 },
                 'coverage': {'mean': randint(int(req_cov * .9), int(req_cov * 1.5))}
             })
@@ -405,7 +411,6 @@ def get_patch_sample_restapi_latex(project_name):
 
 class TestProjectReportLatex(TestProjectManagement):
     def setUp(self):
-        self.current_dir = os.curdir
         self.fake_samples = fake_samples['a_project_name']
         self.source_dir = os.path.join(self.assets_path, 'project_report', 'source')
         self.working_dir = os.path.join(self.assets_path, 'project_report', 'work')
@@ -438,13 +443,22 @@ class TestProjectReportLatex(TestProjectManagement):
                     with open(os.path.join(smp_dir, 'program_versions.yaml'), 'w') as open_file:
                         open_file.write('biobambam_sortmapdup: 2\nbwa: 1.2\ngatk: v1.3\nbcl2fastq: 2.1\nsamtools: 0.3')
 
+        self.run_ids = set()
+        for project in fake_rest_api_samples:
+            for sample in fake_rest_api_samples[project]:
+                for re in query_dict(sample, 'aggregated.from_run_elements.useable_run_elements'):
+                    self.run_ids.add('_'.join(re.split('_')[:4]))
+        for run_id in self.run_ids:
+            run_dir = smp_dir = os.path.join(self.source_dir, run_id)
+            os.makedirs(run_dir, exist_ok=True)
+            with open(os.path.join(run_dir, 'program_versions.yaml'), 'w') as open_file:
+                open_file.write('bcl2fastq: v2.17.1.14\n')
+
     def tearDown(self):
         # delete the source folders
-        for project in fake_samples:
+        for project in list(fake_samples) + list(self.run_ids):
             shutil.rmtree(os.path.join(self.source_dir, project))
         shutil.rmtree(self.working_dir)
-        # go back to the original directory
-        os.chdir(self.current_dir)
 
     @mocked_sample_status_latex
     def test_project_types(self, mocked_sample_status):

@@ -26,6 +26,9 @@ executor:
             when: 'h'
             interval: 1
 
+sample:
+    input_dir: tests/assets/project_report/source
+
 delivery:
     signature_name: Javier Santoyo
     signature_role: Facility Manager
