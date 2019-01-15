@@ -9,6 +9,8 @@ from pylatex.base_classes import Environment, ContainerCommand
 from pylatex.section import Paragraph
 from pylatex.utils import italic, bold
 
+from config import cfg
+
 from project_report.project_information import yield_vs_coverage_plot, ProjectReportInformation
 
 # Load all source texts from yaml.
@@ -111,6 +113,7 @@ class ProjectReportLatex:
         ncol = len(header)
         if not column_def:
             column_def = ' '.join(['X[r]'] * ncol)
+        # Using the tabu package -> http://mirrors.ibiblio.org/CTAN/macros/latex/contrib/tabu/tabu.pdf
         with container.create(LongTabu(column_def, width=ncol)) as data_table:
             data_table.add_hline()
             data_table.add_row(header, mapper=bold)
@@ -470,5 +473,9 @@ class ProjectReportLatex:
     def generate_pdf(self):
         self.doc = self.generate_document()
         self.populate_document()
-        self.doc.generate_pdf(clean_tex=True, silent=True)
+        if 'latex' in cfg['tools']:
+            print('Compile with %s' %cfg['tools']['latex'])
+            self.doc.generate_pdf(clean_tex=True, silent=True, compiler=cfg['tools']['latex'], compiler_args=['--pdf'])
+        else:
+            self.doc.generate_pdf(clean_tex=True, silent=True)
         return self.report_file_path + '.pdf'

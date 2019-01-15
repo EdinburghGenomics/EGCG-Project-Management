@@ -42,7 +42,7 @@ fake_sample_templates = {
         }
     },
     'hmix999': {
-        'name': 'samples_HSmix_',
+        'name': 'HS_mix_',
         'udf': {
             'Prep Workflow': cycle(['TruSeq Nano DNA Sample Prep', 'TruSeq PCR-Free DNA Sample Prep']),
             'Species': 'Homo sapiens',
@@ -449,15 +449,13 @@ class TestProjectReportLatex(TestProjectManagement):
     @mocked_sample_status_latex
     def test_project_types(self, mocked_sample_status):
         projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999')
-        projects = ('hmix999',)
 
         for p in projects:
-            output_dir = os.path.join(self.assets_path, 'project_report', 'dest', p)
             with get_patch_sample_restapi_latex(p):
                 report = ProjectReportLatex(p, self.working_dir)
                 report.project_information.lims = FakeLims()
-                # tex_file = report.generate_tex()
+                tex_file = report.generate_tex()
+                assert os.path.isfile(tex_file)
                 # Uncomment to generate the pdf files (it requires latex to be installed locally)
                 pdf_file = report.generate_pdf()
-            #assert os.path.isfile(tex_file)
-            assert os.path.isfile(pdf_file)
+                assert os.path.isfile(pdf_file)
