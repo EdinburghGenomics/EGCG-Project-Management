@@ -1,15 +1,13 @@
 from unittest.mock import patch
-from data_deletion.DMF_data import DMFDtatDeleter
-
-from tests.test_data_deletion import TestDeleter, patched_patch_entry
+from data_deletion.DMF_data import DMFDataDeleter
+from tests.test_data_deletion import TestDeleter
 
 ppath = 'data_deletion.'
 
 
-class TestDMFDtatDeleter(TestDeleter):
-
+class TestDMFDataDeleter(TestDeleter):
     def setUp(self):
-        self.deleter = DMFDtatDeleter(self.cmd_args)
+        self.deleter = DMFDataDeleter(self.cmd_args)
 
     def test_get_cmd_output(self):
         exist_status, stdout, stderr = self.deleter._get_cmd_output('ls %s' % self.deleter.dmf_file_system)
@@ -22,11 +20,8 @@ class TestDMFDtatDeleter(TestDeleter):
         assert stdout == b''
         assert b'No such file or directory' in stderr
 
-    @patch.object(DMFDtatDeleter, '_get_cmd_output', return_value=(2, b'', b'No such file or directory'))
+    @patch.object(DMFDataDeleter, '_get_cmd_output', return_value=(2, b'', b'No such file or directory'))
     def test_find_files_to_delete(self, mock_cmd_out):
         files_to_delete = self.deleter.find_files_to_delete()
         assert files_to_delete == ['tests/assets/dmf_filesystem/afid']
         mock_cmd_out.assert_called_once_with('lfs fid2path tests/assets/lustre_file_system afid')
-
-
-
