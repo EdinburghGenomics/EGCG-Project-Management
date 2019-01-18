@@ -1,13 +1,8 @@
-sudo: require
-
 language: python
 python:
   - "3.4"
   - "3.5"
   - "3.6"
-before_install:
-  - sudo apt-get -qq update
-  - sudo apt-get -y  --no-install-recommends install texlive-latex-extra latexmk texlive-fonts-extra
 install:
   - "pip install -r requirements.txt"
   - "pip install python-coveralls pytest-cov"
