@@ -1,3 +1,4 @@
+import glob
 import os
 import re
 from hashlib import md5
@@ -47,8 +48,8 @@ class FakeLims:
             )
         ]
 
-    def get_processes(self, process_type, projectname):
-        if process_type == 'Data Release Trigger EG 1.0 ST':
+    def get_processes(self, type, projectname):
+        if type == 'Data Release Trigger EG 1.0 ST':
             nb_process = 2
             samples = self.get_samples(projectname)
             sample_sets = [samples[i::nb_process] for i in range(nb_process)]
@@ -71,7 +72,8 @@ class TestProjectReport(IntegrationTest):
     sample_input = os.path.join(work_dir, 'sample_input')
     patches = (
         patch('project_report.client.load_config'),
-        patch('project_report.ProjectReport.sample_status', return_value={'started_date': '2018-02-08T12:26:01.893000'})
+        patch('project_report.project_information.ProjectReportInformation.sample_status',
+              return_value={'started_date': '2018-02-08T12:26:01.893000'})
     )
 
     run_element_template = {'run_id': 'a_run', 'barcode': 'ATGC', 'library_id': 'a_library', 'useable': 'yes'}
@@ -177,7 +179,7 @@ class TestProjectReport(IntegrationTest):
         super().setUp()
 
         # can't have this in cls.patches because we need to construct the fake lims first
-        self.patched_lims = patch('project_report.connection', return_value=FakeLims(self.projects))
+        self.patched_lims = patch('project_report.project_information.connection', return_value=FakeLims(self.projects))
         self.patched_lims.start()
 
         run_ids = set()
@@ -185,7 +187,8 @@ class TestProjectReport(IntegrationTest):
             for s in data['samples']:
                 rest_communication.post_entry('run_elements', s['run_element'])
                 rest_communication.post_entry('samples', s['rest_data'])
-                run_ids.update(s['run_element'][re]['run_id'] for re in s['run_element'])
+
+                run_ids.add(s['run_element']['run_id'])
 
                 # TODO: refactor duplicate code from unit tests
                 sample_dir = os.path.join(self.delivery_source, project_id, s['rest_data']['sample_id'])
@@ -199,11 +202,6 @@ class TestProjectReport(IntegrationTest):
                 else:
                     with open(os.path.join(sample_dir, 'program_versions.yaml'), 'w') as open_file:
                         open_file.write('biobambam_sortmapdup: 2\nbwa: 1.2\ngatk: v1.3\nbcl2fastq: 2.1\nsamtools: 0.3')
-                for run_id in self.run_ids:
-                    run_dir = os.path.join(self.sample_input, run_id)
-                    os.makedirs(run_dir, exist_ok=True)
-                    with open(os.path.join(run_dir, 'program_versions.yaml'), 'w') as open_file:
-                        open_file.write('bcl2fastq: v2.17.1.14\n')
 
             rest_communication.post_entry(
                 'projects',
@@ -211,8 +209,12 @@ class TestProjectReport(IntegrationTest):
             )
 
             os.makedirs(os.path.join(self.delivery_dest, project_id), exist_ok=True)
+
         for run_id in run_ids:
-            os.makedirs(os.path.join(self.sample_input, run_id), exist_ok=True)
+            run_dir = os.path.join(self.sample_input, run_id)
+            os.makedirs(run_dir, exist_ok=True)
+            with open(os.path.join(run_dir, 'program_versions.yaml'), 'w') as open_file:
+                open_file.write('bcl2fastq: v2.17.1.14\n')
 
     def tearDown(self):
         super().tearDown()
@@ -232,16 +234,21 @@ class TestProjectReport(IntegrationTest):
     def test_reports(self):
         test_success = True
         exp_md5s = {
-            'htn999': 'dbf41471fa5fe2367daab6eb5876e151',
-            'nhtn999': 'b05e63e1e9929bfc4d7412cb6d73d99f',
-            'hpf999': 'c9cd8f802601e69730c7c38b9e5bc013',
-            'nhpf999': 'fa74f5eb9d1e8eba0b16ac23d38a5ab9'
+            'htn999': '7a365c15adbde6fc8692b04e5844bf9b',
+            'nhtn999': 'aeea5de0bede7113c8e502d25706a89d',
+            'hpf999': '3fbd73dba439cb0bb7478e2352ede654',
+            'nhpf999': 'c14c2c6346a339da08ca296adc2dbbd5'
         }
         for k, v in exp_md5s.items():
-            client.main(['-p', k, '-o', 'pdf', '-w', work_dir])
-            obs_md5 = self._check_md5(os.path.join(self.delivery_dest, k, 'project_%s_report.html' % k))
+            client.main(['-p', k, '-o', 'tex', '-w', work_dir])
+            'Project_hmix999_Report_v3-final'
+            report_tex = glob.glob(os.path.join(self.delivery_dest, k, 'Project_%s_Report_*.tex' % k))[0]
+            obs_md5 = self._check_md5(report_tex)
             if obs_md5 != v:
                 print('md5 mismatch for %s: expected %s, got %s' % (k, v, obs_md5))
                 test_success = False
-
+            client.main(['-p', k, '-o', 'pdf', '-w', work_dir])
+            report_pdf = glob.glob(os.path.join(self.delivery_dest, k, 'Project_%s_Report_*.pdf' % k))[0]
+            if not os.path.isfile(report_pdf):
+                test_success = False
         assert test_success
