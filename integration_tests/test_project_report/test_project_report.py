@@ -68,6 +68,7 @@ class FakeLims:
 class TestProjectReport(IntegrationTest):
     delivery_source = os.path.join(work_dir, 'delivery_source')
     delivery_dest = os.path.join(work_dir, 'delivery_dest')
+    sample_input = os.path.join(work_dir, 'sample_input')
     patches = (
         patch('project_report.client.load_config'),
         patch('project_report.ProjectReport.sample_status', return_value={'started_date': '2018-02-08T12:26:01.893000'})
@@ -128,7 +129,8 @@ class TestProjectReport(IntegrationTest):
                 'dest': cls.delivery_dest,
                 'signature_name': 'He-Man',
                 'signature_role': 'Prince'
-            }
+            },
+            'sample': {'input_dir': cls.sample_input}
         }
 
         i = 0
@@ -144,6 +146,7 @@ class TestProjectReport(IntegrationTest):
 
                 run_element = {
                     'run_element_id': run_element_id,
+                    'run_id': 'a_run',
                     'lane': s,
                     'sample_id': sample_id,
                     'project_id': project_id,
@@ -177,10 +180,12 @@ class TestProjectReport(IntegrationTest):
         self.patched_lims = patch('project_report.connection', return_value=FakeLims(self.projects))
         self.patched_lims.start()
 
+        run_ids = set()
         for project_id, data in self.projects.items():
             for s in data['samples']:
                 rest_communication.post_entry('run_elements', s['run_element'])
                 rest_communication.post_entry('samples', s['rest_data'])
+                run_ids.update(s['run_element'][re]['run_id'] for re in s['run_element'])
 
                 # TODO: refactor duplicate code from unit tests
                 sample_dir = os.path.join(self.delivery_source, project_id, s['rest_data']['sample_id'])
@@ -194,6 +199,11 @@ class TestProjectReport(IntegrationTest):
                 else:
                     with open(os.path.join(sample_dir, 'program_versions.yaml'), 'w') as open_file:
                         open_file.write('biobambam_sortmapdup: 2\nbwa: 1.2\ngatk: v1.3\nbcl2fastq: 2.1\nsamtools: 0.3')
+                for run_id in self.run_ids:
+                    run_dir = os.path.join(self.sample_input, run_id)
+                    os.makedirs(run_dir, exist_ok=True)
+                    with open(os.path.join(run_dir, 'program_versions.yaml'), 'w') as open_file:
+                        open_file.write('bcl2fastq: v2.17.1.14\n')
 
             rest_communication.post_entry(
                 'projects',
@@ -201,6 +211,8 @@ class TestProjectReport(IntegrationTest):
             )
 
             os.makedirs(os.path.join(self.delivery_dest, project_id), exist_ok=True)
+        for run_id in run_ids:
+            os.makedirs(os.path.join(self.sample_input, run_id), exist_ok=True)
 
     def tearDown(self):
         super().tearDown()
@@ -226,7 +238,7 @@ class TestProjectReport(IntegrationTest):
             'nhpf999': 'fa74f5eb9d1e8eba0b16ac23d38a5ab9'
         }
         for k, v in exp_md5s.items():
-            client.main(['-p', k, '-o', 'html', '-w', work_dir])
+            client.main(['-p', k, '-o', 'pdf', '-w', work_dir])
             obs_md5 = self._check_md5(os.path.join(self.delivery_dest, k, 'project_%s_report.html' % k))
             if obs_md5 != v:
                 print('md5 mismatch for %s: expected %s, got %s' % (k, v, obs_md5))

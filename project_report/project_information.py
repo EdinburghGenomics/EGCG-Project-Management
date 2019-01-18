@@ -186,10 +186,9 @@ class ProjectReportInformation(AppLogger):
         sample_yaml = full_yaml['samples'][0]
         return path.basename(path.dirname(sample_yaml['dirs']['galaxy'])), sample_yaml['genome_build']
 
-    def get_bcl2fastq_version(self, run_elements):
+    def get_bcl2fastq_version(self, run_ids):
         bcl2fastq_versions = set()
-        for run_element in run_elements:
-            run_id = '_'.join(run_element.split('_')[:4])
+        for run_id in run_ids:
             prog_vers_yaml = os.path.join(self.run_folders, run_id, 'program_versions.yaml')
             with open(prog_vers_yaml, 'r') as open_file:
                 full_yaml = yaml.safe_load(open_file)
@@ -289,7 +288,7 @@ class ProjectReportInformation(AppLogger):
             genome_versions.add(genome_version)
 
             self.params['bcl2fastq_version'] = self.get_bcl2fastq_version(
-                query_dict(sample_data, 'aggregated.from_run_elements.useable_run_elements')
+                query_dict(sample_data, 'aggregated.run_ids')
             )
 
         if 'biobambam_sortmapdup_version' in self.params:

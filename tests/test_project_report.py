@@ -226,9 +226,7 @@ for project in fake_samples:
                     'clean_pc_q30': clean_yield_in_gb * .8,
                     'pc_duplicate_reads': round(random() * 25, 1),
                     'pc_mapped_reads': round(95 + random() * 5, 1),
-                    'from_run_elements': {
-                        'useable_run_elements': ['date_machine_number_flowcell1_foo', 'date_machine_number_flowcell2_bar'],
-                    }
+                    'run_ids': ['date_machine_number_flowcell1', 'date_machine_number_flowcell1'],
                 },
                 'coverage': {'mean': randint(int(req_cov * .9), int(req_cov * 1.5))}
             })
@@ -445,10 +443,10 @@ class TestProjectReportLatex(TestProjectManagement):
         self.run_ids = set()
         for project in fake_rest_api_samples:
             for sample in fake_rest_api_samples[project]:
-                for re in query_dict(sample, 'aggregated.from_run_elements.useable_run_elements'):
-                    self.run_ids.add('_'.join(re.split('_')[:4]))
+                for run_id in query_dict(sample, 'aggregated.run_ids'):
+                    self.run_ids.add(run_id)
         for run_id in self.run_ids:
-            run_dir = smp_dir = os.path.join(self.source_dir, run_id)
+            run_dir = os.path.join(self.source_dir, run_id)
             os.makedirs(run_dir, exist_ok=True)
             with open(os.path.join(run_dir, 'program_versions.yaml'), 'w') as open_file:
                 open_file.write('bcl2fastq: v2.17.1.14\n')
