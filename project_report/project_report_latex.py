@@ -1,5 +1,6 @@
 import os
 import re
+from collections import OrderedDict
 
 import yaml
 from pylatex import Document, Section, Subsection, Package, PageStyle, Head, MiniPage, StandAloneGraphic, Foot, \
@@ -444,14 +445,14 @@ class ProjectReportLatex:
         )
 
         # Prepare the document geometry
-        geometry_options = {
-            'headheight': '66pt',  # TODO: transfer the header space to pagestyle if possible
-            "margin": "1.5cm",
-            "bottom": "1cm",
-            "top": "1cm",
-            "includeheadfoot": True,
-            "a4paper": True
-        }
+        geometry_options = [
+            ('headheight', '66pt'),  # TODO: transfer the header space to pagestyle if possible
+            ('margin', '1.5cm'),
+            ('bottom', '1cm'),
+            ('top', '1cm'),
+            ('includeheadfoot', True),
+            ('a4paper', True)
+        ]
 
         self.report_file_path = os.path.join(self.output_dir, document_title.replace(' ', '_'))
 

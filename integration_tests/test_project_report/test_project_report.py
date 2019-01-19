@@ -234,14 +234,13 @@ class TestProjectReport(IntegrationTest):
     def test_reports(self):
         test_success = True
         exp_md5s = {
-            'htn999': '7a365c15adbde6fc8692b04e5844bf9b',
-            'nhtn999': 'aeea5de0bede7113c8e502d25706a89d',
-            'hpf999': '3fbd73dba439cb0bb7478e2352ede654',
-            'nhpf999': 'c14c2c6346a339da08ca296adc2dbbd5'
+            'htn999': '32bb521bbec9c727890616c8d50824bc',
+            'nhtn999': '0cdde1130328d039449b7f20644cf35a',
+            'hpf999': '416bad3840def4fbbe2ddb12bc0e78af',
+            'nhpf999': '8e5d462f201a41c0daf0be2b2baf1758'
         }
         for k, v in exp_md5s.items():
             client.main(['-p', k, '-o', 'tex', '-w', work_dir])
-            'Project_hmix999_Report_v3-final'
             report_tex = glob.glob(os.path.join(self.delivery_dest, k, 'Project_%s_Report_*.tex' % k))[0]
             obs_md5 = self._check_md5(report_tex)
             if obs_md5 != v:
