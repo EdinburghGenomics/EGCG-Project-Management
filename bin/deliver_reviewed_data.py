@@ -76,6 +76,7 @@ class DataDelivery(AppLogger):
         self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + _now())
         self.delivery_dest = cfg['delivery']['dest']
         self.delivery_source = cfg['delivery']['source']
+        self.delivery_report_repository = cfg['delivery']['report_repo']
 
     @cached_property
     def today(self):
@@ -439,6 +440,9 @@ class DataDelivery(AppLogger):
                 project_report = None
             if project_report and os.path.exists(project_report):
                 project_to_reports[project] = project_report
+                # Copy the project report to the log folder
+                project_report_dest = os.path.join(self.delivery_report_repository, os.path.basename(project_report))
+                shutil.copyfile(project_report, project_report_dest)
 
         # Send email confirmation with attachments
         self.send_reports(self.deliverable_samples, project_to_reports)
