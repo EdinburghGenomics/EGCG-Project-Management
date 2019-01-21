@@ -9,7 +9,7 @@ from unittest.mock import Mock, PropertyMock, patch
 
 from egcg_core.util import query_dict
 
-from project_report import ProjectReport
+from project_report.project_information import ProjectReportInformation
 from project_report.project_report_latex import ProjectReportLatex
 from tests import TestProjectManagement, NamedMock
 
@@ -17,7 +17,7 @@ nb_samples = 50
 
 
 def ppath(ext):
-    return 'project_report.' + ext
+    return 'project_report.project_information.' + ext
 
 
 class FakeArtifact:
@@ -244,16 +244,16 @@ for project in fake_samples:
                 'coverage': {'mean': randint(int(req_cov * .9), int(req_cov * 1.5))}
             })
 
-mocked_get_folder_size = patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
-mocked_sample_status = patch(ppath('ProjectReport.sample_status'), return_value={'started_date': '2017-08-02T11:25:14.659000'})
+mocked_get_folder_size = patch(ppath('ProjectReportInformation.get_folder_size'), return_value=1337000000000)
+mocked_sample_status = patch(ppath('ProjectReportInformation.sample_status'), return_value={'started_date': '2017-08-02T11:25:14.659000'})
 
 
 def get_patch_sample_restapi(project_name):
-    path = ppath('ProjectReport.samples_for_project_restapi')
+    path = ppath('ProjectReportInformation.samples_for_project_restapi')
     return patch(path, new_callable=PropertyMock(return_value=fake_rest_api_samples[project_name]))
 
 
-class TestProjectReport(TestProjectManagement):
+class TestProjectReportInformation(TestProjectManagement):
     def setUp(self):
         self.fake_samples = fake_samples['a_project_name']
         self.source_dir = os.path.join(self.assets_path, 'project_report', 'source')
@@ -261,178 +261,8 @@ class TestProjectReport(TestProjectManagement):
         os.makedirs(self.working_dir, exist_ok=True)
         self.dest_dir = os.path.join(self.assets_path, 'project_report', 'dest')
 
-        self.pr = ProjectReport('a_project_name', working_dir=self.working_dir)
+        self.pr = ProjectReportInformation('a_project_name')
         self.pr.lims = FakeLims()
-
-        # Clean up previous reports
-        project_report_pdfs = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.pdf'))
-        for pdf in project_report_pdfs:
-            os.remove(pdf)
-
-        # create the source and dest folders
-        for project in fake_samples:
-            prj_dir = os.path.join(self.source_dir, project)
-            dest_dir = os.path.join(self.dest_dir, project)
-            os.makedirs(dest_dir, exist_ok=True)
-            os.makedirs(prj_dir, exist_ok=True)
-            for sample in fake_samples[project]:
-                smp_dir = os.path.join(prj_dir, sample.name.replace(':', '_'))
-                os.makedirs(smp_dir, exist_ok=True)
-                if sample.udf['Species'] == 'Homo sapiens':
-                    with open(os.path.join(smp_dir, 'programs.txt'), 'w') as open_file:
-                        open_file.write('bcbio,1.1\nbwa,1.2\ngatk,1.3\nsamblaster,1.4\n')
-                    with open(os.path.join(smp_dir, 'project-summary.yaml'), 'w') as open_file:
-                        open_file.write(
-                            'samples:\n- dirs:\n    galaxy: path/to/bcbio/bcbio-0.9.4/galaxy\n  genome_build: hg38\n')
-                else:
-                    with open(os.path.join(smp_dir, 'program_versions.yaml'), 'w') as open_file:
-                        open_file.write('biobambam_sortmapdup: 2\nbwa: 1.2\ngatk: v1.3\nbcl2fastq: 2.1\nsamtools: 0.3')
-
-    def tearDown(self):
-        # delete the source folders
-        for project in fake_samples:
-            shutil.rmtree(os.path.join(self.source_dir, project))
-        shutil.rmtree(self.working_dir)
-
-    def test_customer_name(self):
-        assert self.pr.customer_name == 'Awesome lab'
-        # Remove the lab name from the researcher
-        self.pr.lims.fake_lims_researcher = NamedMock(name='Firstname Lastname', lab=NamedMock(name=''))
-        # Remove the cached project
-        del self.pr.__dict__['project']
-        assert self.pr.customer_name == 'Firstname Lastname'
-
-    @mocked_get_folder_size
-    def test_get_project_info(self, mocked_folder_size):
-        exp = (('Project name', 'a_project_name'),
-               ('Project title', 'a_research_title_for_a_project_name'),
-               ('Enquiry no', '1337'),
-               ('Quote no', '1338'),
-               ('Customer name', 'Awesome lab'),
-               ('Customer address', ['Institute of Awesomeness', '213 high street']),
-               ('Number of samples', len(fake_samples['a_project_name'])),
-               ('Number of samples delivered', nb_samples),
-               ('Date samples received', 'Detailed in appendix I'),
-               ('Project size', '1.22 terabytes'),
-               ('Laboratory protocol', 'TruSeq Nano'),
-               ('Submitted species', 'Thingius thingy'),
-               ('Genome version', 'GRCh38 (with alt, decoy and HLA sequences)'))
-        with get_patch_sample_restapi('a_project_name'):
-            self.pr.store_sample_info()
-            assert self.pr.get_project_info() == exp
-        mocked_folder_size.assert_called_with('tests/assets/project_report/dest/a_project_name')
-
-    def test_samples_for_project(self):
-        assert self.pr.samples_for_project_lims == self.fake_samples
-
-    def test_get_sample(self):
-        assert self.pr.get_lims_sample('sample_1') == self.fake_samples[0]
-
-    def test_get_library_workflow(self):
-        assert self.pr.get_library_workflow_from_sample('sample_1') == 'TruSeq Nano'
-
-    def test_get_report_type(self):
-        assert self.pr.get_species_from_sample('sample_1') == 'Thingius thingy'
-        self.pr.project_name = 'hmix999'
-        del self.pr.__dict__['samples_for_project_lims']
-        assert self.pr.get_species_from_sample('HS_mix_1') == 'Human'
-
-    def test_update_program_from_csv(self):
-        assert len(self.pr.params) == 3
-        program_csv = os.path.join(
-            TestProjectManagement.assets_path,
-            'project_report',
-            'source',
-            'hmix999',
-            'HS_mix_1',
-            'programs.txt'
-        )
-        self.pr.update_from_program_csv(program_csv)
-        exp = {
-            'bcbio_version': '1.1',
-            'bwa_version': '1.2',
-            'gatk_version': '1.3',
-            'samblaster_version': '1.4',
-            'bcl2fastq_version': '2.17.1.14'
-        }
-        assert all(self.pr.params[k] == v for k, v in exp.items())
-
-    def test_update_from_project_summary(self):
-        assert 'bcbio_version' not in self.pr.params
-        assert 'genome_version' not in self.pr.params
-        summary_yaml = os.path.join(
-            TestProjectManagement.assets_path,
-            'project_report',
-            'source',
-            'hmix999',
-            'HS_mix_1',
-            'project-summary.yaml'
-        )
-        assert self.pr.get_from_project_summary_yaml(summary_yaml) == ('bcbio-0.9.4', 'hg38')
-
-    @mocked_get_folder_size
-    def test_get_sample_info(self, mocked_project_size):
-        with get_patch_sample_restapi('a_project_name'):
-            self.pr.store_sample_info()
-
-        assert self.pr.params == {
-            'bcl2fastq_version': 2.1,
-            'adapter1': 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCA',
-            'adapter2': 'AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT',
-            'bwa_version': 1.2,
-            'biobambam_sortmapdup_version': 2,
-            'project_name': 'a_project_name',
-            'gatk_version': 'v1.3',
-            'samtools_version': 0.3,
-            'genome_version': 'GRCh38 (with alt, decoy and HLA sequences)',
-            'species_submitted': 'Thingius thingy'
-        }
-
-    def test_get_html_template(self):
-        with get_patch_sample_restapi('a_project_name'):
-            assert self.pr.get_html_template().get('template_base') == 'report_base.html'
-
-    @patch(ppath('path.getsize'), return_value=1)
-    def test_get_folder_size(self, mocked_getsize):
-        d = os.path.join(TestProjectManagement.root_path, 'project_report', 'templates')
-        obs = self.pr.get_folder_size(d)
-        assert obs == 8
-
-    @mocked_sample_status
-    def test_project_types(self, mocked_sample_status):
-        projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999')
-        for p in projects:
-            with get_patch_sample_restapi(p):
-                pr = ProjectReport(p, self.working_dir)
-                pr.lims = FakeLims()
-                pr.generate_report('pdf')
-            report = os.path.join(self.assets_path, 'project_report', 'dest', p, 'project_%s_report.pdf' % p)
-            assert os.path.isfile(report)
-
-
-mocked_sample_status_latex = patch('project_report.project_information.ProjectReportInformation.sample_status',
-                             return_value={'started_date': '2017-08-02T11:25:14.659000'})
-
-
-def get_patch_sample_restapi_latex(project_name):
-    path = 'project_report.project_information.ProjectReportInformation.samples_for_project_restapi'
-    return patch(path, new_callable=PropertyMock(return_value=fake_rest_api_samples[project_name]))
-
-
-class TestProjectReportLatex(TestProjectManagement):
-    def setUp(self):
-        self.fake_samples = fake_samples['a_project_name']
-        self.source_dir = os.path.join(self.assets_path, 'project_report', 'source')
-        self.working_dir = os.path.join(self.assets_path, 'project_report', 'work')
-        os.makedirs(self.working_dir, exist_ok=True)
-        self.dest_dir = os.path.join(self.assets_path, 'project_report', 'dest')
-
-
-        # Clean up previous reports
-        project_reports = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.pdf'))
-        project_report_texs = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.tex'))
-        for f in project_reports + project_report_texs:
-            os.remove(f)
 
         # create the source and dest folders
         for project in fake_samples:
@@ -463,6 +293,142 @@ class TestProjectReportLatex(TestProjectManagement):
             os.makedirs(run_dir, exist_ok=True)
             with open(os.path.join(run_dir, 'program_versions.yaml'), 'w') as open_file:
                 open_file.write('bcl2fastq: v2.17.1.14\n')
+
+    def tearDown(self):
+        # delete the source folders
+        for project in fake_samples:
+            shutil.rmtree(os.path.join(self.source_dir, project))
+        shutil.rmtree(self.working_dir)
+
+    def test_customer_name(self):
+        assert self.pr.customer_name == 'Awesome lab'
+        # Remove the lab name from the researcher
+        self.pr.lims.fake_lims_researcher = NamedMock(name='Firstname Lastname', lab=NamedMock(name=''))
+        # Remove the cached project
+        del self.pr.__dict__['project']
+        assert self.pr.customer_name == 'Firstname Lastname'
+
+    @mocked_get_folder_size
+    def test_get_project_info(self, mocked_folder_size):
+        exp = (('Project name', 'a_project_name'),
+               ('Project title', 'a_research_title_for_a_project_name'),
+               ('Enquiry no', '1337'),
+               ('Quote no', '1338'),
+               ('Customer name', 'Awesome lab'),
+               ('Customer address', 'Institute of Awesomeness\n213 high street'),
+               ('Number of samples', len(fake_samples['a_project_name'])),
+               ('Number of samples delivered', nb_samples),
+               ('Date samples received', 'Detailed in appendix I'),
+               ('Total download size', '1.22 terabytes'),
+               ('Laboratory protocol', 'Illumina TruSeq Nano library'),
+               ('Submitted species', 'Thingius thingy'),
+               ('Genome version', 'GRCh38 (with alt, decoy and HLA sequences)'))
+
+        with get_patch_sample_restapi('a_project_name'):
+            self.pr.store_sample_info()
+            print(self.pr.get_project_info())
+            assert self.pr.get_project_info() == exp
+        mocked_folder_size.assert_called_with('tests/assets/project_report/dest/a_project_name')
+
+    def test_samples_for_project(self):
+        assert self.pr.samples_for_project_lims == self.fake_samples
+
+    def test_get_sample(self):
+        assert self.pr.get_lims_sample('sample_1') == self.fake_samples[0]
+
+    def test_get_library_workflow(self):
+        assert self.pr.get_library_workflow_from_sample('sample_1') == 'Illumina TruSeq Nano library'
+
+    def test_get_report_type(self):
+        assert self.pr.get_species_from_sample('sample_1') == 'Thingius thingy'
+        self.pr.project_name = 'hmix999'
+        del self.pr.__dict__['samples_for_project_lims']
+        assert self.pr.get_species_from_sample('HS_mix_1') == 'Human'
+
+    def test_update_program_from_csv(self):
+        assert len(self.pr.params) == 3
+        program_csv = os.path.join(
+            TestProjectManagement.assets_path,
+            'project_report',
+            'source',
+            'hmix999',
+            'HS_mix_1',
+            'programs.txt'
+        )
+        self.pr.update_from_program_csv(program_csv)
+        exp = {
+            'bcbio_version': '1.1',
+            'bwa_version': '1.2',
+            'gatk_version': '1.3',
+            'samblaster_version': '1.4',
+        }
+        assert all(self.pr.params[k] == v for k, v in exp.items())
+
+    def test_update_from_project_summary(self):
+        assert 'bcbio_version' not in self.pr.params
+        assert 'genome_version' not in self.pr.params
+        summary_yaml = os.path.join(
+            TestProjectManagement.assets_path,
+            'project_report',
+            'source',
+            'hmix999',
+            'HS_mix_1',
+            'project-summary.yaml'
+        )
+        assert self.pr.get_from_project_summary_yaml(summary_yaml) == ('bcbio-0.9.4', 'hg38')
+
+    @mocked_get_folder_size
+    def test_get_sample_info(self, mocked_project_size):
+        with get_patch_sample_restapi('a_project_name'):
+            self.pr.store_sample_info()
+
+        assert self.pr.params == {
+            'bcl2fastq_version': 2.1,
+            'adapter1': 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCA',
+            'adapter2': 'AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT',
+            'bwa_version': 1.2,
+            'biobambam_sortmapdup_version': 2,
+            'bcl2fastq_version': 'v2.17.1.14',
+            'biobambam_or_samblaster': 'biobambam',
+            'biobambam_or_samblaster_version': 2,
+            'project_name': 'a_project_name',
+            'gatk_version': 'v1.3',
+            'samtools_version': 0.3,
+            'genome_version': 'GRCh38 (with alt, decoy and HLA sequences)',
+            'species_submitted': 'Thingius thingy'
+        }
+
+    @patch(ppath('path.getsize'), return_value=1)
+    def test_get_folder_size(self, mocked_getsize):
+        d = os.path.join(TestProjectManagement.root_path, 'project_report')
+        obs = self.pr.get_folder_size(d)
+        assert obs == 8
+
+
+mocked_sample_status_latex = patch('project_report.project_information.ProjectReportInformation.sample_status',
+                             return_value={'started_date': '2017-08-02T11:25:14.659000'})
+
+
+def get_patch_sample_restapi_latex(project_name):
+    path = 'project_report.project_information.ProjectReportInformation.samples_for_project_restapi'
+    return patch(path, new_callable=PropertyMock(return_value=fake_rest_api_samples[project_name]))
+
+
+class TestProjectReportLatex(TestProjectReportInformation):
+    def setUp(self):
+        self.fake_samples = fake_samples['a_project_name']
+        self.source_dir = os.path.join(self.assets_path, 'project_report', 'source')
+        self.working_dir = os.path.join(self.assets_path, 'project_report', 'work')
+        os.makedirs(self.working_dir, exist_ok=True)
+        self.dest_dir = os.path.join(self.assets_path, 'project_report', 'dest')
+
+        # Clean up previous reports
+        project_reports = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.pdf'))
+        project_report_texs = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.tex'))
+        for f in project_reports + project_report_texs:
+            os.remove(f)
+
+        super().setUp()
 
     def tearDown(self):
         # delete the source folders

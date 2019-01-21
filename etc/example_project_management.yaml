@@ -34,6 +34,7 @@ delivery:
     signature_role: Facility Manager
     source: tests/assets/project_report/source
     dest: tests/assets/project_report/dest
+    report_repo: tests/assets/project_report/repo
 
 clarity:
     baseuri: 'http://genologics.com:8080/'
