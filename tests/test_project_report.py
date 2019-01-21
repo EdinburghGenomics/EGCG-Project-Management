@@ -176,8 +176,8 @@ class FakeLims:
         return fake_samples[projectname]
 
     @staticmethod
-    def get_processes(process_type, projectname):
-        if process_type == 'Data Release Trigger EG 1.0 ST':
+    def get_processes(type, projectname):
+        if type == 'Data Release Trigger EG 1.0 ST':
             return fake_processes[projectname]
 
 
