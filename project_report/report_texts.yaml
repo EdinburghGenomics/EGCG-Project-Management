@@ -56,6 +56,9 @@ library_qc_pcr_free: >-
   Quantification kit and Standards to ensure that the concentration of each library is between
   1.1latex::\si{\nano\mole}:: and 8latex::\si{\nano\mole}::.
 
+user_prepared_libraries: >-
+  The libraries were prepared by the user and have been quality controled by Edinburgh Genomics.
+
 sequencing: >-
   The libraries are normalised to 1.5latex::\si{\nano\mole}:: and are denatured for clustering and sequencing at
   300latex::\si{\pico\mole}:: using a Hamilton MicroLab STAR with Genologics Clarity LIMS X (4.2) Edition.

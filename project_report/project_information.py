@@ -23,13 +23,17 @@ species_alias = {'Homo sapiens': 'Human', 'Human': 'Human'}
 
 class ProjectReportInformation(AppLogger):
     workflow_alias = {
-        'TruSeq Nano DNA Sample Prep': 'TruSeq Nano',
-        'TruSeq PCR-Free DNA Sample Prep': 'TruSeq PCR-Free',
-        'TruSeq PCR-Free Sample Prep': 'TruSeq PCR-Free',
-        'TruSeq DNA PCR-Free Sample Prep': 'TruSeq PCR-Free'
+        'TruSeq Nano DNA Sample Prep': 'Illumina TruSeq Nano library',
+        'TruSeq PCR-Free DNA Sample Prep': 'Illumina TruSeq PCR-Free library',
+        'TruSeq PCR-Free Sample Prep': 'Illumina TruSeq PCR-Free library',
+        'TruSeq DNA PCR-Free Sample Prep': 'Illumina TruSeq PCR-Free library'
     }
-
-    sample_qc_alias = {'TruSeq Nano': 'sample_qc_nano', 'TruSeq PCR-free': 'sample_qc_pcrfree'}
+    library_abbreviation = {
+        'User Prepared Library': 'UPL',
+        'Illumina TruSeq Nano library': 'Nano',
+        'Illumina TruSeq PCR-Free library': 'PCRfree'
+    }
+    species_abbreviation = {}
 
     def __init__(self, project_name):
         self.project_name = project_name
@@ -62,6 +66,14 @@ class ProjectReportInformation(AppLogger):
             raise EGCGError('No samples found for project %s' % self.project_name)
         return samples
 
+    def abbreviate_species(self, species, nchar=1):
+        if species not in self.species_abbreviation:
+            abbreviation = ''.join([e[:nchar].upper() for e in species.split()])
+            if abbreviation in self.species_abbreviation.values():
+                abbreviation = self.abbreviate_species(species, nchar + 1)
+            self.species_abbreviation[species] = abbreviation
+        return self.species_abbreviation.get(species)
+
     @property
     def sample_names_delivered(self):
         return [sample.get('sample_id') for sample in self.samples_for_project_restapi]
@@ -79,7 +91,10 @@ class ProjectReportInformation(AppLogger):
         return self.get_lims_sample(sample_name).udf.get('Analysis Type')
 
     def get_library_workflow_from_sample(self, sample_name):
-        return self.workflow_alias.get(self.get_lims_sample(sample_name).udf.get('Prep Workflow'))
+        if self.get_lims_sample(sample_name).udf.get('User Prepared Library') == 'Yes':
+            return 'User Prepared Library'
+        else:
+            return self.workflow_alias.get(self.get_lims_sample(sample_name).udf.get('Prep Workflow'))
 
     def get_species_from_sample(self, sample_name):
         s = self.get_lims_sample(sample_name).udf.get('Species')
@@ -109,7 +124,7 @@ class ProjectReportInformation(AppLogger):
         library_workflows = set()
         for sample in self.sample_names_delivered:
             library_workflows.add(self.get_library_workflow_from_sample(sample))
-        unknown_libraries = library_workflows.difference({'TruSeq Nano', 'TruSeq PCR-Free'})
+        unknown_libraries = library_workflows.difference(set(self.library_abbreviation))
         if len(unknown_libraries):
             raise ValueError('%s unknown library preparation: %s' % (len(unknown_libraries), unknown_libraries))
         return sorted(library_workflows)
@@ -128,7 +143,7 @@ class ProjectReportInformation(AppLogger):
     def parse_date(date):
         if not date:
             return 'NA'
-        return datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f').strftime('%d-%b-%Y')
+        return datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f').strftime('%d %b %y')
 
     @staticmethod
     def calculate_mean(values):
@@ -333,7 +348,7 @@ class ProjectReportInformation(AppLogger):
                 'version': version,
                 'name': cfg.query('delivery', 'signature_name'),
                 'role': cfg.query('delivery', 'signature_role'),
-                'date': datetime.datetime.strptime(process.date_run, '%Y-%m-%d').strftime('%d %b %Y'),
+                'date': datetime.datetime.strptime(process.date_run, '%Y-%m-%d').strftime('%d %b %y'),
                 'id': process.id,
                 'NCs': ncs
             })
@@ -349,20 +364,30 @@ class ProjectReportInformation(AppLogger):
             return [auth.get('date') for auth in authorisations if sample in auth.get('samples')]
 
         rows = []
+
+        library_descriptions = set()
+        species_abbreviations = set()
         for sample in self.samples_for_project_restapi:
             date_reviewed = find_sample_release_date_in_auth(sample.get('sample_id'))
             internal_sample_name = self.get_fluidx_barcode(sample.get('sample_id')) or sample.get('sample_id')
+            library = self.get_library_workflow_from_sample(sample.get('sample_id'))
+            library_descriptions.add('%s: %s' % (self.library_abbreviation.get(library), library))
+            species = sample.get('species_name')
+            species_abbreviations.add('%s: %s' %(self.abbreviate_species(species), species))
             row = [
                 sample.get('user_sample_id', 'None'),
                 internal_sample_name,
                 self.parse_date(self.sample_status(sample.get('sample_id')).get('started_date')),
                 ', '.join(date_reviewed),
-                sample.get('species_name'),
-                self.get_library_workflow_from_sample(sample.get('sample_id'))
+                self.abbreviate_species(species),
+                self.library_abbreviation.get(library)
             ]
 
             rows.append(row)
-        tables['appendix I'] = {'header': header, 'rows': rows}
+        tables['appendix I'] = {
+            'header': header, 'rows': rows,
+            'footer': [', '.join(sorted(library_descriptions)), ', '.join(sorted(species_abbreviations))]
+        }
         header = [
             'User ID', 'Yield quoted (Gb)', 'Yield provided (Gb)', '% Q30 > 75%', 'Quoted coverage', 'Provided coverage'
         ]

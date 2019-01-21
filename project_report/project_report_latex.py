@@ -3,21 +3,18 @@ import re
 
 import yaml
 from pylatex import Document, Section, Subsection, Package, PageStyle, Head, MiniPage, StandAloneGraphic, Foot, \
-    NewPage, HugeText, Tabu, Subsubsection, FootnoteText, LineBreak, Command, NoEscape, LongTabu, Hyperref, Marker, \
+    NewPage, HugeText, Tabu, Subsubsection, FootnoteText, LineBreak, NoEscape, LongTabu, Hyperref, Marker, \
     MultiColumn, MediumText, LargeText
 from pylatex.base_classes import Environment, ContainerCommand
 from pylatex.section import Paragraph
 from pylatex.utils import italic, bold
-
-from config import cfg
-
 from project_report.project_information import yield_vs_coverage_plot, ProjectReportInformation
+
 
 # Load all source texts from yaml.
 _report_text_yaml_file = os.path.join(os.path.dirname(__file__), 'report_texts.yaml')
 with open(_report_text_yaml_file) as open_file:
     report_text = yaml.load(open_file)
-
 
 EG_logo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'EG_logo_blackonwhite_300dpi.png')
 UoE_EG_logo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'UoE_EG_logo.png')
@@ -69,7 +66,7 @@ class HRef(ContainerCommand):
         ----
         url: str
             The url to use.
-        text: str
+        text:
             The text that will be shown as a link to the url. Use the url if not set
         """
 
@@ -88,7 +85,8 @@ class ProjectReportLatex:
         self.report_file_path = None
         self.doc = None
 
-    def _limit_cell_width(self, rows, cell_widths):
+    @staticmethod
+    def _limit_cell_width(rows, cell_widths):
         """
         Limit the size of a
         :param rows:
@@ -109,7 +107,13 @@ class ProjectReportLatex:
         return new_rows
 
     @staticmethod
-    def create_vertical_table(container, header, rows, column_def=None, footer=False):
+    def create_vertical_table(container, header, rows, column_def=None, footer=None):
+        def add_footer_rows(foot):
+            if not isinstance(foot, list):
+                foot = [foot]
+            for f in foot:
+                data_table.add_row((MultiColumn(ncol - 1, align='l', data=f), ''))
+
         ncol = len(header)
         if not column_def:
             column_def = ' '.join(['X[r]'] * ncol)
@@ -121,12 +125,15 @@ class ProjectReportLatex:
             data_table.end_table_header()
             # Footer contains the next page notice
             data_table.add_hline()
-            data_table.add_row((MultiColumn(ncol, align='r',data='Continued on Next Page'),))
+            if footer:
+                add_footer_rows(footer)
+            data_table.add_row((MultiColumn(ncol, align='r', data='Continued on Next Page'),))
             data_table.add_hline()
             data_table.end_table_footer()
-            # Last footer does not contain anything
+            # Last footer does not have the next page row
+            if footer:
+                add_footer_rows(footer)
             data_table.end_table_last_footer()
-
             for r in rows:
                 data_table.add_row(r)
             data_table.add_hline()
@@ -232,10 +239,10 @@ class ProjectReportLatex:
         with self.doc.create(Section('Methods', numbering=True)):
             add_text(self.doc, report_text.get('method_header'))
             for library_prep_type in library_preparation_types:
-                if library_prep_type == 'TruSeq Nano':
+                if library_prep_type == 'Illumina TruSeq Nano library':
                     library_prep = report_text.get('library_preparation_nano')
                     library_qc = report_text.get('library_qc_nano')
-                elif library_prep_type == 'TruSeq PCR-Free':
+                elif library_prep_type == 'Illumina TruSeq PCR-Free library':
                     library_prep = report_text.get('library_preparation_pcr_free')
                     library_qc = report_text.get('library_qc_pcr_free')
                 elif library_prep_type == 'User Prepared Library':
@@ -247,12 +254,19 @@ class ProjectReportLatex:
                 with self.doc.create(Subsection(library_prep_type, numbering=True)):
                     # Skip the sample QC and Library preparation description if UPL
                     if library_prep:
-                        with self.doc.create(Subsubsection('Sample QC', label=library_prep_type + '_Sample_QC', numbering=True)):
+                        with self.doc.create(Subsubsection(
+                                'Sample QC', label=library_prep_type + '_Sample_QC', numbering=True
+                        )):
                             add_text(self.doc, report_text.get('sample_qc'))
-                        with self.doc.create(Subsubsection('Library Preparation', label=library_prep_type + '_Library_Preparation',
-                                                      numbering=True)):
+                        with self.doc.create(Subsubsection(
+                                'Library Preparation', label=library_prep_type + '_Library_Preparation', numbering=True
+                        )):
                             add_text(self.doc, library_prep)
-                    with self.doc.create(Subsubsection('Library QC', label=library_prep_type + '_Library_QC', numbering=True)):
+                    else:  # User prepared library
+                        add_text(self.doc, report_text.get('user_prepared_libraries'))
+                    with self.doc.create(Subsubsection(
+                            'Library QC', label=library_prep_type + '_Library_QC', numbering=True
+                    )):
                         add_text(self.doc, library_qc)
 
             with self.doc.create(Subsection('Sequencing', numbering=True)):
@@ -337,9 +351,10 @@ class ProjectReportLatex:
                 self.create_vertical_table(
                     small_section,
                     appendix_tables['appendix I']['header'],
-                    self._limit_cell_width(appendix_tables['appendix I']['rows'], {0: 30}),
+                    self._limit_cell_width(appendix_tables['appendix I']['rows'], {0: 40}),
                     # Set the column width to fix width for all but first column
-                    'X[l] p{2.5cm} p{2cm} p{2cm} p{2cm} p{2.5cm}'
+                    column_def='X[l] p{2.5cm} p{2cm} p{2cm} p{1.7cm} p{2cm}',
+                    footer=appendix_tables['appendix I']['footer']
                 )
         self.doc.append(NewPage())
 
@@ -351,10 +366,10 @@ class ProjectReportLatex:
                 self.create_vertical_table(
                     small_section,
                     appendix_tables['appendix II']['header'],
-                    self._limit_cell_width(appendix_tables['appendix II']['rows'], {0: 30}),
+                    self._limit_cell_width(appendix_tables['appendix II']['rows'], {0: 40}),
                     # Set the column width to fix width for all but first column
                     # R: is the newly defined column type in the preamble
-                    'X[l] R{2.2cm} R{2.4cm} R{1.9cm} R{2.2cm} R{2.5cm}'
+                    'X[l] R{2cm} R{2.2cm} R{1.9cm} R{2cm} R{2cm}'
                 )
 
     def front_page(self, project_name, report_version, authorisations):
@@ -402,7 +417,8 @@ class ProjectReportLatex:
         self.doc.packages.append(Package('siunitx', NoEscape('per-mode=symbol')))
 
         self.doc.preamble.append(self.first_pages_style())  # Create the footer and header for first page
-        self.doc.preamble.append(self.all_pages_style(document_title))  # Create the footer and header for rest of the pages
+        # Create the footer and header for rest of the pages
+        self.doc.preamble.append(self.all_pages_style(document_title))
         # New column type that aligned on the right and allow to specify fixed column width
         # See https://bit.ly/2RMlZgS
         self.doc.preamble.append(NoEscape(
@@ -410,13 +426,20 @@ class ProjectReportLatex:
         ))
         self.doc.change_document_style('firstpage')
         # First page of the document
-        self.front_page( project_name, last_auth.get('version'), authorisations)
+        self.front_page(project_name, last_auth.get('version'), authorisations)
 
         # Main document
         self.doc.change_document_style('allpages')
 
         # Table of content
-        self.doc.append(NoEscape('{\n\hypersetup{linkcolor=black}\n' + r'\tableofcontents' + '\n}'))
+        self.doc.append(NoEscape('\n'.join([
+            '{',
+            '\hypersetup{linkcolor=black}',  # Ensure the table of content's links are black
+            r'\setcounter{tocdepth}{2}',
+            r'\tableofcontents',
+            '}'
+        ])))
+
         self.doc.append(NewPage())
 
         # Subsequent sections

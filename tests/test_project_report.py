@@ -10,7 +10,6 @@ from unittest.mock import Mock, PropertyMock, patch
 from egcg_core.util import query_dict
 
 from project_report import ProjectReport
-from project_report.project_information import ProjectReportInformation
 from project_report.project_report_latex import ProjectReportLatex
 from tests import TestProjectManagement, NamedMock
 
@@ -48,7 +47,8 @@ fake_sample_templates = {
         'name': 'HS_mix_',
         'udf': {
             'Prep Workflow': cycle(['TruSeq Nano DNA Sample Prep', 'TruSeq PCR-Free DNA Sample Prep']),
-            'Species': 'Homo sapiens',
+            'Species': cycle(['Homo sapiens', 'Thingius thingy']),
+            'User Prepared Library': cycle([None, None, 'Yes']),
             'Genome Version': 'hg38',
             'Total DNA (ng)': 3000,
             'Required Yield (Gb)': cycle([120, 60]),
@@ -97,6 +97,18 @@ fake_sample_templates = {
             'Required Yield (Gb)': 120,
             'Coverage (X)': 30
         }
+    },
+    'upl999': {
+        'name': 'UPL_HS_',
+        'udf': {
+            'Prep Workflow': 'TruSeq Nano DNA Sample Prep',  # This sis sometime set and will be ignored
+            'User Prepared Library': 'Yes',
+            'Species': 'Homo sapiens',
+            'Genome Version': 'hg38',
+            'Total DNA (ng)': 3000,
+            'Required Yield (Gb)': 120,
+            'Coverage (X)': 30
+        }
     }
 }
 
@@ -126,7 +138,8 @@ fake_process_templates = {
     'nhtn999': {'nb_processes': 2, 'date': d, 'finished': 'Yes', 'NC': cycle(['NA', 'NC25: Major issue'])},
     'hpf999': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NA'},
     'nhpf999': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NC85: All samples were bad quality.'},
-    'uhtn999': {'nb_processes': 1, 'date': d, 'finished': 'No', 'NC': 'NA'}
+    'uhtn999': {'nb_processes': 1, 'date': d, 'finished': 'No', 'NC': 'NA'},
+    'upl999':  {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NA'}
 }
 
 fake_processes = {}
@@ -459,7 +472,8 @@ class TestProjectReportLatex(TestProjectManagement):
 
     @mocked_sample_status_latex
     def test_project_types(self, mocked_sample_status):
-        projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999')
+        projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999', 'upl999')
+        projects = ('hmix999',)
 
         for p in projects:
             with get_patch_sample_restapi_latex(p):
@@ -468,5 +482,5 @@ class TestProjectReportLatex(TestProjectManagement):
                 tex_file = report.generate_tex()
                 assert os.path.isfile(tex_file)
                 # Uncomment to generate the pdf files (it requires latex to be installed locally)
-                # pdf_file = report.generate_pdf()
-                # assert os.path.isfile(pdf_file)
+                pdf_file = report.generate_pdf()
+                assert os.path.isfile(pdf_file)
