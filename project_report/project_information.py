@@ -135,8 +135,11 @@ class ProjectReportInformation(AppLogger):
     def get_analysis_type(self):
         analysis_types = set()
         for sample in self.sample_names_delivered:
-            analysis_types.add(self.get_analysis_type_from_sample(sample))
-        return analysis_types.pop()
+            if self.get_analysis_type_from_sample(sample):
+                analysis_types.add(self.get_analysis_type_from_sample(sample))
+        # We assume only one analysis type per project
+        if analysis_types:
+            return analysis_types.pop()
 
     def project_size_in_terabytes(self):
         project_size = self.get_folder_size(self.project_delivery)
@@ -192,8 +195,7 @@ class ProjectReportInformation(AppLogger):
                 for row in csv.reader(open_prog):
                     all_programs[row[0]] = row[1]
         # TODO: change the hardcoded version of bcl2fastq
-        #all_programs['bcl2fastq'] = '2.17.1.14'
-        for p in ['bcl2fastq', 'bcbio', 'bwa', 'gatk', 'samblaster']:
+        for p in ['bcbio', 'bwa', 'gatk', 'samblaster']:
             if p in all_programs:
                 self.params[p + '_version'] = all_programs.get(p)
 
@@ -413,11 +415,7 @@ class ProjectReportInformation(AppLogger):
 
     def get_library_prep_analysis_types_and_format(self):
         species = self.get_species()
-        try:
-            analysis_type = self.get_analysis_type()
-        except ValueError as e:
-            if len(species) != 1 or species.pop() is not 'Human':
-                raise e
+        analysis_type = self.get_analysis_type()
         library_preparations = self.get_library_workflows()
         if len(species) == 1 and species.pop() == 'Human':
             bioinfo_analysis_types = ['bioinformatics_analysis_bcbio']
