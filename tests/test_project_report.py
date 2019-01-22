@@ -252,8 +252,7 @@ def get_patch_sample_restapi(project_name):
     path = ppath('ProjectReportInformation.samples_for_project_restapi')
     return patch(path, new_callable=PropertyMock(return_value=fake_rest_api_samples[project_name]))
 
-
-class TestProjectReportInformation(TestProjectManagement):
+class TestProjectReport(TestProjectManagement):
     def setUp(self):
         self.fake_samples = fake_samples['a_project_name']
         self.source_dir = os.path.join(self.assets_path, 'project_report', 'source')
@@ -299,6 +298,9 @@ class TestProjectReportInformation(TestProjectManagement):
         for project in fake_samples:
             shutil.rmtree(os.path.join(self.source_dir, project))
         shutil.rmtree(self.working_dir)
+
+
+class TestProjectReportInformation(TestProjectReport):
 
     def test_customer_name(self):
         assert self.pr.customer_name == 'Awesome lab'
@@ -414,7 +416,7 @@ def get_patch_sample_restapi_latex(project_name):
     return patch(path, new_callable=PropertyMock(return_value=fake_rest_api_samples[project_name]))
 
 
-class TestProjectReportLatex(TestProjectReportInformation):
+class TestProjectReportLatex(TestProjectReport):
     def setUp(self):
         self.fake_samples = fake_samples['a_project_name']
         self.source_dir = os.path.join(self.assets_path, 'project_report', 'source')
@@ -427,14 +429,7 @@ class TestProjectReportLatex(TestProjectReportInformation):
         project_report_texs = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.tex'))
         for f in project_reports + project_report_texs:
             os.remove(f)
-
         super().setUp()
-
-    def tearDown(self):
-        # delete the source folders
-        for project in list(fake_samples) + list(self.run_ids):
-            shutil.rmtree(os.path.join(self.source_dir, project))
-        shutil.rmtree(self.working_dir)
 
     @mocked_sample_status_latex
     def test_project_types(self, mocked_sample_status):
