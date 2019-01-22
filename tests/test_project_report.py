@@ -228,6 +228,12 @@ for project in fake_samples:
             req_yield = sample.udf.get('Required Yield (Gb)')
             req_cov = sample.udf.get('Coverage (X)')
             clean_yield_in_gb = randint(int(req_yield * .9), int(req_yield * 1.5))
+            if sample.udf['Species'] == 'Homo sapiens':
+                pipeline = 'bcbio'
+            elif sample.udf.get('Analysis Type') == 'Variant Calling gatk':
+                pipeline = 'variant_calling'
+            else:
+                pipeline = 'qc'
             fake_rest_api_samples[project].append({
                 'sample_id': sample.name,
                 # Add variable padding to see the effect of long user sample names
@@ -240,6 +246,7 @@ for project in fake_samples:
                     'pc_duplicate_reads': round(random() * 25, 1),
                     'pc_mapped_reads': round(95 + random() * 5, 1),
                     'run_ids': ['date_machine_number_flowcell1', 'date_machine_number_flowcell1'],
+                    'most_recent_proc': {'pipeline_used': {'name': pipeline}}
                 },
                 'coverage': {'mean': randint(int(req_cov * .9), int(req_cov * 1.5))}
             })
@@ -275,7 +282,7 @@ class TestProjectReport(TestProjectManagement):
                 os.makedirs(smp_dir, exist_ok=True)
                 if sample.udf['Species'] == 'Homo sapiens':
                     with open(os.path.join(smp_dir, 'programs.txt'), 'w') as open_file:
-                        open_file.write('bcbio,1.1\nbwa,1.2\ngatk,1.3\nsamblaster,1.4\n')
+                        open_file.write('bcbio,1.1\nbwa,1.2\ngatk,1.3\nsamblaster,1.4\nsamtools,1.5\n')
                     with open(os.path.join(smp_dir, 'project-summary.yaml'), 'w') as open_file:
                         open_file.write(
                             'samples:\n- dirs:\n    galaxy: path/to/bcbio/bcbio-0.9.4/galaxy\n  genome_build: hg38\n')
@@ -454,6 +461,7 @@ class TestProjectReportLatex(TestProjectReport):
     @mocked_sample_status_latex
     def test_project_types(self, mocked_sample_status):
         projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999', 'upl999')
+        projects = ('hmix999', )
 
         for p in projects:
             with get_patch_sample_restapi_latex(p):
@@ -462,5 +470,5 @@ class TestProjectReportLatex(TestProjectReport):
                 tex_file = report.generate_tex()
                 assert os.path.isfile(tex_file)
                 # Uncomment to generate the pdf files (it requires latex to be installed locally)
-                # pdf_file = report.generate_pdf()
-                # assert os.path.isfile(pdf_file)
+                pdf_file = report.generate_pdf()
+                assert os.path.isfile(pdf_file)

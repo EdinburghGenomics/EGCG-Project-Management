@@ -282,7 +282,7 @@ class ProjectReportLatex:
                 if bioinfo_analysis_type is 'bioinformatics_analysis':
                     with self.doc.create(Subsection('Bioinformatics Analysis', numbering=True)):
                         add_text(self.doc, report_text.get('bioinformatics_analysis').format(**bioinformatic_parameters))
-                self.doc.append(NewPage())
+            self.doc.append(NewPage())
 
     def create_results_section(self, result_summary, charts_info):
         with self.doc.create(Section('Results', numbering=True)):
