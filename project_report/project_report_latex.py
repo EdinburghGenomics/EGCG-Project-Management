@@ -343,6 +343,9 @@ class ProjectReportLatex:
                         self.doc.append(authorisation.get('NCs'))
         with self.doc.create(Section('Declaration of Compliance', numbering=True)):
             add_text(self.doc, report_text.get('formal_statement'))
+        with self.doc.create(Section('Confidentiality and privacy', numbering=True)):
+            add_text(self.doc, report_text.get('privacy_notice') + '\n')
+            self.doc.append(HRef(url=NoEscape(report_text.get('privacy_notice_link'))))
 
     def create_appendix_tables(self, appendix_tables):
         with self.doc.create(Section('Appendix I. Per sample metadata', numbering=True)):

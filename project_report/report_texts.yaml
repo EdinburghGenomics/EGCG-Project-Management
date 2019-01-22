@@ -131,6 +131,13 @@ formal_statement: >-
   The instrumentation and materials used in the inspection and testing processes are traceable. 
   All the associated test instrumentation is maintained, calibrated and qualified as appropriate.
 
+privacy_notice: >-
+  Edinburgh Genomics is committed to safeguarding and preserving the privacy of all data you provided.
+  Our privacy notice can be viewed at:
+
+privacy_notice_link: >-
+  https://genomics.ed.ac.uk/about-us/privacy-notice
+
 appendix_description: >-
   Full user and facility derived metrics for each sample can be found within the delivery 
   folder in summary_metrics.csv

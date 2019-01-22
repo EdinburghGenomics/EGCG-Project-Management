@@ -47,7 +47,7 @@ fake_sample_templates = {
         'name': 'HS_mix_',
         'udf': {
             'Prep Workflow': cycle(['TruSeq Nano DNA Sample Prep', 'TruSeq PCR-Free DNA Sample Prep']),
-            'Species': cycle(['Homo sapiens', 'Thingius thingy']),
+            'Species': 'Homo sapiens',
             'User Prepared Library': cycle([None, None, 'Yes']),
             'Genome Version': 'hg38',
             'Total DNA (ng)': 3000,
