@@ -262,7 +262,7 @@ class ProjectReportInformation(AppLogger):
         else:
             return 'min: 0, mean: 0, max: 0'
 
-    def calculate_project_statistsics(self):
+    def calculate_project_statistics(self):
         samples = self.samples_for_project_restapi
         sample_data_mapping = {
             'Yield per sample (Gb)': 'aggregated.clean_yield_in_gb',
