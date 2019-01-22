@@ -199,8 +199,10 @@ class TestDeleteDeliveredData(TestDeletion):
     def _delivered_files_exist(self, sample_id, fluidx_barcode=None):
         basenames = sorted(os.path.basename(f) for f in self.all_files[sample_id])
         delivered_dir = os.path.join(self.delivered_data_dir, 'a_project', 'a_delivery_date', fluidx_barcode or sample_id)
-        delivered_files = sorted(os.listdir(delivered_dir))
+        if not os.path.isdir(delivered_dir):
+            return False
 
+        delivered_files = sorted(os.listdir(delivered_dir))
         if not delivered_files:
             return False
 

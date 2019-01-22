@@ -217,7 +217,7 @@ class ProcessedSample(app_logging.AppLogger):
 
         unarchived_files = [f for f in _files_to_remove_from_lustre if not is_archived(f)]
         if unarchived_files:
-            raise ArchivingError('Unarchived files cannot be released from Lustre: %s' % _files_to_remove_from_lustre)
+            raise ArchivingError('Unarchived files cannot be released from Lustre: %s' % unarchived_files)
         return _files_to_remove_from_lustre
 
     @cached_property
@@ -247,7 +247,7 @@ class FinalSample(ProcessedSample):
 
         unreleased_files = [f for f in _files_to_purge if not is_released(f)]
         if unreleased_files:
-            raise ArchivingError('Files not yet remove from lustre cannot be removed from tape: %s' % unreleased_files)
+            raise ArchivingError('Files not yet removed from Lustre cannot be removed from tape: %s' % unreleased_files)
 
         return _files_to_purge
 

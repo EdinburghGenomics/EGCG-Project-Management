@@ -1,13 +1,11 @@
 import os
 import errno
 import subprocess
-
 from egcg_core.config import cfg
-
 from data_deletion import Deleter
 
 
-class DMFDtatDeleter(Deleter):
+class DMFDataDeleter(Deleter):
     alias = 'dmf_deletion'
 
     def __init__(self, cmd_args):

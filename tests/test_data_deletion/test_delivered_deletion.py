@@ -203,7 +203,7 @@ class TestDeliveredDataDeleter(TestDeleter):
 
     @patch.object(DeliveredDataDeleter, 'setup_samples_for_deletion')
     @patch.object(DeliveredDataDeleter, 'deletable_samples')
-    def test_delete(self, mocked_deletable_samples, mocked_setup):
+    def test_delete_dry_run(self, mocked_deletable_samples, mocked_setup):
         mocked_deletable_samples.return_value = [
             Mock(sample_id='this', released_data_folder=None),
             Mock(sample_id='that', released_data_folder=None)
@@ -213,9 +213,26 @@ class TestDeliveredDataDeleter(TestDeleter):
         self.deleter.dry_run = True
         assert self.deleter.delete_data() == 0
         mocked_setup.assert_called_with(mocked_deletable_samples.return_value[0:1])
+
+    @patch('os.listdir', return_value=[])
+    @patch.object(DeliveredDataDeleter, '_execute')
+    @patch.object(DeliveredDataDeleter, 'setup_samples_for_deletion')
+    @patch.object(DeliveredDataDeleter, 'deletable_samples')
+    def test_delete(self, mocked_deletable_samples, mocked_setup, mocked_execute, mocked_listdir):
+        fake_released_sample = os.path.join(self.assets_deletion, 'a_project', 'a_release_date', 'other')
+        mocked_deletable_samples.return_value = [
+            Mock(sample_id='this', released_data_folder=None),
+            Mock(sample_id='that', released_data_folder=fake_released_sample)
+        ]
         self.deleter.dry_run = False
         self.deleter.delete_data()
-        mocked_deletable_samples.return_value[0].mark_as_deleted.assert_called_with()
+
+        for s in mocked_deletable_samples.return_value:
+            assert s.mark_as_deleted.call_count == 1
+
+        mocked_execute.assert_any_call('rm -r ' + fake_released_sample)
+        mocked_execute.assert_called_with('rm -r ' + os.path.dirname(fake_released_sample))
+        assert mocked_execute.call_count == 2  # one sample + the release folder
 
     def test_auto_deletable_samples(self):
         # FIXME: The test is commented out because the function is disabled
