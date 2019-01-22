@@ -117,6 +117,7 @@ class ProjectReportInformation(AppLogger):
         species = self.get_species_from_sample(sample_name)
         genome_version = s.udf.get('Genome Version', None)
         if not genome_version and species:
+            self.warning('Resolve genome version for sample %s from config file', sample_name)
             return cfg.query('species', species, 'default')
         return genome_version
 
@@ -194,7 +195,6 @@ class ProjectReportInformation(AppLogger):
             with open(program_csv) as open_prog:
                 for row in csv.reader(open_prog):
                     all_programs[row[0]] = row[1]
-        # TODO: change the hardcoded version of bcl2fastq
         for p in ['bcbio', 'bwa', 'gatk', 'samblaster']:
             if p in all_programs:
                 self.params[p + '_version'] = all_programs.get(p)
@@ -210,13 +210,16 @@ class ProjectReportInformation(AppLogger):
         bcl2fastq_versions = set()
         for run_id in run_ids:
             prog_vers_yaml = os.path.join(self.run_folders, run_id, 'program_versions.yaml')
-            with open(prog_vers_yaml, 'r') as open_file:
-                full_yaml = yaml.safe_load(open_file)
-                if 'bcl2fastq' in full_yaml and full_yaml.get('bcl2fastq'):
-                    bcl2fastq_versions.add(full_yaml.get('bcl2fastq'))
-                else:
-                    self.warning('Run %s has no bcl2fastq version: default to v2.17.1.14', run_id)
-                    bcl2fastq_versions.add('v2.17.1.14')
+            bcl2fastq_version = None
+            if os.path.isfile(prog_vers_yaml):
+                with open(prog_vers_yaml, 'r') as open_file:
+                    full_yaml = yaml.safe_load(open_file)
+                    if 'bcl2fastq' in full_yaml and full_yaml.get('bcl2fastq'):
+                        bcl2fastq_version = full_yaml.get('bcl2fastq')
+            if bcl2fastq_version:
+                bcl2fastq_versions.add(bcl2fastq_version)
+            else:
+                raise ValueError('Run %s has no bcl2fastq version available in %s' % (run_id, prog_vers_yaml))
         return ', '.join(bcl2fastq_versions)
 
     def update_from_program_version_yaml(self, prog_vers_yaml):
@@ -300,10 +303,10 @@ class ProjectReportInformation(AppLogger):
                 self.update_from_program_version_yaml(program_yaml)
 
             if not genome_version:
-                self.warning('Resolve genome version for sample %s from config file', sample)
                 genome_version = self.get_genome_version(sample)
 
             if genome_version == 'hg38':
+                # official name of the genome release and short description
                 genome_version = 'GRCh38 (with alt, decoy and HLA sequences)'
             genome_versions.add(genome_version)
 
