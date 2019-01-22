@@ -81,7 +81,7 @@ def weekly_facility_meeting_numbers(meeting_date=None, day_since_last_meeting=7)
         'run_pc_waiting_useable': pc_waiting_useable
     }
 
-    seven_days_ago = meeting_date - timedelta(days=day_since_last_meeting)
+    seven_days_ago = meeting_date - timedelta(days=7)
 
     processes = rc.get_documents(
         'analysis_driver_procs',
