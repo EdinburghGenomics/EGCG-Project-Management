@@ -164,6 +164,8 @@ class TestProjectReport(IntegrationTest):
                 sample = {
                     'project_id': project_id,
                     'sample_id': sample_id,
+                    'user_sample_id': 'user_' + sample_id,
+                    'species_name': cls.projects[project_id]['sample_udfs']['Species'],
                     'run_elements': [run_element_id],
                     'mapped_reads': 837830805 + i,
                     'properly_mapped_reads': 799000000 + i,

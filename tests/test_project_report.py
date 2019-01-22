@@ -411,6 +411,21 @@ class TestProjectReportInformation(TestProjectReport):
         assert self.pr.get_folder_size(d) == 12
         assert mocked_getsize.call_count == 138
 
+    def test_abbreviate_species(self):
+        assert self.pr.abbreviate_species('Homo sapiens') == 'Hs'
+        assert self.pr.abbreviate_species('Gallus gallus') == 'Gg'
+        assert self.pr.abbreviate_species('Hyper snake') == 'Hsn'  # Avoid confusion with previous abbrev
+
+        # Further call uses the cash
+        assert self.pr.abbreviate_species('Homo sapiens') == 'Hs'
+
+        # After cache is reset
+        self.pr.species_abbreviation = {}
+        # No confusion possible anymore
+        assert self.pr.abbreviate_species('Hyper snake') == 'Hs'
+
+        assert self.pr.abbreviate_species(None) is None
+
 
 mocked_sample_status_latex = patch('project_report.project_information.ProjectReportInformation.sample_status',
                              return_value={'started_date': '2017-08-02T11:25:14.659000'})

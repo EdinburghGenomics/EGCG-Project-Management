@@ -67,8 +67,11 @@ class ProjectReportInformation(AppLogger):
         return samples
 
     def abbreviate_species(self, species, nchar=1):
-        if species not in self.species_abbreviation:
-            abbreviation = ''.join([e[:nchar].upper() for e in species.split()])
+        if species and species not in self.species_abbreviation:
+            sp_species = species.split()
+            abbreviation = species.split()[0][:1].upper()
+            if len(sp_species) > 1:
+                abbreviation += ''.join([e[:nchar].lower() for e in species.split()[1:]])
             if abbreviation in self.species_abbreviation.values():
                 abbreviation = self.abbreviate_species(species, nchar + 1)
             self.species_abbreviation[species] = abbreviation
