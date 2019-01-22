@@ -252,6 +252,7 @@ def get_patch_sample_restapi(project_name):
     path = ppath('ProjectReportInformation.samples_for_project_restapi')
     return patch(path, new_callable=PropertyMock(return_value=fake_rest_api_samples[project_name]))
 
+
 class TestProjectReport(TestProjectManagement):
     def setUp(self):
         self.fake_samples = fake_samples['a_project_name']
@@ -402,9 +403,13 @@ class TestProjectReportInformation(TestProjectReport):
 
     @patch(ppath('path.getsize'), return_value=1)
     def test_get_folder_size(self, mocked_getsize):
-        d = os.path.join(TestProjectManagement.root_path, 'project_report')
-        obs = self.pr.get_folder_size(d)
-        assert obs == 8
+        d = os.path.join(self.source_dir, 'hmix999')
+        assert self.pr.get_folder_size(d) == 126
+        assert mocked_getsize.call_count == 126
+
+        d = os.path.join(TestProjectManagement.root_path, 'etc')
+        assert self.pr.get_folder_size(d) == 12
+        assert mocked_getsize.call_count == 138
 
 
 mocked_sample_status_latex = patch('project_report.project_information.ProjectReportInformation.sample_status',
