@@ -88,10 +88,12 @@ class ProjectReportLatex:
     @staticmethod
     def _limit_cell_width(rows, cell_widths):
         """
-        Limit the size of a
-        :param rows:
-        :param cell_widths:
-        :return:
+        Limit the size of the text in the cells of specific columns.
+        When a cell has more characters than the limit, insert a new line.
+        It can only insert one new line.
+        :param rows: all rows of the table.
+        :param cell_widths: a dict where the key is the column number (starting from 0) and the value is the max number of character on one line
+        :return: new rows modified if the character limit was reached.
         """
         new_rows = []
         for row in rows:
