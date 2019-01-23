@@ -76,26 +76,6 @@ class HRef(ContainerCommand):
         super().__init__(arguments=NoEscape(url), data=text)
 
 
-def format_table_footer(list_definitions):
-    """
-    Take a list of footer rows as list
-    Each footer is a list of tuples. The tuple have two elements.
-    The first element will be formatted as bold.
-    :param list_definitions: list of lists of tuples
-    :return: list of latex formatted rows
-    """
-    formatted_latex = []
-    for definition_line in list_definitions:
-        line = []
-        for def_element in definition_line:
-            line.append(bold(def_element[0]))
-            line.append(': ' + def_element[1])
-            line.append(', ')   # Separate the different entries with comma
-
-        formatted_latex.append(line[:-1])  # Remove the last comma
-    return formatted_latex
-
-
 class ProjectReportLatex:
 
     def __init__(self, project_name, working_dir):
@@ -377,9 +357,8 @@ class ProjectReportLatex:
                     small_section,
                     appendix_tables['appendix I']['header'],
                     self._limit_cell_width(appendix_tables['appendix I']['rows'], {0: 40}),
-                    # Set the column width to fix width for all but first column
-                    column_def='X[l] p{2.5cm} p{1.7cm} p{1.7cm} p{1.5cm} p{1.7cm} p{1.7cm}',
-                    footer=format_table_footer(appendix_tables['appendix I']['footer'])
+                    column_def=appendix_tables['appendix I']['column_def'],
+                    footer=appendix_tables['appendix I']['footer']
                 )
         self.doc.append(NewPage())
 

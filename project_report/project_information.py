@@ -13,6 +13,9 @@ from egcg_core.clarity import connection
 from egcg_core.rest_communication import get_documents, get_document
 from egcg_core.exceptions import EGCGError
 import pandas as pd
+from pylatex import NoEscape
+from pylatex.utils import bold
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.collections as mpcollections
@@ -366,11 +369,36 @@ class ProjectReportInformation(AppLogger):
             })
         return release_data
 
+    @staticmethod
+    def format_table_footer_line(definitions, superscript):
+        """
+        Take a footer rows as list of tuples. The tuple have two elements.
+        The first element will be formatted as bold.
+
+        :param superscript: superscripted text that appear at the beginning of the line
+        :param definitions: lists of tuples containing the definitions to be added on that line
+        :return: list of latex formatted rows
+        """
+        formatted_latex = []
+        if superscript:
+            formatted_latex.append(NoEscape(r'\textsuperscript{%s}' % superscript))
+        for def_element in definitions:
+            formatted_latex.append(bold(def_element[0]))
+            formatted_latex.append(': ' + def_element[1])
+            formatted_latex.append(', ')  # Separate the different entries with comma
+        return formatted_latex[:-1]   # Remove the last comma
+
     def get_sample_data_in_tables(self, authorisations):
         tables = {}
         header = [
-            'User ID', 'Internal ID', 'Received', 'Reviewed', 'Species', 'Library prep.', 'Analysis'
+            'User ID', 'Internal ID', 'Received', 'Reviewed',
+            NoEscape(r'Species\textsuperscript{1}'),       # reference to the footer
+            NoEscape(r'Library prep.\textsuperscript{2}'),
+            NoEscape(r'Analysis\textsuperscript{3}')
         ]
+        # Latex specific column definition
+        # Set the column width to fix width for all but first column
+        column_def = 'X[l] p{2.5cm} p{1.7cm} p{1.7cm} p{1.5cm} p{1.8cm} p{1.7cm}'
 
         def find_sample_release_date_in_auth(sample):
             return [auth.get('date') for auth in authorisations if sample in auth.get('samples')]
@@ -388,7 +416,6 @@ class ProjectReportInformation(AppLogger):
             species = sample.get('species_name')
             species_descriptions.add((self.abbreviate_species(species), species))
             analysis = query_dict(sample, 'aggregated.most_recent_proc.pipeline_used.name')
-            print(analysis)
             analysis_descriptions.add((self.analysis_abbreviation.get(analysis),
                                        self.analysis_description.get(analysis)))
             row = [
@@ -403,8 +430,12 @@ class ProjectReportInformation(AppLogger):
 
             rows.append(row)
         tables['appendix I'] = {
-            'header': header, 'rows': rows,
-            'footer': [sorted(library_descriptions), sorted(species_descriptions), sorted(analysis_descriptions)]
+            'header': header, 'column_def': column_def, 'rows': rows,
+            'footer': [
+                self.format_table_footer_line(1, sorted(library_descriptions)),
+                self.format_table_footer_line(2, sorted(species_descriptions)),
+                self.format_table_footer_line(3, sorted(analysis_descriptions))
+            ]
         }
         header = [
             'User ID', 'Yield quoted (Gb)', 'Yield provided (Gb)', '% Q30 > 75%', 'Quoted coverage', 'Provided coverage'
