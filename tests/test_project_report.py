@@ -47,12 +47,13 @@ fake_sample_templates = {
         'name': 'HS_mix_',
         'udf': {
             'Prep Workflow': cycle(['TruSeq Nano DNA Sample Prep', 'TruSeq PCR-Free DNA Sample Prep']),
-            'Species': 'Homo sapiens',
+            'Species': cycle(['Homo sapiens', 'Canis lupus familiaris']),
             'User Prepared Library': cycle([None, None, 'Yes']),
             'Genome Version': 'hg38',
             'Total DNA (ng)': 3000,
             'Required Yield (Gb)': cycle([120, 60]),
-            'Coverage (X)': cycle([30, 15])
+            'Coverage (X)': cycle([30, 15]),
+            'Analysis Type': 'Variant Calling gatk'
         }
     },
     'nhtn999': {
@@ -469,5 +470,5 @@ class TestProjectReportLatex(TestProjectReport):
                 tex_file = report.generate_tex()
                 assert os.path.isfile(tex_file)
                 # Uncomment to generate the pdf files (it requires latex to be installed locally)
-                pdf_file = report.generate_pdf()
-                assert os.path.isfile(pdf_file)
+                # pdf_file = report.generate_pdf()
+                # assert os.path.isfile(pdf_file)

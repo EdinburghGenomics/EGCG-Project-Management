@@ -31,7 +31,16 @@ class ProjectReportInformation(AppLogger):
         'Illumina TruSeq Nano library': 'Nano',
         'Illumina TruSeq PCR-Free library': 'PCRfree'
     }
-    analysis_abbreviation = {}
+    analysis_abbreviation = {
+        'bcbio': 'bcbio',
+        'variant_calling': 'variant',
+        'qc': 'basic qc'
+    }
+    analysis_description = {
+        'bcbio': 'GATK3 based variant call for human',
+        'variant_calling': 'GATK based variant call',
+        'qc': 'Alignment based quality control'
+    }
 
     species_abbreviation = {}
 
@@ -375,12 +384,13 @@ class ProjectReportInformation(AppLogger):
             date_reviewed = find_sample_release_date_in_auth(sample.get('sample_id'))
             internal_sample_name = self.get_fluidx_barcode(sample.get('sample_id')) or sample.get('sample_id')
             library = self.get_library_workflow_from_sample(sample.get('sample_id'))
-            library_descriptions.add('%s: %s' % (self.library_abbreviation.get(library), library))
+            library_descriptions.add((self.library_abbreviation.get(library), library))
             species = sample.get('species_name')
-            species_descriptions.add('%s: %s' %(self.abbreviate_species(species), species))
+            species_descriptions.add((self.abbreviate_species(species), species))
             analysis = query_dict(sample, 'aggregated.most_recent_proc.pipeline_used.name')
             print(analysis)
-            analysis_descriptions.add('%s: %s' %(self.analysis_abbreviation.get(analysis), analysis))
+            analysis_descriptions.add((self.analysis_abbreviation.get(analysis),
+                                       self.analysis_description.get(analysis)))
             row = [
                 sample.get('user_sample_id', 'None'),
                 internal_sample_name,
@@ -394,8 +404,7 @@ class ProjectReportInformation(AppLogger):
             rows.append(row)
         tables['appendix I'] = {
             'header': header, 'rows': rows,
-            'footer': [', '.join(sorted(library_descriptions)), ', '.join(sorted(species_descriptions)),
-                       ', '.join(sorted(analysis_descriptions))]
+            'footer': [sorted(library_descriptions), sorted(species_descriptions), sorted(analysis_descriptions)]
         }
         header = [
             'User ID', 'Yield quoted (Gb)', 'Yield provided (Gb)', '% Q30 > 75%', 'Quoted coverage', 'Provided coverage'
