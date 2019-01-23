@@ -47,7 +47,7 @@ fake_sample_templates = {
         'name': 'HS_mix_',
         'udf': {
             'Prep Workflow': cycle(['TruSeq Nano DNA Sample Prep', 'TruSeq PCR-Free DNA Sample Prep']),
-            'Species': cycle(['Homo sapiens', 'Thingius thingy']),
+            'Species': 'Homo sapiens',
             'User Prepared Library': cycle([None, None, 'Yes']),
             'Genome Version': 'hg38',
             'Total DNA (ng)': 3000,
@@ -336,7 +336,6 @@ class TestProjectReportInformation(TestProjectReport):
 
         with get_patch_sample_restapi('a_project_name'):
             self.pr.store_sample_info()
-            print(self.pr.get_project_info())
             assert self.pr.get_project_info() == exp
         mocked_folder_size.assert_called_with('tests/assets/project_report/dest/a_project_name')
 
@@ -411,12 +410,12 @@ class TestProjectReportInformation(TestProjectReport):
     @patch(ppath('path.getsize'), return_value=1)
     def test_get_folder_size(self, mocked_getsize):
         d = os.path.join(self.source_dir, 'hmix999')
-        assert self.pr.get_folder_size(d) == 126
-        assert mocked_getsize.call_count == 126
+        assert self.pr.get_folder_size(d) == 151
+        assert mocked_getsize.call_count == 151
 
         d = os.path.join(TestProjectManagement.root_path, 'etc')
         assert self.pr.get_folder_size(d) == 12
-        assert mocked_getsize.call_count == 138
+        assert mocked_getsize.call_count == 163
 
     def test_abbreviate_species(self):
         assert self.pr.abbreviate_species('Homo sapiens') == 'Hs'

@@ -88,10 +88,13 @@ class ProjectReportLatex:
     @staticmethod
     def _limit_cell_width(rows, cell_widths):
         """
-        Limit the size of a
-        :param rows:
-        :param cell_widths:
-        :return:
+        Limit the size of the text in the cells of specific columns.
+        When a cell has more characters than the limit, insert a new line.
+        It can only insert one new line.
+        :param rows: all rows of the table.
+        :param cell_widths: a dict where the key is the column number (starting from 0) and
+                            the value is the max number of character on one line
+        :return: new rows modified if the character limit was reached.
         """
         new_rows = []
         for row in rows:
@@ -163,9 +166,8 @@ class ProjectReportLatex:
         page = PageStyle("firstpage")
 
         # Address in small print in footer
-        address = 'Edinburgh Genomics Clinical, The Roslin Institute Easter Bush, Midlothian EH25 9RG Scotland, UK'
         with page.create(Foot("C")) as footer:
-            footer.append(FootnoteText(address))
+            footer.append(FootnoteText(report_text.get('eg_post_address')))
 
         return page
 
@@ -178,7 +180,7 @@ class ProjectReportLatex:
         with page.create(Head("L")) as header_left:
             with header_left.create(MiniPage(pos='c', align='l')) as logo_wrapper:
                 logo_wrapper.append(HRef(
-                    url='https://genomics.ed.ac.uk',
+                    url=report_text.get('eg_web_link'),
                     text=StandAloneGraphic(image_options="height=40px", filename=Uni_logo_file)
                 ))
 
@@ -186,13 +188,13 @@ class ProjectReportLatex:
         with page.create(Head("R")) as right_header:
             with right_header.create(MiniPage(pos='c', align='r')) as logo_wrapper:
                 logo_wrapper.append(HRef(
-                    url='https://www.ed.ac.uk/',
+                    url=report_text.get('UoE_web_link'),
                     text=StandAloneGraphic(image_options="height=50px", filename=EG_logo_file)
                 ))
 
         # Document revision in footer
         with page.create(Foot("L")) as footer:
-            footer.append(FootnoteText("EGC-BTP-1 rev. 3"))
+            footer.append(FootnoteText(report_text.get('project_report_version')))
 
         # Page number in footer
         with page.create(Foot("C")) as footer:
@@ -341,6 +343,9 @@ class ProjectReportLatex:
                         self.doc.append(authorisation.get('NCs'))
         with self.doc.create(Section('Declaration of Compliance', numbering=True)):
             add_text(self.doc, report_text.get('formal_statement'))
+        with self.doc.create(Section('Confidentiality and privacy', numbering=True)):
+            add_text(self.doc, report_text.get('privacy_notice') + '\n')
+            self.doc.append(HRef(url=NoEscape(report_text.get('privacy_notice_link'))))
 
     def create_appendix_tables(self, appendix_tables):
         with self.doc.create(Section('Appendix I. Per sample metadata', numbering=True)):
@@ -375,7 +380,7 @@ class ProjectReportLatex:
     def front_page(self, project_name, report_version, authorisations):
         with self.doc.create(MiniPage(height='5cm', pos='c', align='c')) as logo_wrapper:
             logo_wrapper.append(HRef(
-                url='https://genomics.ed.ac.uk',
+                url=report_text.get('eg_web_link'),
                 text=StandAloneGraphic(image_options="height=80px", filename=UoE_EG_logo_file)
             ))
         self.doc.append(LineBreak())
@@ -400,7 +405,7 @@ class ProjectReportLatex:
 
         library_prep_type, bioinfo_analysis_types, format_delivered = self.project_information.get_library_prep_analysis_types_and_format()
         bioinformatic_parameters = self.project_information.params
-        result_summary = self.project_information.calculate_project_statistsics()
+        result_summary = self.project_information.calculate_project_statistics()
         appendix_tables = self.project_information.get_sample_data_in_tables(authorisations)
         charts_info = yield_vs_coverage_plot(self.project_information, self.working_dir)
         last_auth = authorisations[-1]

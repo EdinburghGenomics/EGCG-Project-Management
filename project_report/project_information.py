@@ -206,13 +206,16 @@ class ProjectReportInformation(AppLogger):
         bcl2fastq_versions = set()
         for run_id in run_ids:
             prog_vers_yaml = os.path.join(self.run_folders, run_id, 'program_versions.yaml')
-            with open(prog_vers_yaml, 'r') as open_file:
-                full_yaml = yaml.safe_load(open_file)
-                if 'bcl2fastq' in full_yaml and full_yaml.get('bcl2fastq'):
-                    bcl2fastq_versions.add(full_yaml.get('bcl2fastq'))
-                else:
-                    self.warning('Run %s has no bcl2fastq version: default to v2.17.1.14', run_id)
-                    bcl2fastq_versions.add('v2.17.1.14')
+            bcl2fastq_version = None
+            if os.path.isfile(prog_vers_yaml):
+                with open(prog_vers_yaml, 'r') as open_file:
+                    full_yaml = yaml.safe_load(open_file)
+                    if 'bcl2fastq' in full_yaml and full_yaml.get('bcl2fastq'):
+                        bcl2fastq_version = full_yaml.get('bcl2fastq')
+            if bcl2fastq_version:
+                bcl2fastq_versions.add(bcl2fastq_version)
+            else:
+                raise ValueError('Run %s has no bcl2fastq version available in %s' % (run_id, prog_vers_yaml))
         return ', '.join(bcl2fastq_versions)
 
     def update_from_program_version_yaml(self, prog_vers_yaml):
@@ -258,7 +261,7 @@ class ProjectReportInformation(AppLogger):
         else:
             return 'min: 0, mean: 0, max: 0'
 
-    def calculate_project_statistsics(self):
+    def calculate_project_statistics(self):
         samples = self.samples_for_project_restapi
         sample_data_mapping = {
             'Yield per sample (Gb)': 'aggregated.clean_yield_in_gb',
@@ -298,6 +301,7 @@ class ProjectReportInformation(AppLogger):
                 genome_version = self.get_genome_version(sample)
 
             if genome_version == 'hg38':
+                # official name of the genome release and short description
                 genome_version = 'GRCh38 (with alt, decoy and HLA sequences)'
             genome_versions.add(genome_version)
 
