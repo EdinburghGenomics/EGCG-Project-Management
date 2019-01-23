@@ -380,7 +380,7 @@ class ProjectReportLatex:
     def front_page(self, project_name, report_version, authorisations):
         with self.doc.create(MiniPage(height='5cm', pos='c', align='c')) as logo_wrapper:
             logo_wrapper.append(HRef(
-                url='https://genomics.ed.ac.uk',
+                url=report_text.get('eg_web_link'),
                 text=StandAloneGraphic(image_options="height=80px", filename=UoE_EG_logo_file)
             ))
         self.doc.append(LineBreak())
