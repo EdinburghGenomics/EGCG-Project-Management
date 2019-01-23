@@ -432,9 +432,9 @@ class ProjectReportInformation(AppLogger):
         tables['appendix I'] = {
             'header': header, 'column_def': column_def, 'rows': rows,
             'footer': [
-                self.format_table_footer_line(1, sorted(library_descriptions)),
-                self.format_table_footer_line(2, sorted(species_descriptions)),
-                self.format_table_footer_line(3, sorted(analysis_descriptions))
+                self.format_table_footer_line(sorted(library_descriptions), 1),
+                self.format_table_footer_line(sorted(species_descriptions), 2),
+                self.format_table_footer_line(sorted(analysis_descriptions), 3)
             ]
         }
         header = [
