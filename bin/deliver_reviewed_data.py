@@ -19,8 +19,9 @@ from egcg_core.notifications.email import send_html_email
 from egcg_core.util import find_files, find_fastqs, query_dict
 from pyclarity_lims.entities import Process
 
+from project_report.project_report_latex import ProjectReportLatex
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from project_report import ProjectReport
 from config import load_config
 
 hs_files = [
@@ -74,6 +75,7 @@ class DataDelivery(AppLogger):
         self.staging_dir = os.path.join(self.work_dir, 'data_delivery_' + _now())
         self.delivery_dest = cfg['delivery']['dest']
         self.delivery_source = cfg['delivery']['source']
+        self.delivery_report_repository = cfg['delivery']['report_repo']
 
     @cached_property
     def today(self):
@@ -423,11 +425,11 @@ class DataDelivery(AppLogger):
         # Generate project report
         project_to_reports = {}
         for project in self.deliverable_samples:
-            project_report = join(self.delivery_dest, project, 'project_%s_report.pdf' % project)
+            project_report = None
             try:
                 if not self.dry_run:
-                    pr = ProjectReport(project, self.staging_dir)
-                    pr.generate_report('pdf')
+                    pr = ProjectReportLatex(project, self.staging_dir)
+                    project_report = pr.generate_pdf()
             except Exception as e:
                 self.critical('Project report generation for %s failed: %s' % (project, e))
                 etype, value, tb = sys.exc_info()
@@ -437,6 +439,9 @@ class DataDelivery(AppLogger):
                 project_report = None
             if project_report and os.path.exists(project_report):
                 project_to_reports[project] = project_report
+                # Copy the project report to the log folder
+                project_report_dest = os.path.join(self.delivery_report_repository, os.path.basename(project_report))
+                shutil.copyfile(project_report, project_report_dest)
 
         # Send email confirmation with attachments
         self.send_reports(self.deliverable_samples, project_to_reports)

@@ -8,6 +8,7 @@ ncbi_cache: ':memory:'
 delivery:
     source: tests/assets/data_delivery/source
     dest: tests/assets/data_delivery/dest
+    report_repo: tests/assets/project_report/repo
     clarity_workflow_name: 'Data Release workflow'
     clarity_stage_name: 'Data Release stage'
     email_notification:

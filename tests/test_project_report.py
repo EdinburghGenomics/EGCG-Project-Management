@@ -6,14 +6,18 @@ import collections
 from itertools import cycle
 from random import randint, random
 from unittest.mock import Mock, PropertyMock, patch
-from project_report import ProjectReport
+
+from egcg_core.util import query_dict
+
+from project_report.project_information import ProjectReportInformation
+from project_report.project_report_latex import ProjectReportLatex
 from tests import TestProjectManagement, NamedMock
 
 nb_samples = 50
 
 
 def ppath(ext):
-    return 'project_report.' + ext
+    return 'project_report.project_information.' + ext
 
 
 class FakeArtifact:
@@ -44,6 +48,7 @@ fake_sample_templates = {
         'udf': {
             'Prep Workflow': cycle(['TruSeq Nano DNA Sample Prep', 'TruSeq PCR-Free DNA Sample Prep']),
             'Species': 'Homo sapiens',
+            'User Prepared Library': cycle([None, None, 'Yes']),
             'Genome Version': 'hg38',
             'Total DNA (ng)': 3000,
             'Required Yield (Gb)': cycle([120, 60]),
@@ -92,6 +97,18 @@ fake_sample_templates = {
             'Required Yield (Gb)': 120,
             'Coverage (X)': 30
         }
+    },
+    'upl999': {
+        'name': 'UPL_HS_',
+        'udf': {
+            'Prep Workflow': 'TruSeq Nano DNA Sample Prep',  # This sis sometime set and will be ignored
+            'User Prepared Library': 'Yes',
+            'Species': 'Homo sapiens',
+            'Genome Version': 'hg38',
+            'Total DNA (ng)': 3000,
+            'Required Yield (Gb)': 120,
+            'Coverage (X)': 30
+        }
     }
 }
 
@@ -117,11 +134,12 @@ d = datetime.datetime.strptime('2018-01-10', '%Y-%m-%d').date()
 
 fake_process_templates = {
     'a_project_name': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NC12: Description of major issue'},
-    'hmix999': {'nb_processes': 4, 'date': d, 'finished': 'Yes', 'NC': cycle(['NA', 'NA', 'NC25: Description minor issue', 'NA'])},
+    'hmix999': {'nb_processes': 3, 'date': d, 'finished': 'Yes', 'NC': cycle(['NA', 'NA', 'NC25: Description minor issue', 'NA'])},
     'nhtn999': {'nb_processes': 2, 'date': d, 'finished': 'Yes', 'NC': cycle(['NA', 'NC25: Major issue'])},
     'hpf999': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NA'},
     'nhpf999': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NC85: All samples were bad quality.'},
-    'uhtn999': {'nb_processes': 1, 'date': d, 'finished': 'No', 'NC': 'NA'}
+    'uhtn999': {'nb_processes': 1, 'date': d, 'finished': 'No', 'NC': 'NA'},
+    'upl999':  {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NA'}
 }
 
 fake_processes = {}
@@ -212,7 +230,8 @@ for project in fake_samples:
             clean_yield_in_gb = randint(int(req_yield * .9), int(req_yield * 1.5))
             fake_rest_api_samples[project].append({
                 'sample_id': sample.name,
-                'user_sample_id': 'user_' + sample.name,
+                # Add variable padding to see the effect of long user sample names
+                'user_sample_id': '_' * randint(0,15) + 'user_' + sample.name,
                 'project_id': project,
                 'species_name': sample.udf['Species'],
                 'aggregated': {
@@ -220,16 +239,17 @@ for project in fake_samples:
                     'clean_pc_q30': clean_yield_in_gb * .8,
                     'pc_duplicate_reads': round(random() * 25, 1),
                     'pc_mapped_reads': round(95 + random() * 5, 1),
+                    'run_ids': ['date_machine_number_flowcell1', 'date_machine_number_flowcell1'],
                 },
                 'coverage': {'mean': randint(int(req_cov * .9), int(req_cov * 1.5))}
             })
 
-mocked_get_folder_size = patch(ppath('ProjectReport.get_folder_size'), return_value=1337000000000)
-mocked_sample_status = patch(ppath('ProjectReport.sample_status'), return_value={'started_date': '2017-08-02T11:25:14.659000'})
+mocked_get_folder_size = patch(ppath('ProjectReportInformation.get_folder_size'), return_value=1337000000000)
+mocked_sample_status = patch(ppath('ProjectReportInformation.sample_status'), return_value={'started_date': '2017-08-02T11:25:14.659000'})
 
 
 def get_patch_sample_restapi(project_name):
-    path = ppath('ProjectReport.samples_for_project_restapi')
+    path = ppath('ProjectReportInformation.samples_for_project_restapi')
     return patch(path, new_callable=PropertyMock(return_value=fake_rest_api_samples[project_name]))
 
 
@@ -241,13 +261,8 @@ class TestProjectReport(TestProjectManagement):
         os.makedirs(self.working_dir, exist_ok=True)
         self.dest_dir = os.path.join(self.assets_path, 'project_report', 'dest')
 
-        self.pr = ProjectReport('a_project_name', working_dir=self.working_dir)
+        self.pr = ProjectReportInformation('a_project_name')
         self.pr.lims = FakeLims()
-
-        # Clean up previous reports
-        project_report_pdfs = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.pdf'))
-        for pdf in project_report_pdfs:
-            os.remove(pdf)
 
         # create the source and dest folders
         for project in fake_samples:
@@ -268,11 +283,25 @@ class TestProjectReport(TestProjectManagement):
                     with open(os.path.join(smp_dir, 'program_versions.yaml'), 'w') as open_file:
                         open_file.write('biobambam_sortmapdup: 2\nbwa: 1.2\ngatk: v1.3\nbcl2fastq: 2.1\nsamtools: 0.3')
 
+        self.run_ids = set()
+        for project in fake_rest_api_samples:
+            for sample in fake_rest_api_samples[project]:
+                for run_id in query_dict(sample, 'aggregated.run_ids'):
+                    self.run_ids.add(run_id)
+        for run_id in self.run_ids:
+            run_dir = os.path.join(self.source_dir, run_id)
+            os.makedirs(run_dir, exist_ok=True)
+            with open(os.path.join(run_dir, 'program_versions.yaml'), 'w') as open_file:
+                open_file.write('bcl2fastq: v2.17.1.14\n')
+
     def tearDown(self):
         # delete the source folders
         for project in fake_samples:
             shutil.rmtree(os.path.join(self.source_dir, project))
         shutil.rmtree(self.working_dir)
+
+
+class TestProjectReportInformation(TestProjectReport):
 
     def test_customer_name(self):
         assert self.pr.customer_name == 'Awesome lab'
@@ -289,14 +318,15 @@ class TestProjectReport(TestProjectManagement):
                ('Enquiry no', '1337'),
                ('Quote no', '1338'),
                ('Customer name', 'Awesome lab'),
-               ('Customer address', ['Institute of Awesomeness', '213 high street']),
+               ('Customer address', 'Institute of Awesomeness\n213 high street'),
                ('Number of samples', len(fake_samples['a_project_name'])),
                ('Number of samples delivered', nb_samples),
                ('Date samples received', 'Detailed in appendix I'),
-               ('Project size', '1.22 terabytes'),
-               ('Laboratory protocol', 'TruSeq Nano'),
+               ('Total download size', '1.22 terabytes'),
+               ('Laboratory protocol', 'Illumina TruSeq Nano library'),
                ('Submitted species', 'Thingius thingy'),
                ('Genome version', 'GRCh38 (with alt, decoy and HLA sequences)'))
+
         with get_patch_sample_restapi('a_project_name'):
             self.pr.store_sample_info()
             assert self.pr.get_project_info() == exp
@@ -309,7 +339,7 @@ class TestProjectReport(TestProjectManagement):
         assert self.pr.get_lims_sample('sample_1') == self.fake_samples[0]
 
     def test_get_library_workflow(self):
-        assert self.pr.get_library_workflow_from_sample('sample_1') == 'TruSeq Nano'
+        assert self.pr.get_library_workflow_from_sample('sample_1') == 'Illumina TruSeq Nano library'
 
     def test_get_report_type(self):
         assert self.pr.get_species_from_sample('sample_1') == 'Thingius thingy'
@@ -333,7 +363,6 @@ class TestProjectReport(TestProjectManagement):
             'bwa_version': '1.2',
             'gatk_version': '1.3',
             'samblaster_version': '1.4',
-            'bcl2fastq_version': '2.17.1.14'
         }
         assert all(self.pr.params[k] == v for k, v in exp.items())
 
@@ -361,6 +390,9 @@ class TestProjectReport(TestProjectManagement):
             'adapter2': 'AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT',
             'bwa_version': 1.2,
             'biobambam_sortmapdup_version': 2,
+            'bcl2fastq_version': 'v2.17.1.14',
+            'biobambam_or_samblaster': 'biobambam',
+            'biobambam_or_samblaster_version': 2,
             'project_name': 'a_project_name',
             'gatk_version': 'v1.3',
             'samtools_version': 0.3,
@@ -368,23 +400,66 @@ class TestProjectReport(TestProjectManagement):
             'species_submitted': 'Thingius thingy'
         }
 
-    def test_get_html_template(self):
-        with get_patch_sample_restapi('a_project_name'):
-            assert self.pr.get_html_template().get('template_base') == 'report_base.html'
-
     @patch(ppath('path.getsize'), return_value=1)
     def test_get_folder_size(self, mocked_getsize):
-        d = os.path.join(TestProjectManagement.root_path, 'project_report', 'templates')
-        obs = self.pr.get_folder_size(d)
-        assert obs == 8
+        d = os.path.join(self.source_dir, 'hmix999')
+        assert self.pr.get_folder_size(d) == 151
+        assert mocked_getsize.call_count == 151
 
-    @mocked_sample_status
+        d = os.path.join(TestProjectManagement.root_path, 'etc')
+        assert self.pr.get_folder_size(d) == 12
+        assert mocked_getsize.call_count == 163
+
+    def test_abbreviate_species(self):
+        assert self.pr.abbreviate_species('Homo sapiens') == 'Hs'
+        assert self.pr.abbreviate_species('Gallus gallus') == 'Gg'
+        assert self.pr.abbreviate_species('Hyper snake') == 'Hsn'  # Avoid confusion with previous abbrev
+
+        # Further call uses the cash
+        assert self.pr.abbreviate_species('Homo sapiens') == 'Hs'
+
+        # After cache is reset
+        self.pr.species_abbreviation = {}
+        # No confusion possible anymore
+        assert self.pr.abbreviate_species('Hyper snake') == 'Hs'
+
+        assert self.pr.abbreviate_species(None) is None
+
+
+mocked_sample_status_latex = patch('project_report.project_information.ProjectReportInformation.sample_status',
+                             return_value={'started_date': '2017-08-02T11:25:14.659000'})
+
+
+def get_patch_sample_restapi_latex(project_name):
+    path = 'project_report.project_information.ProjectReportInformation.samples_for_project_restapi'
+    return patch(path, new_callable=PropertyMock(return_value=fake_rest_api_samples[project_name]))
+
+
+class TestProjectReportLatex(TestProjectReport):
+    def setUp(self):
+        self.fake_samples = fake_samples['a_project_name']
+        self.source_dir = os.path.join(self.assets_path, 'project_report', 'source')
+        self.working_dir = os.path.join(self.assets_path, 'project_report', 'work')
+        os.makedirs(self.working_dir, exist_ok=True)
+        self.dest_dir = os.path.join(self.assets_path, 'project_report', 'dest')
+
+        # Clean up previous reports
+        project_reports = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.pdf'))
+        project_report_texs = glob.glob(os.path.join(self.assets_path, 'project_report', 'dest', '*', '*.tex'))
+        for f in project_reports + project_report_texs:
+            os.remove(f)
+        super().setUp()
+
+    @mocked_sample_status_latex
     def test_project_types(self, mocked_sample_status):
-        projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999')
+        projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999', 'upl999')
+
         for p in projects:
-            with get_patch_sample_restapi(p):
-                pr = ProjectReport(p, self.working_dir)
-                pr.lims = FakeLims()
-                pr.generate_report('pdf')
-            report = os.path.join(self.assets_path, 'project_report', 'dest', p, 'project_%s_report.pdf' % p)
-            assert os.path.isfile(report)
+            with get_patch_sample_restapi_latex(p):
+                report = ProjectReportLatex(p, self.working_dir)
+                report.project_information.lims = FakeLims()
+                tex_file = report.generate_tex()
+                assert os.path.isfile(tex_file)
+                # Uncomment to generate the pdf files (it requires latex to be installed locally)
+                # pdf_file = report.generate_pdf()
+                # assert os.path.isfile(pdf_file)
