@@ -60,7 +60,7 @@ class FinalDataDeleter(DeliveredDataDeleter):
     def _try_archive_run(self, run_id):
         # Ensure that all samples in that run have been fully deleted.
         run_elements = rest_communication.get_documents('run_elements', where={'run_id': run_id}, all_pages=True)
-        sample_ids = set(re[ELEMENT_SAMPLE_INTERNAL_ID] for re in run_elements)
+        sample_ids = set(re[ELEMENT_SAMPLE_INTERNAL_ID] for re in run_elements if re[ELEMENT_SAMPLE_INTERNAL_ID] != "Undetermined")
         samples = (rest_communication.get_document('samples', where={'sample_id': sample_id}) for sample_id in sample_ids)
         if all((sample['data_deleted'] == 'all' for sample in samples)):
             # remove all extra fastq files
