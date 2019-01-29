@@ -43,16 +43,17 @@ fake_sample_templates = {
             'Coverage (X)': 30
         }
     },
-    'hmix999': {
-        'name': 'HS_mix_',
+    'mix999': {
+        'name': 'S_mix_',
         'udf': {
             'Prep Workflow': cycle(['TruSeq Nano DNA Sample Prep', 'TruSeq PCR-Free DNA Sample Prep']),
-            'Species': 'Homo sapiens',
+            'Species': cycle(['Homo sapiens', 'Canis lupus familiaris']),
             'User Prepared Library': cycle([None, None, 'Yes']),
             'Genome Version': 'hg38',
             'Total DNA (ng)': 3000,
             'Required Yield (Gb)': cycle([120, 60]),
-            'Coverage (X)': cycle([30, 15])
+            'Coverage (X)': cycle([30, 15]),
+            'Analysis Type': 'Variant Calling gatk'
         }
     },
     'nhtn999': {
@@ -134,7 +135,7 @@ d = datetime.datetime.strptime('2018-01-10', '%Y-%m-%d').date()
 
 fake_process_templates = {
     'a_project_name': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NC12: Description of major issue'},
-    'hmix999': {'nb_processes': 3, 'date': d, 'finished': 'Yes', 'NC': cycle(['NA', 'NA', 'NC25: Description minor issue', 'NA'])},
+    'mix999': {'nb_processes': 3, 'date': d, 'finished': 'Yes', 'NC': cycle(['NA', 'NA', 'NC25: Description minor issue', 'NA'])},
     'nhtn999': {'nb_processes': 2, 'date': d, 'finished': 'Yes', 'NC': cycle(['NA', 'NC25: Major issue'])},
     'hpf999': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NA'},
     'nhpf999': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NC85: All samples were bad quality.'},
@@ -228,6 +229,12 @@ for project in fake_samples:
             req_yield = sample.udf.get('Required Yield (Gb)')
             req_cov = sample.udf.get('Coverage (X)')
             clean_yield_in_gb = randint(int(req_yield * .9), int(req_yield * 1.5))
+            if sample.udf['Species'] == 'Homo sapiens':
+                pipeline = 'bcbio'
+            elif sample.udf.get('Analysis Type') == 'Variant Calling gatk':
+                pipeline = 'variant_calling'
+            else:
+                pipeline = 'qc'
             fake_rest_api_samples[project].append({
                 'sample_id': sample.name,
                 # Add variable padding to see the effect of long user sample names
@@ -240,6 +247,7 @@ for project in fake_samples:
                     'pc_duplicate_reads': round(random() * 25, 1),
                     'pc_mapped_reads': round(95 + random() * 5, 1),
                     'run_ids': ['date_machine_number_flowcell1', 'date_machine_number_flowcell1'],
+                    'most_recent_proc': {'pipeline_used': {'name': pipeline}}
                 },
                 'coverage': {'mean': randint(int(req_cov * .9), int(req_cov * 1.5))}
             })
@@ -275,7 +283,7 @@ class TestProjectReport(TestProjectManagement):
                 os.makedirs(smp_dir, exist_ok=True)
                 if sample.udf['Species'] == 'Homo sapiens':
                     with open(os.path.join(smp_dir, 'programs.txt'), 'w') as open_file:
-                        open_file.write('bcbio,1.1\nbwa,1.2\ngatk,1.3\nsamblaster,1.4\n')
+                        open_file.write('bcbio,1.1\nbwa,1.2\ngatk,1.3\nsamblaster,1.4\nsamtools,1.5\n')
                     with open(os.path.join(smp_dir, 'project-summary.yaml'), 'w') as open_file:
                         open_file.write(
                             'samples:\n- dirs:\n    galaxy: path/to/bcbio/bcbio-0.9.4/galaxy\n  genome_build: hg38\n')
@@ -343,9 +351,9 @@ class TestProjectReportInformation(TestProjectReport):
 
     def test_get_report_type(self):
         assert self.pr.get_species_from_sample('sample_1') == 'Thingius thingy'
-        self.pr.project_name = 'hmix999'
+        self.pr.project_name = 'hpf999'
         del self.pr.__dict__['samples_for_project_lims']
-        assert self.pr.get_species_from_sample('HS_mix_1') == 'Human'
+        assert self.pr.get_species_from_sample('HS_pcrfree_1') == 'Homo sapiens'
 
     def test_update_program_from_csv(self):
         assert len(self.pr.params) == 3
@@ -353,8 +361,8 @@ class TestProjectReportInformation(TestProjectReport):
             TestProjectManagement.assets_path,
             'project_report',
             'source',
-            'hmix999',
-            'HS_mix_1',
+            'hpf999',
+            'HS_pcrfree_1',
             'programs.txt'
         )
         self.pr.update_from_program_csv(program_csv)
@@ -373,8 +381,8 @@ class TestProjectReportInformation(TestProjectReport):
             TestProjectManagement.assets_path,
             'project_report',
             'source',
-            'hmix999',
-            'HS_mix_1',
+            'hpf999',
+            'HS_pcrfree_1',
             'project-summary.yaml'
         )
         assert self.pr.get_from_project_summary_yaml(summary_yaml) == ('bcbio-0.9.4', 'hg38')
@@ -402,13 +410,9 @@ class TestProjectReportInformation(TestProjectReport):
 
     @patch(ppath('path.getsize'), return_value=1)
     def test_get_folder_size(self, mocked_getsize):
-        d = os.path.join(self.source_dir, 'hmix999')
-        assert self.pr.get_folder_size(d) == 151
-        assert mocked_getsize.call_count == 151
-
         d = os.path.join(TestProjectManagement.root_path, 'etc')
         assert self.pr.get_folder_size(d) == 12
-        assert mocked_getsize.call_count == 163
+        assert mocked_getsize.call_count == 12
 
     def test_abbreviate_species(self):
         assert self.pr.abbreviate_species('Homo sapiens') == 'Hs'
@@ -452,7 +456,7 @@ class TestProjectReportLatex(TestProjectReport):
 
     @mocked_sample_status_latex
     def test_project_types(self, mocked_sample_status):
-        projects = ('hmix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999', 'upl999')
+        projects = ('mix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999', 'upl999')
 
         for p in projects:
             with get_patch_sample_restapi_latex(p):

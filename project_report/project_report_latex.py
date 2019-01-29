@@ -180,7 +180,7 @@ class ProjectReportLatex:
         with page.create(Head("L")) as header_left:
             with header_left.create(MiniPage(pos='c', align='l')) as logo_wrapper:
                 logo_wrapper.append(HRef(
-                    url=report_text.get('eg_web_link'),
+                    url=report_text.get('UoE_web_link'),
                     text=StandAloneGraphic(image_options="height=40px", filename=Uni_logo_file)
                 ))
 
@@ -188,7 +188,7 @@ class ProjectReportLatex:
         with page.create(Head("R")) as right_header:
             with right_header.create(MiniPage(pos='c', align='r')) as logo_wrapper:
                 logo_wrapper.append(HRef(
-                    url=report_text.get('UoE_web_link'),
+                    url=report_text.get('eg_web_link'),
                     text=StandAloneGraphic(image_options="height=50px", filename=EG_logo_file)
                 ))
 
@@ -284,7 +284,7 @@ class ProjectReportLatex:
                 if bioinfo_analysis_type is 'bioinformatics_analysis':
                     with self.doc.create(Subsection('Bioinformatics Analysis', numbering=True)):
                         add_text(self.doc, report_text.get('bioinformatics_analysis').format(**bioinformatic_parameters))
-                self.doc.append(NewPage())
+            self.doc.append(NewPage())
 
     def create_results_section(self, result_summary, charts_info):
         with self.doc.create(Section('Results', numbering=True)):
@@ -357,8 +357,7 @@ class ProjectReportLatex:
                     small_section,
                     appendix_tables['appendix I']['header'],
                     self._limit_cell_width(appendix_tables['appendix I']['rows'], {0: 40}),
-                    # Set the column width to fix width for all but first column
-                    column_def='X[l] p{2.5cm} p{2cm} p{2cm} p{1.7cm} p{2cm}',
+                    column_def=appendix_tables['appendix I']['column_def'],
                     footer=appendix_tables['appendix I']['footer']
                 )
         self.doc.append(NewPage())

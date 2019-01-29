@@ -13,12 +13,13 @@ from egcg_core.clarity import connection
 from egcg_core.rest_communication import get_documents, get_document
 from egcg_core.exceptions import EGCGError
 import pandas as pd
+from pylatex import NoEscape
+from pylatex.utils import bold
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.collections as mpcollections
 from config import cfg
-
-species_alias = {'Homo sapiens': 'Human', 'Human': 'Human'}
 
 
 class ProjectReportInformation(AppLogger):
@@ -33,6 +34,17 @@ class ProjectReportInformation(AppLogger):
         'Illumina TruSeq Nano library': 'Nano',
         'Illumina TruSeq PCR-Free library': 'PCRfree'
     }
+    analysis_abbreviation = {
+        'bcbio': 'bcbio',
+        'variant_calling': 'variant',
+        'qc': 'basic qc'
+    }
+    analysis_description = {
+        'bcbio': 'GATK3 based variant call for human',
+        'variant_calling': 'GATK based variant call',
+        'qc': 'Alignment based quality control'
+    }
+
     species_abbreviation = {}
 
     def __init__(self, project_name):
@@ -100,8 +112,7 @@ class ProjectReportInformation(AppLogger):
             return self.workflow_alias.get(self.get_lims_sample(sample_name).udf.get('Prep Workflow'))
 
     def get_species_from_sample(self, sample_name):
-        s = self.get_lims_sample(sample_name).udf.get('Species')
-        return species_alias.get(s, s)
+        return self.get_lims_sample(sample_name).udf.get('Species')
 
     def get_sample_total_dna(self, sample_name):
         return self.get_lims_sample(sample_name).udf.get('Total DNA (ng)')
@@ -133,14 +144,11 @@ class ProjectReportInformation(AppLogger):
             raise ValueError('%s unknown library preparation: %s' % (len(unknown_libraries), unknown_libraries))
         return sorted(library_workflows)
 
-    def get_analysis_type(self):
+    def get_analysis_types(self):
         analysis_types = set()
         for sample in self.sample_names_delivered:
-            if self.get_analysis_type_from_sample(sample):
-                analysis_types.add(self.get_analysis_type_from_sample(sample))
-        # We assume only one analysis type per project
-        if analysis_types:
-            return analysis_types.pop()
+            analysis_types.add(self.get_analysis_type_from_sample(sample))
+        return analysis_types
 
     def project_size_in_terabytes(self):
         project_size = self.get_folder_size(self.project_delivery)
@@ -195,7 +203,7 @@ class ProjectReportInformation(AppLogger):
             with open(program_csv) as open_prog:
                 for row in csv.reader(open_prog):
                     all_programs[row[0]] = row[1]
-        for p in ['bcbio', 'bwa', 'gatk', 'samblaster']:
+        for p in ['bcbio', 'bwa', 'gatk', 'samblaster', 'samtools']:
             if p in all_programs:
                 self.params[p + '_version'] = all_programs.get(p)
 
@@ -291,7 +299,7 @@ class ProjectReportInformation(AppLogger):
             species_submitted.add(species)
             genome_version = None
             sample_source = path.join(self.project_source, sample)
-            if self.get_species_from_sample(sample) == 'Human':
+            if species == 'Homo sapiens':
                 program_csv = find_file(sample_source, 'programs.txt')
                 self.update_from_program_csv(program_csv)
                 summary_yaml = find_file(sample_source, 'project-summary.yaml')
@@ -301,7 +309,6 @@ class ProjectReportInformation(AppLogger):
             else:
                 program_yaml = find_file(sample_source, 'program_versions.yaml')
                 self.update_from_program_version_yaml(program_yaml)
-
             if not genome_version:
                 genome_version = self.get_genome_version(sample)
 
@@ -362,11 +369,36 @@ class ProjectReportInformation(AppLogger):
             })
         return release_data
 
+    @staticmethod
+    def format_table_footer_line(definitions, superscript):
+        """
+        Take a footer rows as list of tuples. The tuple have two elements.
+        The first element will be formatted as bold.
+
+        :param superscript: superscripted text that appear at the beginning of the line
+        :param definitions: lists of tuples containing the definitions to be added on that line
+        :return: list of latex formatted rows
+        """
+        formatted_latex = []
+        if superscript:
+            formatted_latex.append(NoEscape(r'\textsuperscript{%s}' % superscript))
+        for def_element in definitions:
+            formatted_latex.append(bold(def_element[0]))
+            formatted_latex.append(': ' + def_element[1])
+            formatted_latex.append(', ')  # Separate the different entries with comma
+        return formatted_latex[:-1]   # Remove the last comma
+
     def get_sample_data_in_tables(self, authorisations):
         tables = {}
         header = [
-            'User ID', 'Internal ID', 'Date received', 'Date reviewed', 'Species', 'Library prep.'
+            'User ID', 'Internal ID', 'Received', 'Reviewed',
+            NoEscape(r'Species\textsuperscript{1}'),       # reference to the footer
+            NoEscape(r'Library prep.\textsuperscript{2}'),
+            NoEscape(r'Analysis\textsuperscript{3}')
         ]
+        # Latex specific column definition
+        # Set the column width to fix width for all but first column
+        column_def = 'X[l] p{2.5cm} p{1.7cm} p{1.7cm} p{1.5cm} p{1.8cm} p{1.7cm}'
 
         def find_sample_release_date_in_auth(sample):
             return [auth.get('date') for auth in authorisations if sample in auth.get('samples')]
@@ -374,27 +406,36 @@ class ProjectReportInformation(AppLogger):
         rows = []
 
         library_descriptions = set()
-        species_abbreviations = set()
+        species_descriptions = set()
+        analysis_descriptions = set()
         for sample in self.samples_for_project_restapi:
             date_reviewed = find_sample_release_date_in_auth(sample.get('sample_id'))
             internal_sample_name = self.get_fluidx_barcode(sample.get('sample_id')) or sample.get('sample_id')
             library = self.get_library_workflow_from_sample(sample.get('sample_id'))
-            library_descriptions.add('%s: %s' % (self.library_abbreviation.get(library), library))
+            library_descriptions.add((self.library_abbreviation.get(library), library))
             species = sample.get('species_name')
-            species_abbreviations.add('%s: %s' %(self.abbreviate_species(species), species))
+            species_descriptions.add((self.abbreviate_species(species), species))
+            analysis = query_dict(sample, 'aggregated.most_recent_proc.pipeline_used.name')
+            analysis_descriptions.add((self.analysis_abbreviation.get(analysis),
+                                       self.analysis_description.get(analysis)))
             row = [
                 sample.get('user_sample_id', 'None'),
                 internal_sample_name,
                 self.parse_date(self.sample_status(sample.get('sample_id')).get('started_date')),
                 ', '.join(date_reviewed),
                 self.abbreviate_species(species),
-                self.library_abbreviation.get(library)
+                self.library_abbreviation.get(library),
+                self.analysis_abbreviation.get(analysis)
             ]
 
             rows.append(row)
         tables['appendix I'] = {
-            'header': header, 'rows': rows,
-            'footer': [', '.join(sorted(library_descriptions)), ', '.join(sorted(species_abbreviations))]
+            'header': header, 'column_def': column_def, 'rows': rows,
+            'footer': [
+                self.format_table_footer_line(sorted(library_descriptions), 1),
+                self.format_table_footer_line(sorted(species_descriptions), 2),
+                self.format_table_footer_line(sorted(analysis_descriptions), 3)
+            ]
         }
         header = [
             'User ID', 'Yield quoted (Gb)', 'Yield provided (Gb)', '% Q30 > 75%', 'Quoted coverage', 'Provided coverage'
@@ -418,17 +459,20 @@ class ProjectReportInformation(AppLogger):
 
     def get_library_prep_analysis_types_and_format(self):
         species = self.get_species()
-        analysis_type = self.get_analysis_type()
+        analysis_types = self.get_analysis_types()
         library_preparations = self.get_library_workflows()
-        if len(species) == 1 and species.pop() == 'Human':
-            bioinfo_analysis_types = ['bioinformatics_analysis_bcbio']
-            formats_delivered = ['fastq', 'bam', 'vcf']
-        elif analysis_type and analysis_type in ['Variant Calling', 'Variant Calling gatk']:
-            bioinfo_analysis_types = ['bioinformatics_analysis']
-            formats_delivered = ['fastq', 'bam', 'vcf']
-        else:
-            bioinfo_analysis_types = ['bioinformatics_qc']
-            formats_delivered = ['fastq']
+        bioinfo_analysis_types = set()
+        formats_delivered = set()
+        if 'Homo sapiens' in species:
+            bioinfo_analysis_types.add('bioinformatics_analysis_bcbio')
+            formats_delivered.update(['fastq', 'bam', 'vcf'])
+        for analysis_type in analysis_types:
+            if analysis_type and analysis_type in ['Variant Calling', 'Variant Calling gatk']:
+                bioinfo_analysis_types.add('bioinformatics_analysis')
+                formats_delivered.update(['fastq', 'bam', 'vcf'])
+            else:
+                bioinfo_analysis_types.add('bioinformatics_qc')
+                formats_delivered.add('fastq')
 
         return library_preparations, bioinfo_analysis_types, formats_delivered
 
