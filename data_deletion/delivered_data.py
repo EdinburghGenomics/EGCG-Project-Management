@@ -114,6 +114,13 @@ class DeliveredDataDeleter(Deleter):
             self.delete_dir(self.deletion_dir)
 
         # Data has been deleted, so now clean up empty released directories
-        for folder in set(os.path.dirname(s.released_data_folder) for s in deletable_samples if s.released_data_folder):
-            if os.path.isdir(folder) and not os.listdir(folder):
-                self._execute('rm -r ' + folder)
+        for s in deletable_samples:
+            sample_dir = s.released_data_folder
+            if not sample_dir:
+                continue
+
+            assert not os.listdir(sample_dir)
+            self._execute('rm -r ' + sample_dir)
+            release_dir = os.path.dirname(sample_dir)
+            if not os.listdir(release_dir):
+                self._execute('rm -r ' + release_dir)

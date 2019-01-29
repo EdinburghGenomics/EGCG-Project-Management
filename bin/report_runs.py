@@ -130,8 +130,8 @@ def report_runs(run_ids, noemail=False):
                     reason = 'No data'
                 elif clean_yield < sdata['required_yield'] and mean_cov < sdata['required_coverage']:
                     reason = 'Not enough data: yield (%s < %s) and coverage (%s < %s)' % (
-                            round(clean_yield/1000000000,1), int(sdata['required_yield']/1000000000),
-                            round(mean_cov, 1), sdata['required_coverage']
+                        round(clean_yield/1000000000, 1), int(sdata['required_yield']/1000000000),
+                        round(mean_cov, 1), sdata['required_coverage']
                     )
 
                 sample_repeats.append({'id': sample_id, 'reason': reason})

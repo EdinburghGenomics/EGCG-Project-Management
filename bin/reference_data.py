@@ -1,13 +1,12 @@
-import argparse
-import ftplib
-import logging
 import os
 import sys
+import ftplib
+import logging
+import requests
+import argparse
 import subprocess
 from datetime import datetime
 from shutil import copyfile
-
-import requests
 from cached_property import cached_property
 from egcg_core import util, rest_communication, ncbi
 from egcg_core.app_logging import AppLogger, logging_default
@@ -69,7 +68,7 @@ class Downloader(AppLogger):
         for p in self.procs.values():
             exit_status = p.wait()
             if exit_status != 0:
-                self.error('Error during execution of %s: exit status is %s',p.args, p.wait())
+                self.error('Error during execution of %s: exit status is %s', p.args, p.wait())
             else:
                 self.info("Completed cmd '%s' with exit status %s", p.args, p.wait())
 
@@ -122,9 +121,8 @@ class Downloader(AppLogger):
 
     def validate_data(self):
         """
-        Validate that the reference data conforms to some expectation such as:
-
-         - The vcf file run through GATK ValidateVariants without error.
+        Validate that the reference data conforms to some expectations such as:
+          - The vcf file ran through GATK ValidateVariants without error.
         """
         if self.reference_variation:
             if 'faidx' in self.procs:
@@ -172,7 +170,7 @@ class Downloader(AppLogger):
             if field not in self.payload or self.payload[field] is None:
                 msg = 'Enter a value to use for %s.' % field
                 if field in defaults:
-                    msg = msg + ' (%s)' % defaults[field]
+                    msg += ' (%s)' % defaults[field]
                 value = input(msg) or defaults.get(field)
                 if value:
                     self.payload[field] = int(value)
@@ -227,6 +225,7 @@ class Downloader(AppLogger):
             genome_size = input(
                 "Enter species genome size (in Mb) to use for yield calculation. (default: %.0f) " % genome_size
             ) or genome_size
+
             # FIXME: Probably should expose the taxid in EGCG-Core so we do not have to access the private methods
             info = ncbi._fetch_from_cache(self.species)
             if info:
@@ -244,11 +243,12 @@ class Downloader(AppLogger):
                     'approximate_genome_size': float(genome_size)
                 }
             )
+
     @staticmethod
     def genome_param_from_fai_file(fai_file):
         """Read in the fai file and extract:
-         - the number of entry --> number of chromosome
-         - the sum of each entry's size (second column) --> genome size"""
+          - the number of entry --> number of chromosome
+          - the sum of each entry's size (second column) --> genome size"""
         genome_size = 0
         nb_chromosome = 0
         with open(fai_file) as open_file:
@@ -367,10 +367,12 @@ class EnsemblDownloader(Downloader):
             'Could not identify a vcf.gz file to use - enter one here. ')
 
     def prepare_metadata(self):
-        assembly_data = requests.get('%s/info/assembly/%s' % (self.rest_site, self.species),
-                                     params={'content-type': 'application/json'}
-                                     ).json()
-        if 'assembly_name' in assembly_data and self.genome_version in assembly_data['assembly_name'].replace(' ','_'):
+        assembly_data = requests.get(
+            '%s/info/assembly/%s' % (self.rest_site, self.species),
+            params={'content-type': 'application/json'}
+        ).json()
+
+        if 'assembly_name' in assembly_data and self.genome_version in assembly_data['assembly_name'].replace(' ', '_'):
             self.payload['chromosome_count'] = len(assembly_data.get('karyotype'))
             self.payload['genome_size'] = assembly_data.get('base_pairs')
             self.payload['goldenpath'] = assembly_data.get('golden_path')
@@ -414,6 +416,7 @@ class EnsemblGenomeDownloader(EnsemblDownloader):
         raise DownloadError('Could not find any Ensembl releases for ' + self.genome_version)
 
     def latest_genome_version(self):
+        ls = None
         for site in self.sub_sites:
             ls = self.ftp.nlst('%s/%s/fasta/%s/dna' % (self.all_ensembl_releases[0], site, self.ftp_species))
             if ls:
@@ -427,7 +430,6 @@ class EnsemblGenomeDownloader(EnsemblDownloader):
 
 
 class ManualDownload(Downloader):
-
     def latest_genome_version(self):
         raise DownloadError('Manual download needs the genome_version to be provided from the command line.')
 
@@ -471,7 +473,7 @@ def main():
     a = argparse.ArgumentParser()
     a.add_argument(
         'species',
-        help="Species name as used by NCBI. If there are spaces in the species name, it should be quoted"
+        help='Species name as used by NCBI. If there are spaces in the species name, it should be quoted'
     )
     a.add_argument('--genome_version', default=None)
     a.add_argument('--no_upload', dest='upload', action='store_false', help='Turn off the metadata upload')

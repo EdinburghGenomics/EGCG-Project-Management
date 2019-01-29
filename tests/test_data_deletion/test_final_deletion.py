@@ -16,6 +16,18 @@ run_elements2 = [
     {'run_id': 'another_run', 'project_id': 'another_project', 'sample_id': 'yet_another_sample', 'lane': 5}
 ]
 
+full_run = [
+    {'run_id': 'a_run', 'project_id': 'a_project', 'sample_id': 'a_sample1', 'lane': 1},
+    {'run_id': 'a_run', 'project_id': 'a_project', 'sample_id': 'a_sample2', 'lane': 2},
+    {'run_id': 'a_run', 'project_id': 'a_project', 'sample_id': 'a_sample3', 'lane': 3},
+    {'run_id': 'a_run', 'project_id': 'a_project', 'sample_id': 'a_sample4', 'lane': 4},
+    {'run_id': 'a_run', 'project_id': 'a_project', 'sample_id': 'a_sample5', 'lane': 5},
+    {'run_id': 'a_run', 'project_id': 'a_project', 'sample_id': 'a_sample6', 'lane': 6},
+    {'run_id': 'a_run', 'project_id': 'a_project', 'sample_id': 'a_sample7', 'lane': 7},
+    {'run_id': 'a_run', 'project_id': 'a_project', 'sample_id': 'a_sample8', 'lane': 8},
+    {'run_id': 'a_run', 'project_id': 'default', 'sample_id': 'Undetermined', 'lane': 3},
+]
+
 sample1 = {
     'sample_id': 'a_sample',
     'release_dir': 'release_1',
@@ -63,7 +75,7 @@ class TestFinalSample(TestProjectManagement):
         mocked_is_released.return_value = False
         with self.assertRaises(ArchivingError) as e:
             _ = self.sample.files_to_purge
-        assert str(e.exception) == 'Files not yet remove from lustre cannot be removed from tape: ' + str(exp)
+        assert str(e.exception) == 'Files not yet removed from Lustre cannot be removed from tape: ' + str(exp)
 
         mocked_is_released.return_value = True
         assert self.sample.files_to_purge == exp
@@ -161,7 +173,7 @@ class TestFinalDataDeleter(TestDeleter):
         mocked_archive_run.assert_any_call('a_run')
         mocked_archive_run.assert_any_call('another_run')
 
-    @patch('egcg_core.rest_communication.get_documents', return_value=run_elements1)
+    @patch('egcg_core.rest_communication.get_documents', return_value=full_run)
     @patch('egcg_core.rest_communication.get_document', return_value=sample1)
     def test_try_archive_run(self, mocked_get_doc, mocked_get_docs):
         assert os.path.exists(os.path.join(self.deleter.fastq_dir, 'a_run'))
@@ -169,6 +181,17 @@ class TestFinalDataDeleter(TestDeleter):
         self.deleter._try_archive_run('a_run')
         assert not os.path.exists(os.path.join(self.deleter.fastq_dir, 'a_run'))
         assert os.path.exists(os.path.join(self.deleter.run_archive_dir, 'a_run'))
+        mocked_get_docs.assert_called_once_with('run_elements', all_pages=True, where={'run_id': 'a_run'})
+        mocked_get_doc.assert_any_call('samples', where={'sample_id': 'a_sample1'})
+        mocked_get_doc.assert_any_call('samples', where={'sample_id': 'a_sample2'})
+        mocked_get_doc.assert_any_call('samples', where={'sample_id': 'a_sample3'})
+        mocked_get_doc.assert_any_call('samples', where={'sample_id': 'a_sample4'})
+        mocked_get_doc.assert_any_call('samples', where={'sample_id': 'a_sample5'})
+        mocked_get_doc.assert_any_call('samples', where={'sample_id': 'a_sample6'})
+        mocked_get_doc.assert_any_call('samples', where={'sample_id': 'a_sample7'})
+        mocked_get_doc.assert_any_call('samples', where={'sample_id': 'a_sample8'})
+        assert mocked_get_doc.call_count == 8
+        # Undetermined is ignored
 
     @patch('egcg_core.rest_communication.get_documents', return_value=[sample1])
     def test_try_archive_project(self, mocked_get_docs):

@@ -14,6 +14,7 @@ from unittest.mock import Mock
 from collections import defaultdict
 from contextlib import redirect_stdout
 from egcg_core import notifications, util, rest_communication, archive_management
+from egcg_core.app_logging import logging_default as log_cfg
 from egcg_core.config import Configuration
 
 integration_cfg = Configuration(os.getenv('INTEGRATIONCONFIG'))
@@ -55,6 +56,16 @@ class IntegrationTest(TestCase):
         assert self.container_id
         execute('docker', 'stop', self.container_id)
         execute('docker', 'rm', self.container_id)
+        self._reset_logging()
+
+    @staticmethod
+    def _reset_logging():
+        for l in log_cfg.loggers.values():
+            while l.handlers:
+                l.removeHandler(l.handlers[0])
+        while log_cfg.handlers:
+            h = log_cfg.handlers.pop()
+            del h
 
     def _ping(self, url, retries=36):
         try:

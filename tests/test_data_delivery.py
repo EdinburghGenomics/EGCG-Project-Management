@@ -301,7 +301,7 @@ class TestDataDelivery(TestProjectManagement):
     def test_summarise_metrics_per_sample(self):
         with patch_process, patch_get_document, patch_get_documents:
             _ = self.delivery_dry_merged.deliverable_samples
-            expected_header = ['Project', 'Sample Id', 'User sample id', 'Species', 'Library type','Received date',
+            expected_header = ['Project', 'Sample Id', 'User sample id', 'Species', 'Library type', 'Received date',
                                'DNA QC (ng)', 'Number of Read pair', 'Target Yield', 'Yield', 'Yield Q30', '%Q30',
                                'Mapped reads rate', 'Duplicate rate', 'Target Coverage', 'Mean coverage',
                                'Delivery folder']

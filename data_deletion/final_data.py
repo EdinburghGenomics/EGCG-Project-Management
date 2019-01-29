@@ -46,7 +46,8 @@ class FinalDataDeleter(DeliveredDataDeleter):
                 self.warning('Sample %s is not old enough: %s', final_sample.sample_id, final_sample.release_date)
                 ret = False
             if final_sample.sample_data.get('data_deleted') != 'on lustre':
-                self.warning('Sample %s is not marked as deleted from lustre', final_sample.sample_id, final_sample.release_date)
+                self.warning('Sample %s is not marked as deleted from lustre: %s',
+                             final_sample.sample_id, final_sample.sample_data.get('data_deleted'))
                 ret = False
         return ret
 
@@ -60,22 +61,26 @@ class FinalDataDeleter(DeliveredDataDeleter):
     def _try_archive_run(self, run_id):
         # Ensure that all samples in that run have been fully deleted.
         run_elements = rest_communication.get_documents('run_elements', where={'run_id': run_id}, all_pages=True)
-        sample_ids = set(re[ELEMENT_SAMPLE_INTERNAL_ID] for re in run_elements)
+        # Get all sample id involved in that run (removing the unassigned barcode for pooling runs)
+        sample_ids = set(re[ELEMENT_SAMPLE_INTERNAL_ID] for re in run_elements
+                         if re[ELEMENT_SAMPLE_INTERNAL_ID] != "Undetermined")
         samples = (rest_communication.get_document('samples', where={'sample_id': sample_id}) for sample_id in sample_ids)
         if all((sample['data_deleted'] == 'all' for sample in samples)):
             # remove all extra fastq files
             run_dir = os.path.join(self.fastq_dir, run_id)
-            files_to_remove = find_all_fastqs(run_dir)  # That should be the undetermined since all others were removed
-            files_to_remove.extend(self._find_files_with_suffix(run_dir, 'fastq_discarded.gz'))  # phix and adapters
-            files_to_remove.extend(self._find_files_with_suffix(run_dir, 'fastq.gz.original'))  # original when filtered
-            if files_to_remove:
-                deletable_data_dir = os.path.join(self.deletion_dir, run_id)
-                self._execute('mkdir -p ' + deletable_data_dir)
-                for f in files_to_remove:
-                    self._move_to_unique_file_name(f, deletable_data_dir)
+            # Do not archive runs that do not exist or have already been archived
+            if os.path.isdir(run_dir):
+                files_to_remove = find_all_fastqs(run_dir)  # That should be the undetermined since all others were removed
+                files_to_remove.extend(self._find_files_with_suffix(run_dir, 'fastq_discarded.gz'))  # phix and adapters
+                files_to_remove.extend(self._find_files_with_suffix(run_dir, 'fastq.gz.original'))  # original when filtered
+                if files_to_remove:
+                    deletable_data_dir = os.path.join(self.deletion_dir, run_id)
+                    self._execute('mkdir -p ' + deletable_data_dir)
+                    for f in files_to_remove:
+                        self._move_to_unique_file_name(f, deletable_data_dir)
 
-            self.debug('Archiving processed run: ' + run_id)
-            self._execute('mv %s %s' % (run_dir, os.path.join(self.run_archive_dir, run_id)))
+                self.debug('Archiving processed run: ' + run_id)
+                self._execute('mv %s %s' % (run_dir, os.path.join(self.run_archive_dir, run_id)))
 
     def _try_archive_project(self, project_id):
         # Ensure that all samples of that project have been fully deleted.
@@ -83,15 +88,17 @@ class FinalDataDeleter(DeliveredDataDeleter):
         if all((sample['data_deleted'] == 'all' for sample in samples)):
             # remove the extra vcf file from project process
             project_dir = os.path.join(self.projects_dir, project_id)
-            files_to_remove = self._find_files_with_suffix(project_dir, 'genotype_gvcfs.vcf.gz')
-            if files_to_remove:
-                deletable_data_dir = os.path.join(self.deletion_dir, project_id)
-                self._execute('mkdir -p ' + deletable_data_dir)
-                for f in files_to_remove:
-                    self._move_to_unique_file_name(f, deletable_data_dir)
+            # Do not archive project that have already been archived
+            if os.path.isdir(project_dir):
+                files_to_remove = self._find_files_with_suffix(project_dir, 'genotype_gvcfs.vcf.gz')
+                if files_to_remove:
+                    deletable_data_dir = os.path.join(self.deletion_dir, project_id)
+                    self._execute('mkdir -p ' + deletable_data_dir)
+                    for f in files_to_remove:
+                        self._move_to_unique_file_name(f, deletable_data_dir)
 
-            self.debug('Archiving processed project: ' + project_id)
-            self._execute('mv %s %s' % (project_dir, os.path.join(self.project_archive_dir, project_id)))
+                self.debug('Archiving processed project: ' + project_id)
+                self._execute('mv %s %s' % (project_dir, os.path.join(self.project_archive_dir, project_id)))
 
     def delete_data(self):
         deletable_samples = self.deletable_samples()
