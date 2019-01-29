@@ -383,7 +383,6 @@ class TestProjectReportInformation(TestProjectReport):
             'adapter2': 'AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT',
             'bwa_version': '1.2',
             'biobambam_sortmapdup_version': '2',
-            'bcl2fastq_version': 'v2.17.1.14',
             'biobambam_or_samblaster': 'biobambam',
             'biobambam_or_samblaster_version': '2',
             'gatk_version': 'v1.3',
@@ -446,8 +445,8 @@ class TestProjectReportLatex(TestProjectReport):
             tex_file = report.generate_tex()
             assert os.path.isfile(tex_file)
             # Uncomment to generate the pdf files (it requires latex to be installed locally)
-            pdf_file = report.generate_pdf()
-            assert os.path.isfile(pdf_file)
+            # pdf_file = report.generate_pdf()
+            # assert os.path.isfile(pdf_file)
 
     @mocked_get_folder_size
     @mocked_get_documents
