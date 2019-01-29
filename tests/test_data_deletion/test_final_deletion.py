@@ -190,6 +190,7 @@ class TestFinalDataDeleter(TestDeleter):
         mocked_get_doc.assert_any_call('samples', where={'sample_id': 'a_sample6'})
         mocked_get_doc.assert_any_call('samples', where={'sample_id': 'a_sample7'})
         mocked_get_doc.assert_any_call('samples', where={'sample_id': 'a_sample8'})
+        assert mocked_get_doc.call_count == 8
         # Undetermined is ignored
 
     @patch('egcg_core.rest_communication.get_documents', return_value=[sample1])
