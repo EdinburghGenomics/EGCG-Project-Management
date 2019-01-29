@@ -2,6 +2,7 @@ import argparse
 import ftplib
 import logging
 import os
+import sys
 import subprocess
 from datetime import datetime
 from shutil import copyfile
@@ -13,6 +14,7 @@ from egcg_core.app_logging import AppLogger, logging_default
 from egcg_core.config import cfg
 from egcg_core.exceptions import EGCGError
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import load_config
 
 
