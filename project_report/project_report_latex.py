@@ -182,7 +182,7 @@ class ProjectReportLatex:
         ]
         # Latex specific column definition
         # Set the column width to fix width for all but first column
-        column_def = 'X[l] p{2.5cm} p{1.7cm} p{1.7cm} p{1.5cm} p{1.8cm} p{1.7cm}'
+        column_def = 'X[l] p{2.2cm} p{1.6cm} p{1.6cm} p{1.4cm} p{1.8cm} p{1.7cm}'
 
         def find_sample_release_date_in_auth(sample):
             return [auth.get('date') for auth in authorisations if sample in auth.get('samples')]
@@ -359,13 +359,13 @@ class ProjectReportLatex:
 
             for bioinfo_analysis_type in self.pi.get_project_analysis_types():
                 bioinformatic_version = self.pi.get_bioinformatics_params_for_analysis(bioinfo_analysis_type)
-                if bioinfo_analysis_type is 'qc':
+                if bioinfo_analysis_type == 'qc':
                     with self.doc.create(Subsection('Bioinformatics QC', numbering=True)):
                         add_text(self.doc, report_text.get('bioinformatics_qc').format(**bioinformatic_version))
-                if bioinfo_analysis_type is 'bcbio':
+                if bioinfo_analysis_type == 'bcbio':
                     with self.doc.create(Subsection('Bioinformatics Analysis for Human samples', numbering=True)):
                         add_text(self.doc, report_text.get('bioinformatics_analysis_bcbio').format(**bioinformatic_version))
-                if bioinfo_analysis_type is 'variant_calling':
+                if bioinfo_analysis_type == 'variant_calling':
                     with self.doc.create(Subsection('Bioinformatics Analysis', numbering=True)):
                         add_text(self.doc, report_text.get('bioinformatics_analysis').format(**bioinformatic_version))
             self.doc.append(NewPage())
@@ -443,7 +443,7 @@ class ProjectReportLatex:
                 self.create_vertical_table(
                     small_section,
                     appendix_tables['appendix I']['header'],
-                    self._limit_cell_width(appendix_tables['appendix I']['rows'], {0: 40}),
+                    self._limit_cell_width(appendix_tables['appendix I']['rows'], {0: 35}),
                     column_def=appendix_tables['appendix I']['column_def'],
                     footer=appendix_tables['appendix I']['footer']
                 )

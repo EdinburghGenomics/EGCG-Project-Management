@@ -158,10 +158,11 @@ for project in fake_sample_templates:
                 pipeline = 'variant_calling'
             else:
                 pipeline = 'qc'
+            nb_char = randint(0, 25)
             rest_sample_data = {
                 'sample_id': sample_id,
                 # Add variable padding to see the effect of long user sample names
-                'user_sample_id': '_' * randint(0,15) + 'user_' + sample_id,
+                'user_sample_id': str(nb_char) + '_' * nb_char + '_user_' + sample_id,
                 'project_id': project,
                 'species_name': udf.get('Species'),
                 'aggregated': {
@@ -463,7 +464,6 @@ class TestProjectReportLatex(TestProjectReport):
                ('Laboratory protocol', 'Illumina TruSeq Nano library'),
                ('Submitted species', 'Thingius thingy'),
                ('Genome version', 'hg38'))
-        pprint.pprint(self.report.get_project_info())
         assert self.report.get_project_info() == exp
         mocked_folder_size.assert_called_with('tests/assets/project_report/dest/a_project_name')
 

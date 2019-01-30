@@ -171,11 +171,15 @@ class TestProjectReport(IntegrationTest):
                 }
                 sample.update(cls.sample_template)
                 sample_info = {'sample_id': sample_id}
-                sample_info.update(cls.projects[project_id]['sample_udfs'])
+                sample_info.update([(str(k), str(v)) for k, v in cls.projects[project_id]['sample_udfs'].items()])
                 sample_status = {'sample_id': sample_id,
                                  'started_date': '2018-02-08T12:26:01.893000'}
                 proc = {'proc_id': 'sample_' + sample_id, 'status': 'finished', 'dataset_type': 'sample',
                         'dataset_name': sample_id, 'pipeline_used': {'name': 'qc'}}
+
+                if cls.projects[project_id]['sample_udfs']['Species'] == 'Homo sapiens':
+                    proc['pipeline_used']['name'] = 'bcbio'
+
                 data = {'rest_data': sample, 'run_element': run_element, 'ad_proc': proc,
                         'sample_info': sample_info, 'sample_status': sample_status, }
                 cls.projects[project_id]['samples'].append(data)
@@ -259,10 +263,10 @@ class TestProjectReport(IntegrationTest):
     def test_reports(self):
         test_success = True
         exp_md5s = {
-            'htn999': 'eb1637a40fe240ff12057e198965e093',
-            'nhtn999': '74ddee5689664689d6972e211c34d4b9',
-            'hpf999': 'c7f4ea9963386368874f9d8357804abe',
-            'nhpf999': 'd73c733bdc83452b5f76fe184bb5fad5'
+            'htn999': '0687e5480a5fb794a3420061db541b31',
+            'nhtn999': '94a23bbc97e2aebb1ed93272799b2f21',
+            'hpf999': '2a7bd4194d9e1b4afac282bcc76292f5',
+            'nhpf999': 'e66defbb299eadbf38d7a4615ffe81c1'
         }
         for k, v in exp_md5s.items():
             client.main(['-p', k, '-o', 'tex', '-w', work_dir])
