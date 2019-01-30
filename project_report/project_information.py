@@ -190,10 +190,10 @@ class ProjectReportInformation(AppLogger):
         return query_dict(self.sample_info(sample_name), 'data.species_name')
 
     def get_required_yield(self, sample_name):
-        return query_dict(self.sample_info(sample_name), 'info.Required Yield (Gb)')
+        return int(query_dict(self.sample_info(sample_name), 'info.Required Yield (Gb)'))
 
     def get_quoted_coverage(self, sample_name):
-        return query_dict(self.sample_info(sample_name), 'info.Coverage (X)')
+        return int(query_dict(self.sample_info(sample_name), 'info.Coverage (X)'))
 
     def get_genome_version(self, sample_name):
         return query_dict(self.sample_info(sample_name), 'versions.genome_version')

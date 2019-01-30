@@ -143,7 +143,7 @@ for project in fake_sample_templates:
             udf=udf
         ))
         # rest sample info
-        sample_info = udf.copy()
+        sample_info = dict((str(k), str(v)) for k, v in udf.items())
         sample_info['sample_id'] = sample_id
         fake_rest_sample_info[project].append(sample_info)
 
@@ -358,7 +358,6 @@ class TestProjectReportInformation(TestProjectReport):
             'samblaster_version': '1.4',
             'samtools_version': '1.5'
         }
-        print(self.pr._read_program_csv(program_csv))
         assert self.pr._read_program_csv(program_csv) == exp
 
     def test_update_from_project_summary(self):
