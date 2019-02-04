@@ -11,7 +11,6 @@ work_dir = os.path.dirname(__file__)
 
 
 class FakeLims:
-    sample_udf_template = {'Total DNA (ng)': 3000, 'Required Yield (Gb)': 120, 'Coverage (X)': 30}
 
     def __init__(self, data):
         self.data = data
@@ -23,7 +22,7 @@ class FakeLims:
             self._samples_per_project[projectname] = [
                 NamedMock(
                     s['rest_data']['sample_id'],
-                    udf=dict(self.sample_udf_template, **project['sample_udfs'])
+                    udf=project['sample_udfs'].copy()
                 ) for s in project['samples']
             ]
         return self._samples_per_project[projectname]
@@ -70,11 +69,7 @@ class TestProjectReport(IntegrationTest):
     delivery_source = os.path.join(work_dir, 'delivery_source')
     delivery_dest = os.path.join(work_dir, 'delivery_dest')
     sample_input = os.path.join(work_dir, 'sample_input')
-    patches = (
-        patch('project_report.client.load_config'),
-        patch('project_report.project_information.ProjectReportInformation.sample_status',
-              return_value={'started_date': '2018-02-08T12:26:01.893000'})
-    )
+    patches = (patch('project_report.client.load_config'), )
 
     run_element_template = {'run_id': 'a_run', 'barcode': 'ATGC', 'library_id': 'a_library', 'useable': 'yes'}
     sample_template = {
@@ -122,6 +117,8 @@ class TestProjectReport(IntegrationTest):
             }
         }
     }
+    for p in projects:
+        projects[p]['sample_udfs'].update({'Total DNA (ng)': 3000, 'Required Yield (Gb)': 120, 'Coverage (X)': 30})
 
     @classmethod
     def setUpClass(cls):
@@ -173,9 +170,33 @@ class TestProjectReport(IntegrationTest):
                     'duplicate_reads': 784000000 + i
                 }
                 sample.update(cls.sample_template)
+                sample_info = {'sample_id': sample_id}
+                sample_info.update([(str(k), str(v)) for k, v in cls.projects[project_id]['sample_udfs'].items()])
+                sample_status = {'sample_id': sample_id,
+                                 'started_date': '2018-02-08T12:26:01.893000'}
+                proc = {'proc_id': 'sample_' + sample_id, 'status': 'finished', 'dataset_type': 'sample',
+                        'dataset_name': sample_id, 'pipeline_used': {'name': 'qc'}}
 
-                data = {'rest_data': sample, 'run_element': run_element}
+                if cls.projects[project_id]['sample_udfs']['Species'] == 'Homo sapiens':
+                    proc['pipeline_used']['name'] = 'bcbio'
+
+                data = {'rest_data': sample, 'run_element': run_element, 'ad_proc': proc,
+                        'sample_info': sample_info, 'sample_status': sample_status, }
                 cls.projects[project_id]['samples'].append(data)
+
+    @staticmethod
+    def get_fake_get_documents(projects):
+        def fake_get_documents(*args, **kwargs):
+            if args[0] in ['samples', 'projects', 'run_elements']:
+                # Pass through the rest api call
+                return rest_communication.get_documents(*args, **kwargs)
+            elif 'lims/status/sample_info' in args:
+                return [s.get('sample_info') for s in projects.get(kwargs.get('match').get('project_id')).get('samples')]
+            elif 'lims/status/sample_status' in args:
+                return [s.get('sample_status') for s in projects.get(kwargs.get('match').get('project_id')).get('samples')]
+            else:
+                raise KeyError(str(args))
+        return fake_get_documents
 
     def setUp(self):
         super().setUp()
@@ -183,12 +204,16 @@ class TestProjectReport(IntegrationTest):
         # can't have this in cls.patches because we need to construct the fake lims first
         self.patched_lims = patch('project_report.project_information.connection', return_value=FakeLims(self.projects))
         self.patched_lims.start()
+        self.patch_get_doc = patch('project_report.project_information.get_documents',
+                                   side_effect=self.get_fake_get_documents(self.projects))
+        self.patch_get_doc.start()
 
         run_ids = set()
         for project_id, data in self.projects.items():
             for s in data['samples']:
                 rest_communication.post_entry('run_elements', s['run_element'])
                 rest_communication.post_entry('samples', s['rest_data'])
+                rest_communication.post_entry('analysis_driver_procs', s['ad_proc'])
 
                 run_ids.add(s['run_element']['run_id'])
 
@@ -221,6 +246,7 @@ class TestProjectReport(IntegrationTest):
     def tearDown(self):
         super().tearDown()
         self.patched_lims.stop()
+        self.patch_get_doc.stop()
 
     @staticmethod
     def _check_md5(html_report):
@@ -228,7 +254,8 @@ class TestProjectReport(IntegrationTest):
         empty_line = re.compile(r' +\n')
         with open(html_report, 'r') as f:
             for line in f:
-                if not empty_line.match(line) and 'file://' not in line:
+                # ignore lines that declare and image as they contain file paths
+                if not empty_line.match(line) and '\includegraphics' not in line:
                     m.update(line.encode())
 
         return m.hexdigest()
@@ -236,10 +263,10 @@ class TestProjectReport(IntegrationTest):
     def test_reports(self):
         test_success = True
         exp_md5s = {
-            'htn999': 'c62243c2a0940bb47360462df83e6958',
-            'nhtn999': '4d5bf328549cff19768882a7d1ff2ac2',
-            'hpf999': '3f15812e641b604693f265dbfee51a2f',
-            'nhpf999': '11b6bee64973fe59213d7d706ef7baa6'
+            'htn999': '0687e5480a5fb794a3420061db541b31',
+            'nhtn999': '94a23bbc97e2aebb1ed93272799b2f21',
+            'hpf999': '2a7bd4194d9e1b4afac282bcc76292f5',
+            'nhpf999': 'e66defbb299eadbf38d7a4615ffe81c1'
         }
         for k, v in exp_md5s.items():
             client.main(['-p', k, '-o', 'tex', '-w', work_dir])

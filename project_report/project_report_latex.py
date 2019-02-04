@@ -1,17 +1,18 @@
 import os
-import re
 
 import yaml
+from egcg_core.util import query_dict
 from pylatex import Document, Section, Subsection, Package, PageStyle, Head, MiniPage, StandAloneGraphic, Foot, \
     NewPage, HugeText, Tabu, Subsubsection, FootnoteText, LineBreak, NoEscape, LongTabu, Hyperref, Marker, \
     MultiColumn, MediumText, LargeText
-from pylatex.base_classes import Environment, ContainerCommand
 from pylatex.section import Paragraph
 from pylatex.utils import italic, bold
-from project_report.project_information import yield_vs_coverage_plot, ProjectReportInformation
-
+from project_report.project_information import ProjectReportInformation
+from project_report.utils import yield_vs_coverage_plot, parse_date, min_mean_max, format_list_as_enumeration
 
 # Load all source texts from yaml.
+from project_report.pylatex_ext import HRef, LatexSection, add_text
+
 _report_text_yaml_file = os.path.join(os.path.dirname(__file__), 'report_texts.yaml')
 with open(_report_text_yaml_file) as open_file:
     report_text = yaml.load(open_file)
@@ -21,67 +22,12 @@ UoE_EG_logo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc
 Uni_logo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 'UoE_Stacked_Logo_CMYK_v1_160215.png')
 
 
-def add_text(doc, t):
-    """
-    Split the provided text to escape latex commands and then add to the container
-    """
-    current_pos = 0
-    for m in re.finditer(r'latex::(.+?)::', t):
-        doc.append(t[current_pos: m.start()])
-        doc.append(NoEscape(' ' + m.group(1) + ' '))
-        current_pos = m.end()
-    doc.append(t[current_pos:])
-    return doc
-
-
-class LatexSection(Environment):
-    """This class is generic and allow the creation of any section like
-
-    .. code-block:: latex
-
-        \begin{name}
-            Some content
-        \end{name}
-
-    The name is provided to the constructor. No additional package will be added to the list of packages.
-    """
-    def __init__(self, name, **kwargs):
-        self._latex_name = name
-        super().__init__(**kwargs)
-
-
-class HRef(ContainerCommand):
-    """A class that represents an hyperlink to a web address."""
-
-    _repr_attributes_mapping = {
-        'marker': 'options',
-        'text': 'arguments',
-    }
-
-    packages = [Package('hyperref')]
-
-    def __init__(self, url, text=None):
-        """
-        Args
-        ----
-        url: str
-            The url to use.
-        text:
-            The text that will be shown as a link to the url. Use the url if not set
-        """
-
-        self.url = url
-        if text is None:
-            text = url
-        super().__init__(arguments=NoEscape(url), data=text)
-
-
 class ProjectReportLatex:
 
     def __init__(self, project_name, working_dir):
-        self.project_information = ProjectReportInformation(project_name)
+        self.pi = ProjectReportInformation(project_name)
         self.working_dir = working_dir
-        self.output_dir = self.project_information.project_delivery
+        self.output_dir = self.pi.project_delivery
         self.report_file_path = None
         self.doc = None
 
@@ -111,6 +57,16 @@ class ProjectReportLatex:
 
     @staticmethod
     def create_vertical_table(container, header, rows, column_def=None, footer=None):
+        """
+        Create a table with the specified header at the top in the provided container.
+        The table is created using the tabu package. http://mirrors.ibiblio.org/CTAN/macros/latex/contrib/tabu/tabu.pdf
+        The header will be formatted as bold.
+        :param container: The container where the table will be added.
+        :param header: A list containing the column header.
+        :param rows: A list of list containing each cell's content.
+        :param column_def: a list of string describing each column.
+        :param footer: An optional list of footer lines.
+        """
         def add_footer_rows(foot):
             if not isinstance(foot, list):
                 foot = [foot]
@@ -160,6 +116,132 @@ class ProjectReportLatex:
             for r in converted_rows:
                 data_table.add_row(r)
 
+    def get_project_info(self):
+        project_info = (
+            ('Project name', self.pi.project_name),
+            ('Project title', self.pi.project_title),
+            ('Enquiry no', self.pi.enquiry_number),
+            ('Quote no', self.pi.quote_number),
+            ('Customer name', self.pi.customer_name),
+            ('Customer address', '\n'.join(self.pi.customer_address_lines)),
+            ('Number of samples', self.pi.number_quoted_samples),
+            ('Number of samples delivered', len(self.pi.sample_names_delivered)),
+            ('Date samples received', 'Detailed in appendix I'),
+            ('Total download size', '%.2f terabytes' % self.pi.project_size_in_terabytes()),
+            ('Laboratory protocol', ', '.join(self.pi.get_project_library_workflows())),
+            ('Submitted species', ', '.join(self.pi.get_project_species())),
+            ('Genome version', ', '.join(self.pi.get_project_genome_version()))
+        )
+
+        return project_info
+
+    def format_result_summary(self):
+        sample_data_mapping = {
+            'Yield per sample (Gb)': 'data.aggregated.clean_yield_in_gb',
+            'Coverage per sample': 'data.coverage.mean',
+            '% Duplicate reads': 'data.aggregated.pc_duplicate_reads',
+            '% Reads mapped': 'data.aggregated.pc_mapped_reads',
+            '% Q30': 'data.aggregated.clean_pc_q30',
+        }
+        headers = ['Yield per sample (Gb)', '% Q30', 'Coverage per sample', '% Reads mapped', '% Duplicate reads']
+        project_stats = []
+        for field in headers:
+            project_stats.append((field, min_mean_max(
+                [query_dict(self.pi.sample_info(sample_id), sample_data_mapping[field])
+                 for sample_id in self.pi.sample_names_delivered]
+            )))
+        return project_stats
+
+    @staticmethod
+    def format_table_footer_line(definitions, superscript):
+        """
+        Take a footer rows as list of tuples. The tuple have two elements.
+        The first element will be formatted as bold.
+
+        :param superscript: superscripted text that appear at the beginning of the line
+        :param definitions: lists of tuples containing the definitions to be added on that line
+        :return: list of latex formatted rows
+        """
+        formatted_latex = []
+        if superscript:
+            formatted_latex.append(NoEscape(r'\textsuperscript{%s}' % superscript))
+        for def_element in definitions:
+            formatted_latex.append(bold(def_element[0]))
+            formatted_latex.append(': ' + def_element[1])
+            formatted_latex.append(', ')  # Separate the different entries with comma
+        return formatted_latex[:-1]  # Remove the last comma
+
+    def get_sample_data_in_tables(self):
+        authorisations = self.pi.authorisations
+        tables = {}
+        header = [
+            'User ID', 'Internal ID', 'Received', 'Reviewed',
+            NoEscape(r'Species\textsuperscript{1}'),  # reference to the footer
+            NoEscape(r'Library prep.\textsuperscript{2}'),
+            NoEscape(r'Analysis\textsuperscript{3}')
+        ]
+        # Latex specific column definition
+        # Set the column width to fix width for all but first column
+        column_def = 'X[l] p{2.2cm} p{1.6cm} p{1.6cm} p{1.4cm} p{1.8cm} p{1.7cm}'
+
+        def find_sample_release_date_in_auth(sample):
+            return [auth.get('date') for auth in authorisations if sample in auth.get('samples')]
+
+        rows = []
+
+        library_descriptions = set()
+        species_descriptions = set()
+        analysis_descriptions = set()
+        for sample in self.pi.sample_names_delivered:
+            date_reviewed = find_sample_release_date_in_auth(sample)
+            internal_sample_name = self.pi.get_fluidx_barcode(sample) or sample
+            library = self.pi.get_library_workflow_from_sample(sample)
+            library_descriptions.add((self.pi.library_abbreviation.get(library), library))
+            species = self.pi.get_species_from_sample(sample)
+            species_descriptions.add((self.pi.abbreviate_species(species), species))
+            analysis = self.pi.get_analysis_type_from_sample(sample)
+            analysis_descriptions.add((self.pi.analysis_abbreviation.get(analysis),
+                                       self.pi.analysis_description.get(analysis)))
+            row = [
+                self.pi.get_user_sample_id(sample),
+                internal_sample_name,
+                parse_date(self.pi.get_started_date_from_sample(sample)),
+                ', '.join(date_reviewed),
+                self.pi.abbreviate_species(species),
+                self.pi.library_abbreviation.get(library),
+                self.pi.analysis_abbreviation.get(analysis)
+            ]
+
+            rows.append(row)
+        tables['appendix I'] = {
+            'header': header, 'column_def': column_def, 'rows': rows,
+            'footer': [
+                self.format_table_footer_line(sorted(library_descriptions), 1),
+                self.format_table_footer_line(sorted(species_descriptions), 2),
+                self.format_table_footer_line(sorted(analysis_descriptions), 3)
+            ]
+        }
+        header = [
+            'User ID', 'Yield quoted (Gb)', 'Yield provided (Gb)', '% Q30 > 75%', 'Quoted coverage', 'Provided coverage'
+        ]
+
+        rows = []
+        for sample in self.pi.sample_names_delivered:
+            row = [
+                self.pi.get_user_sample_id(sample),
+                self.pi.get_required_yield(sample),
+                self.pi.get_yield_in_gb(sample),
+                self.pi.get_pc_q30(sample),
+                self.pi.get_quoted_coverage(sample),
+                self.pi.get_average_coverage(sample)
+            ]
+
+            rows.append(row)
+        tables['appendix II'] = {'header': header, 'rows': rows}
+
+        return tables
+
+    # Page style function
     @staticmethod
     def first_pages_style():
         # Generating first page style
@@ -206,7 +288,8 @@ class ProjectReportLatex:
 
         return page
 
-    def create_authorisation_section(self, authorisations):
+    def create_authorisation_section(self):
+        authorisations = self.pi.authorisations
         header = ['Version', 'Release date', '# Samples', 'Released by', 'Signature id']
         # Columns 1, 2, 3 and 5 are fixed width and 4 is variable
         columns = '|p{1.5cm}|p{2.5cm}|p{2cm}|X|p{2.5cm}|'
@@ -227,9 +310,9 @@ class ProjectReportLatex:
         self.doc.append(Hyperref(Marker('Appendix I. Per sample metadata', prefix='sec'), 'Appendix I'))
         self.doc.append(NoEscape('.\n'))
 
-    def create_project_description_section(self, project_infos):
+    def create_project_description_section(self):
         with self.doc.create(Section('Project description', numbering=True)):
-            self.create_horizontal_table(self.doc, project_infos)
+            self.create_horizontal_table(self.doc, self.get_project_info())
             with self.doc.create(Paragraph('')):
                 self.doc.append('For detailed per-sample information, please see ')
                 self.doc.append(Hyperref(Marker('Appendix I. Per sample metadata', prefix='sec'), 'Appendix I'))
@@ -237,10 +320,10 @@ class ProjectReportLatex:
 
             self.doc.append(NewPage())
 
-    def create_method_section(self, library_preparation_types, bioinfo_analysis_types, bioinformatic_parameters):
+    def create_method_section(self):
         with self.doc.create(Section('Methods', numbering=True)):
             add_text(self.doc, report_text.get('method_header'))
-            for library_prep_type in library_preparation_types:
+            for library_prep_type in self.pi.get_project_library_workflows():
                 if library_prep_type == 'Illumina TruSeq Nano library':
                     library_prep = report_text.get('library_preparation_nano')
                     library_qc = report_text.get('library_qc_nano')
@@ -274,19 +357,22 @@ class ProjectReportLatex:
             with self.doc.create(Subsection('Sequencing', numbering=True)):
                 add_text(self.doc, report_text.get('sequencing'))
 
-            for bioinfo_analysis_type in bioinfo_analysis_types:
-                if bioinfo_analysis_type is 'bioinformatics_qc':
+            for bioinfo_analysis_type in self.pi.get_project_analysis_types():
+                bioinformatic_version = self.pi.get_bioinformatics_params_for_analysis(bioinfo_analysis_type)
+                if bioinfo_analysis_type == 'qc':
                     with self.doc.create(Subsection('Bioinformatics QC', numbering=True)):
-                        add_text(self.doc, report_text.get('bioinformatics_qc').format(**bioinformatic_parameters))
-                if bioinfo_analysis_type is 'bioinformatics_analysis_bcbio':
+                        add_text(self.doc, report_text.get('bioinformatics_qc').format(**bioinformatic_version))
+                if bioinfo_analysis_type == 'bcbio':
                     with self.doc.create(Subsection('Bioinformatics Analysis for Human samples', numbering=True)):
-                        add_text(self.doc, report_text.get('bioinformatics_analysis_bcbio').format(**bioinformatic_parameters))
-                if bioinfo_analysis_type is 'bioinformatics_analysis':
+                        add_text(self.doc, report_text.get('bioinformatics_analysis_bcbio').format(**bioinformatic_version))
+                if bioinfo_analysis_type == 'variant_calling':
                     with self.doc.create(Subsection('Bioinformatics Analysis', numbering=True)):
-                        add_text(self.doc, report_text.get('bioinformatics_analysis').format(**bioinformatic_parameters))
+                        add_text(self.doc, report_text.get('bioinformatics_analysis').format(**bioinformatic_version))
             self.doc.append(NewPage())
 
-    def create_results_section(self, result_summary, charts_info):
+    def create_results_section(self):
+        result_summary = self.format_result_summary()
+        charts_info = yield_vs_coverage_plot(self.pi, self.working_dir)
         with self.doc.create(Section('Results', numbering=True)):
             self.create_horizontal_table(self.doc, result_summary)
             self.doc.append('For detailed per-sample information, please see ')
@@ -308,9 +394,9 @@ class ProjectReportLatex:
                     self.doc.append(NoEscape('\n\n'))
         self.doc.append(NewPage())
 
-    def create_file_format_section(self, formats_delivered):
+    def create_file_format_section(self):
         with self.doc.create(Section('Format of the Files Delivered', numbering=True)):
-            for format_delivered in formats_delivered:
+            for format_delivered in self.pi.get_format_delivered():
                 if format_delivered == 'fastq':
                     with self.doc.create(Subsection('Fastq format', numbering=True)):
                         add_text(self.doc, report_text.get('fastq_format'))
@@ -332,12 +418,12 @@ class ProjectReportLatex:
 
         self.doc.append(NewPage())
 
-    def create_formal_statement_section(self, project_name, authorisations):
+    def create_formal_statement_section(self):
         with self.doc.create(Section('Deviations, Additions and Exclusions', numbering=True)):
-            for authorisation in authorisations:
+            for authorisation in self.pi.authorisations:
                 if 'NCs' in authorisation and authorisation.get('NCs'):
                     title = '{project} {version}: {date}'.format(
-                        project=project_name, version=authorisation.get('version'), date=authorisation.get('date')
+                        project=self.pi.project_name, version=authorisation.get('version'), date=authorisation.get('date')
                     )
                     with self.doc.create(Subsection(title, numbering=True)):
                         self.doc.append(authorisation.get('NCs'))
@@ -347,7 +433,8 @@ class ProjectReportLatex:
             add_text(self.doc, report_text.get('privacy_notice') + '\n')
             self.doc.append(HRef(url=NoEscape(report_text.get('privacy_notice_link'))))
 
-    def create_appendix_tables(self, appendix_tables):
+    def create_appendix_tables(self):
+        appendix_tables = self.get_sample_data_in_tables()
         with self.doc.create(Section('Appendix I. Per sample metadata', numbering=True)):
             add_text(self.doc, report_text.get('appendix_description'))
             self.doc.append(LineBreak())
@@ -356,7 +443,7 @@ class ProjectReportLatex:
                 self.create_vertical_table(
                     small_section,
                     appendix_tables['appendix I']['header'],
-                    self._limit_cell_width(appendix_tables['appendix I']['rows'], {0: 40}),
+                    self._limit_cell_width(appendix_tables['appendix I']['rows'], {0: 35}),
                     column_def=appendix_tables['appendix I']['column_def'],
                     footer=appendix_tables['appendix I']['footer']
                 )
@@ -376,7 +463,7 @@ class ProjectReportLatex:
                     'X[l] R{2cm} R{2.2cm} R{1.9cm} R{2cm} R{2cm}'
                 )
 
-    def front_page(self, project_name, report_version, authorisations):
+    def front_page(self):
         with self.doc.create(MiniPage(height='5cm', pos='c', align='c')) as logo_wrapper:
             logo_wrapper.append(HRef(
                 url=report_text.get('eg_web_link'),
@@ -387,30 +474,18 @@ class ProjectReportLatex:
             title_wrapper.append(HugeText('Whole genome sequencing report'))
         self.doc.append(LineBreak())
         with self.doc.create(MiniPage(height='3cm', pos='c', align='c')) as title_wrapper:
-            title_wrapper.append(LargeText('Project: ' + project_name))
+            title_wrapper.append(LargeText('Project: ' + self.pi.project_name))
         self.doc.append(LineBreak())
         with self.doc.create(MiniPage(height='3cm', pos='c', align='c')) as title_wrapper:
-            title_wrapper.append(MediumText('Report version: ' + report_version))
+            title_wrapper.append(MediumText('Report version: ' + self.pi.report_version))
         self.doc.append(LineBreak())
 
-        self.create_authorisation_section(authorisations)
+        self.create_authorisation_section()
         self.doc.append(NewPage())
 
     def populate_document(self):
-        # Get information from the project_information object
-        project_name = self.project_information.project_name
-        authorisations = self.project_information.get_authorization()
-        project_info = self.project_information.get_project_info()
-
-        library_prep_type, bioinfo_analysis_types, format_delivered = self.project_information.get_library_prep_analysis_types_and_format()
-        bioinformatic_parameters = self.project_information.params
-        result_summary = self.project_information.calculate_project_statistics()
-        appendix_tables = self.project_information.get_sample_data_in_tables(authorisations)
-        charts_info = yield_vs_coverage_plot(self.project_information, self.working_dir)
-        last_auth = authorisations[-1]
-
         document_title = 'Project {name} Report {version}'.format(
-            name=self.project_information.project_name, version=last_auth.get('version')
+            name=self.pi.project_name, version=self.pi.report_version
         )
 
         # Add the required packages
@@ -430,7 +505,7 @@ class ProjectReportLatex:
         ))
         self.doc.change_document_style('firstpage')
         # First page of the document
-        self.front_page(project_name, last_auth.get('version'), authorisations)
+        self.front_page()
 
         # Main document
         self.doc.change_document_style('allpages')
@@ -447,11 +522,11 @@ class ProjectReportLatex:
         self.doc.append(NewPage())
 
         # Subsequent sections
-        self.create_project_description_section(project_info)
-        self.create_method_section(library_prep_type, bioinfo_analysis_types, bioinformatic_parameters)
-        self.create_results_section(result_summary, charts_info)
-        self.create_file_format_section(format_delivered)
-        self.create_formal_statement_section(project_name, authorisations)
+        self.create_project_description_section()
+        self.create_method_section()
+        self.create_results_section()
+        self.create_file_format_section()
+        self.create_formal_statement_section()
 
         self.doc.append(NoEscape(r'\noindent\makebox[\linewidth]{\rule{\linewidth}{0.4pt}}'))
         with self.doc.create(LatexSection('center')) as center_sec:
@@ -459,15 +534,11 @@ class ProjectReportLatex:
         self.doc.append(NewPage())
 
         # Appendices
-        self.create_appendix_tables(appendix_tables)
+        self.create_appendix_tables()
 
     def generate_document(self):
-        # Get information from the project_information object
-        authorisations = self.project_information.get_authorization()
-        last_auth = authorisations[-1]
-
         document_title = 'Project {name} Report {version}'.format(
-            name=self.project_information.project_name, version=last_auth.get('version')
+            name=self.pi.project_name, version=self.pi.report_version
         )
 
         # Prepare the document geometry
