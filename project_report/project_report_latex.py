@@ -8,7 +8,7 @@ from pylatex import Document, Section, Subsection, Package, PageStyle, Head, Min
 from pylatex.section import Paragraph
 from pylatex.utils import italic, bold
 from project_report.project_information import ProjectReportInformation
-from project_report.utils import yield_vs_coverage_plot, parse_date, min_mean_max, format_list_as_enumeration
+from project_report.utils import yield_vs_coverage_plot, parse_date, min_mean_max, estimate_columns_definition
 
 # Load all source texts from yaml.
 from project_report.pylatex_ext import HRef, LatexSection, add_text
@@ -180,9 +180,6 @@ class ProjectReportLatex:
             NoEscape(r'Library prep.\textsuperscript{2}'),
             NoEscape(r'Analysis\textsuperscript{3}')
         ]
-        # Latex specific column definition
-        # Set the column width to fix width for all but first column
-        column_def = 'X[l] p{2.2cm} p{1.6cm} p{1.6cm} p{1.4cm} p{1.8cm} p{1.7cm}'
 
         def find_sample_release_date_in_auth(sample):
             return [auth.get('date') for auth in authorisations if sample in auth.get('samples')]
@@ -213,6 +210,14 @@ class ProjectReportLatex:
             ]
 
             rows.append(row)
+        # Latex specific column definition
+        # Set the column width to fix width for all but first column
+        column_types = ['X[l]', 'p', 'p', 'p', 'p', 'p', 'p']
+        column_def = estimate_columns_definition(
+            rows, column_types,
+            minimums=[2.0, 2.0, 1.5, 1.5, 1.0, 1.5, 1.5],
+            extend_to=16)
+
         tables['appendix I'] = {
             'header': header, 'column_def': column_def, 'rows': rows,
             'footer': [
@@ -237,7 +242,11 @@ class ProjectReportLatex:
             ]
 
             rows.append(row)
-        tables['appendix II'] = {'header': header, 'rows': rows}
+        # Set the column width to fix width for all but first column
+        # R: is the newly defined column type in the document preamble
+        column_types = ['X[l]', 'R', 'R', 'R', 'R', 'R']
+        column_def = estimate_columns_definition(rows, column_types, minimums=[2.0, 2.0, 2.0, 1.7, 2, 2], extend_to=16)
+        tables['appendix II'] = {'header': header, 'rows': rows, 'column_def': column_def}
 
         return tables
 
@@ -306,7 +315,7 @@ class ProjectReportLatex:
             number_of_batches=len(authorisations),
             batches='batch' if len(authorisations) == 1 else 'batches'
         )
-        self.doc.append(msg + ' ')
+        self.doc.append(report_text.get('releases_signatures_desc') + ' ')
         self.doc.append(Hyperref(Marker('Appendix I. Per sample metadata', prefix='sec'), 'Appendix I'))
         self.doc.append(NoEscape('.\n'))
 
@@ -396,25 +405,17 @@ class ProjectReportLatex:
 
     def create_file_format_section(self):
         with self.doc.create(Section('Format of the Files Delivered', numbering=True)):
-            for format_delivered in self.pi.get_format_delivered():
-                if format_delivered == 'fastq':
-                    with self.doc.create(Subsection('Fastq format', numbering=True)):
-                        add_text(self.doc, report_text.get('fastq_format'))
+            formats_delivered = self.pi.get_format_delivered()
+            for fformat in ['fastq', 'bam', 'vcf']:
+                if fformat in formats_delivered:
+                    with self.doc.create(Subsection('%s format' % fformat.upper(), numbering=True)):
+                        add_text(self.doc, report_text.get('%s_format' % fformat))
                         self.doc.append(NoEscape('\n'))
                         self.doc.append('More detail about the format in ')
-                        self.doc.append(HRef(url=NoEscape(report_text.get('fastq_link')), text='Fastq specification'))
-                if format_delivered == 'bam':
-                    with self.doc.create(Subsection('BAM format', numbering=True)):
-                        add_text(self.doc, report_text.get('bam_format'))
-                        self.doc.append(NoEscape('\n'))
-                        self.doc.append('More detail about the format in ')
-                        self.doc.append(HRef(url=NoEscape(report_text.get('bam_link')), text='BAM specification'))
-                if format_delivered == 'vcf':
-                    with self.doc.create(Subsection('VCF format', numbering=True)):
-                        add_text(self.doc, report_text.get('vcf_format'))
-                        self.doc.append(NoEscape('\n'))
-                        self.doc.append('More detail about the format in ')
-                        self.doc.append(HRef(url=report_text.get('vcf_link'), text='VCF specification'))
+                        self.doc.append(HRef(
+                            url=NoEscape(report_text.get('%s_link' % fformat)),
+                            text='%s specification' % fformat.upper()
+                        ))
 
         self.doc.append(NewPage())
 
@@ -458,9 +459,7 @@ class ProjectReportLatex:
                     small_section,
                     appendix_tables['appendix II']['header'],
                     self._limit_cell_width(appendix_tables['appendix II']['rows'], {0: 40}),
-                    # Set the column width to fix width for all but first column
-                    # R: is the newly defined column type in the preamble
-                    'X[l] R{2cm} R{2.2cm} R{1.9cm} R{2cm} R{2cm}'
+                    column_def=appendix_tables['appendix II']['column_def']
                 )
 
     def front_page(self):

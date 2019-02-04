@@ -1,19 +1,18 @@
 import os
 import glob
-import pprint
 import shutil
 import datetime
 import collections
 from itertools import cycle
-from random import randint, random
-from unittest.mock import Mock, PropertyMock, patch
+import random
+from random import randint
+from unittest.mock import Mock, patch
 
 from egcg_core.util import query_dict
 
 from project_report import utils
 from project_report.project_information import ProjectReportInformation
 from project_report.project_report_latex import ProjectReportLatex
-from project_report.utils import get_folder_size
 from tests import TestProjectManagement, NamedMock
 
 nb_samples = 50
@@ -162,14 +161,14 @@ for project in fake_sample_templates:
             rest_sample_data = {
                 'sample_id': sample_id,
                 # Add variable padding to see the effect of long user sample names
-                'user_sample_id': str(nb_char) + '_' * nb_char + '_user_' + sample_id,
+                'user_sample_id': '_' * nb_char + 'user_' + sample_id,
                 'project_id': project,
                 'species_name': udf.get('Species'),
                 'aggregated': {
                     'clean_yield_in_gb': clean_yield_in_gb,
                     'clean_pc_q30': clean_yield_in_gb * .8,
-                    'pc_duplicate_reads': round(random() * 25, 1),
-                    'pc_mapped_reads': round(95 + random() * 5, 1),
+                    'pc_duplicate_reads': round(random.random() * 25, 1),
+                    'pc_mapped_reads': round(95 + random.random() * 5, 1),
                     'run_ids': ['date_machine_number_flowcell1', 'date_machine_number_flowcell1'],
                     'most_recent_proc': {'pipeline_used': {'name': pipeline}}
                 },
@@ -482,3 +481,15 @@ class TestProjectReportUtils(TestProjectManagement):
     def test_min_mean_max(self):
         values = [10, 15, 26, 32, 18, 31, 18, 19, 25, 36]
         assert utils.min_mean_max(values) == 'min: 10.0, avg: 23.0, max: 36.0'
+
+    def test_calculate_text_size(self):
+        assert utils.calculate_text_size('HELLOWORLD') == 2.0
+        assert utils.calculate_text_size('helloworld') == 1.3
+        assert utils.calculate_text_size('1234567890') == 2.0
+        assert utils.calculate_text_size(' _ _ _ _ _') == 1.35
+        assert utils.calculate_text_size('!!!!!!!!!!') == 1.2
+
+    def test_estimate_columns_definition(self):
+        rows = [['short', 'LOOOONG'], ['short', 'short']]
+        assert utils.estimate_columns_definition(rows, column_types=['p', 'p'], minimums=[1, 1]) == 'p{1.0cm} p{1.4cm}'
+        assert utils.estimate_columns_definition(rows, column_types=['p', 'p'], minimums=[1, 1], extend_to=10) == 'p{4.8cm} p{5.2cm}'

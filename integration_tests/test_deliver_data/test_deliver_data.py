@@ -158,7 +158,7 @@ class TestDelivery(IntegrationTest):
         patch('bin.deliver_reviewed_data.DataDelivery.process', new=PropertyMock(return_value=fake_process)),
         patch('bin.deliver_reviewed_data.clarity.get_queue_uri', return_value='a_queue_uri'),
         patch('bin.deliver_reviewed_data.clarity.route_samples_to_workflow_stage'),
-        patch('bin.deliver_reviewed_data.ProjectReport')  # TODO: run the project report once it can take mixed projects
+        patch('bin.deliver_reviewed_data.ProjectReportLatex')  # TODO: run the project report once it can take mixed projects
     )
 
     @classmethod
