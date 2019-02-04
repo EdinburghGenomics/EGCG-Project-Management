@@ -191,9 +191,11 @@ class TestProjectReport(IntegrationTest):
                 # Pass through the rest api call
                 return rest_communication.get_documents(*args, **kwargs)
             elif 'lims/status/sample_info' in args:
-                return [s.get('sample_info') for s in projects.get(kwargs.get('match').get('project_id')).get('samples')]
+                return [s.get('sample_info') for s in
+                        projects.get(kwargs.get('match').get('project_id')).get('samples')]
             elif 'lims/status/sample_status' in args:
-                return [s.get('sample_status') for s in projects.get(kwargs.get('match').get('project_id')).get('samples')]
+                return [s.get('sample_status') for s in
+                        projects.get(kwargs.get('match').get('project_id')).get('samples')]
             else:
                 raise KeyError(str(args))
         return fake_get_documents
@@ -263,10 +265,10 @@ class TestProjectReport(IntegrationTest):
     def test_reports(self):
         test_success = True
         exp_md5s = {
-            'htn999': '39fd98a601e522ba4370d2f48327dfdf',
-            'nhtn999': 'ce3bdf84d9184e9eec8346577fcb2ffa',
-            'hpf999': '940b58db3e3ef91fad30bf5609f6c642',
-            'nhpf999': '897eb03cfd81dc375f1183594ac70fe0'
+            'htn999': '45b170324e279fd3fcf6533d57e19497',
+            'nhtn999': 'a8234839243b9a37518becaf0559a700',
+            'hpf999': '02d1988f47a209bf9900013a7a855ed5',
+            'nhpf999': 'ab68d267be8185ae0d89817a7259e440'
         }
         for k, v in exp_md5s.items():
             client.main(['-p', k, '-o', 'tex', '-w', work_dir])

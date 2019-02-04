@@ -311,10 +311,6 @@ class ProjectReportLatex:
         ] for authorisation in authorisations]
         self.create_vertical_table(self.doc, header, rows, columns)
 
-        msg = report_text.get('releases_signatures_desc').format(
-            number_of_batches=len(authorisations),
-            batches='batch' if len(authorisations) == 1 else 'batches'
-        )
         self.doc.append(report_text.get('releases_signatures_desc') + ' ')
         self.doc.append(Hyperref(Marker('Appendix I. Per sample metadata', prefix='sec'), 'Appendix I'))
         self.doc.append(NoEscape('.\n'))
@@ -367,16 +363,16 @@ class ProjectReportLatex:
                 add_text(self.doc, report_text.get('sequencing'))
 
             for bioinfo_analysis_type in self.pi.get_project_analysis_types():
-                bioinformatic_version = self.pi.get_bioinformatics_params_for_analysis(bioinfo_analysis_type)
+                bioinfo_version = self.pi.get_bioinformatics_params_for_analysis(bioinfo_analysis_type)
                 if bioinfo_analysis_type == 'qc':
                     with self.doc.create(Subsection('Bioinformatics QC', numbering=True)):
-                        add_text(self.doc, report_text.get('bioinformatics_qc').format(**bioinformatic_version))
+                        add_text(self.doc, report_text.get('bioinformatics_qc').format(**bioinfo_version))
                 if bioinfo_analysis_type == 'bcbio':
                     with self.doc.create(Subsection('Bioinformatics Analysis for Human samples', numbering=True)):
-                        add_text(self.doc, report_text.get('bioinformatics_analysis_bcbio').format(**bioinformatic_version))
+                        add_text(self.doc, report_text.get('bioinformatics_analysis_bcbio').format(**bioinfo_version))
                 if bioinfo_analysis_type == 'variant_calling':
                     with self.doc.create(Subsection('Bioinformatics Analysis', numbering=True)):
-                        add_text(self.doc, report_text.get('bioinformatics_analysis').format(**bioinformatic_version))
+                        add_text(self.doc, report_text.get('bioinformatics_analysis').format(**bioinfo_version))
             self.doc.append(NewPage())
 
     def create_results_section(self):
@@ -424,7 +420,9 @@ class ProjectReportLatex:
             for authorisation in self.pi.authorisations:
                 if 'NCs' in authorisation and authorisation.get('NCs'):
                     title = '{project} {version}: {date}'.format(
-                        project=self.pi.project_name, version=authorisation.get('version'), date=authorisation.get('date')
+                        project=self.pi.project_name,
+                        version=authorisation.get('version'),
+                        date=authorisation.get('date')
                     )
                     with self.doc.create(Subsection(title, numbering=True)):
                         self.doc.append(authorisation.get('NCs'))
