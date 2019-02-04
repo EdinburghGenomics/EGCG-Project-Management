@@ -1,5 +1,7 @@
 import datetime
 import os
+from math import ceil
+
 import pandas as pd
 import matplotlib
 from egcg_core.util import query_dict
@@ -115,3 +117,70 @@ def format_list_as_enumeration(l):
         return ', '.join([str(s) for s in l[:-1]]) + ' and ' + str(l[-1])
     else:
         return str(l[0])
+
+
+def calculate_text_size(text):
+    """
+    Simplistic function that calculate a size of a text based on the number and type of characters.
+    It uses an averaged size for lower/upper-case, digits, spaces and underscores.
+    It also assumes that the font is using latex "scriptsize" text size.
+    """
+    text_size = 0
+    for c in str(text):
+        if c.islower():
+            text_size += 13
+        elif c.isupper() or c.isdigit() or c == '_':
+            text_size += 20
+        elif c == ' ':
+            text_size += 7
+        else:
+            text_size += 12
+    return text_size/100
+
+
+def estimate_columns_definition(rows, column_types, minimums=None, extend_to=None, separator=' '):
+    """
+    Provided with the rows to of the tables and the latex type for the column. this estimates and provides the best fit
+    columns definition. It assumes that the font is using latex "scriptsize" text size.
+    :param rows: List of lists containing all the text to display in the columns. It assumes that all cell text is to
+                be displayed.
+    :param column_types: The latex (tabu) types of column to be used in the column definition returned
+    :param minimums: The minimum value to be used for the column sizes (in cm)
+    :param extend_to: The total size of the sum of column it should be extended to
+    :param separator: the character used to separate the column in the definition. Usually space ( ) or pipe (|)
+    :return: The column definition to be used in the tabu type tables
+    """
+    # Starts with minimum column size
+    if not minimums:
+        column_sizes = [0] * len(rows[0])
+    else:
+        column_sizes = minimums.copy()
+    assert len(column_sizes) == len(column_types), "Inconsistent number of column in columns type and column size"
+
+    # Calculate the minimum column sizes based on the text provided in the rows
+    for row in rows:
+        for i, cell in enumerate(row):
+            c = calculate_text_size(cell)
+            if c > column_sizes[i]:
+                column_sizes[i] = c
+    # Extend the minimum column sizes to match the extended_to parameter
+    if extend_to:
+        remaining = extend_to - sum(column_sizes)
+        if remaining > 0:
+            for i in range(len(column_sizes)):
+                column_sizes[i] += remaining / len(column_sizes)
+
+    # round up at the first decimal point to have readable values
+    # (This will increase the column size to beyond extend_to)
+    for i in range(len(column_sizes)):
+        column_sizes[i] = ceil(column_sizes[i] * 10) / 10.0
+    # Write column def
+    column_def = []
+    for i, t in enumerate(column_types):
+        if 'X' in t:
+            column_def.append(t)
+        elif 'p' in t:
+            column_def.append('p{%scm}' % column_sizes[i])
+        elif 'R' in t:
+            column_def.append('R{%scm}' % column_sizes[i])
+    return separator.join(column_def)
