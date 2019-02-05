@@ -402,15 +402,15 @@ class ProjectReportLatex:
     def create_file_format_section(self):
         with self.doc.create(Section('Format of the Files Delivered', numbering=True)):
             formats_delivered = self.pi.get_format_delivered()
-            for fformat in ['fastq', 'bam', 'vcf']:
-                if fformat in formats_delivered:
-                    with self.doc.create(Subsection('%s format' % fformat.upper(), numbering=True)):
-                        add_text(self.doc, report_text.get('%s_format' % fformat))
+            for file_format in ['fastq', 'bam', 'vcf']:
+                if file_format in formats_delivered:
+                    with self.doc.create(Subsection('%s format' % file_format.upper(), numbering=True)):
+                        add_text(self.doc, report_text.get('%s_format' % file_format))
                         self.doc.append(NoEscape('\n'))
                         self.doc.append('More detail about the format in ')
                         self.doc.append(HRef(
-                            url=NoEscape(report_text.get('%s_link' % fformat)),
-                            text='%s specification' % fformat.upper()
+                            url=NoEscape(report_text.get('%s_link' % file_format)),
+                            text='%s specification' % file_format.upper()
                         ))
 
         self.doc.append(NewPage())
