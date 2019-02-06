@@ -7,29 +7,29 @@
 <body>
     <div style="font-family:Calibri,Arial, sans-serif; font-size:12.0pt">
         <p>Hi,</p>
-        <p>{{ num_samples }} samples from project {{ project_id }} have been delivered. Consult delivery queue at:</p>
-        <p>{{ delivery_queue }}</p>
-        <p>Template delivery email is appended below:</p>
+        <p>{{ num_samples }} samples from project {{ project_id }} have been delivered. Consult delivery queue at:<br>
+        {{ delivery_queue }}<br>
+        Template delivery email is appended below:<br>
+        </p>
         <p>----</p>
-        <p>Dear all,</p>
-        <p>The data for {{ num_samples }} samples from project {{ project_id }} has been released to our Aspera server at:</p>
-        <p><a href="https://transfer.epcc.ed.ac.uk/{{ project_id }}/{{ release_batch }}">
+        <p>Dear all,<br>
+        The data for {{ num_samples }} samples from project {{ project_id }} has been released to our Aspera server at:<br>
+        <a href="https://transfer.epcc.ed.ac.uk/{{ project_id }}/{{ release_batch }}">
             https://transfer.epcc.ed.ac.uk/{{ project_id }}/{{ release_batch }}
-        </a></p>
-        <p>Your usernames are:</p>
-        <p>[ENTER USERNAMES]</p>
-        <p>Your passwords will be sent separately.</p>
-        <p>Please see the link below for guidance on how to download:</p>
-        <p><a href="https://genomics.ed.ac.uk/resources/download-help-clinical">
+        </a><br>
+        Your usernames are:<br>
+        [ENTER USERNAMES]<br>
+        Your passwords will be sent separately.<br>
+        Please see the link below for guidance on how to download:<br>
+        <a href="https://genomics.ed.ac.uk/resources/download-help-clinical">
             https://genomics.ed.ac.uk/resources/download-help-clinical
-        </a></p>
-        <p>
+        </a><br>
             The data for your project will be stored on our server for <b>3 months</b> and <b>deleted</b> after this time.
             Please check your data for corruption once downloaded.
             Email notifications will be sent 1 month and 1 week before deletion.
-        </p>
-        <p>If you have any questions about the data or download then please don’t hesitate to contact me.</p>
-        <p>Kind regards,</p>
+        <br>
+        If you have any questions about the data or download then please don’t hesitate to contact me.<br>
+        Kind regards,</p>
         <p>[NAME]</p>
         <p>[SIGNATURE]</p>
     </div>
