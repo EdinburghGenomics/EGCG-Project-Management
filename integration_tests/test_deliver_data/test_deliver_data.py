@@ -147,6 +147,7 @@ class TestDelivery(IntegrationTest):
     processed_run_dir = os.path.join(work_dir, 'processed_runs')
     processed_projects_dir = os.path.join(work_dir, 'processed_projects')
     delivered_projects_dir = os.path.join(work_dir, 'delivered_projects')
+    repo_projects_report_dir = os.path.join(work_dir, 'project_report_repo')
     artifacts = [Mock(samples=[NamedMock(name=sample)]) for sample in fake_samples if fake_samples[sample].get('authorised', False)]
     fake_process = Mock(
         type=NamedMock(name=release_trigger_lims_step_name),
@@ -158,7 +159,6 @@ class TestDelivery(IntegrationTest):
         patch('bin.deliver_reviewed_data.DataDelivery.process', new=PropertyMock(return_value=fake_process)),
         patch('bin.deliver_reviewed_data.clarity.get_queue_uri', return_value='a_queue_uri'),
         patch('bin.deliver_reviewed_data.clarity.route_samples_to_workflow_stage'),
-        patch('bin.deliver_reviewed_data.ProjectReport')  # TODO: run the project report once it can take mixed projects
     )
 
     @classmethod
@@ -174,6 +174,7 @@ class TestDelivery(IntegrationTest):
             'delivery': {
                 'dest': cls.delivered_projects_dir,
                 'source': cls.processed_projects_dir,
+                'report_repo': cls.repo_projects_report_dir,
                 'clarity_workflow_name': 'a_workflow',
                 'clarity_stage_name': 'a_stage'
             }
@@ -201,6 +202,7 @@ class TestDelivery(IntegrationTest):
         super().setUp()
 
         os.makedirs(self.delivered_projects_dir, exist_ok=True)
+        os.makedirs(self.repo_projects_report_dir, exist_ok=True)
         for d in os.listdir(self.delivered_projects_dir):
             rmtree(os.path.join(self.delivered_projects_dir, d))
 

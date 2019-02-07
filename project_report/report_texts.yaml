@@ -17,7 +17,6 @@ UoE_web_link: https://www.ed.ac.uk
 project_report_version: EGC-BTP-1 rev. 3
 
 releases_signatures_desc: >-
-  This project has been approved for release in {number_of_batches} {batches}.
   Details of samples released are available in
 
 method_header: >-
