@@ -30,7 +30,7 @@ class TestRecall(TestProjectManagement):
         mocked_sample.return_value = Mock(raw_data_files=fastqs, processed_data_files=processed_files)
 
         assert recall_sample.file_states('sample_1') == {f: ['archived', 'exists'] for f in fastqs + processed_files}
-        mocked_get_doc.assert_called_with('aggregate/samples', match={'sample_id': 'sample_1'})
+        mocked_get_doc.assert_called_with('samples', where={'sample_id': 'sample_1'}, quiet=True)
 
     @patch(ppath + 'file_states', return_value=fake_file_states)
     @patch(ppath + 'get_file_list_size', return_value=1000000000)
