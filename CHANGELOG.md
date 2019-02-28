@@ -1,7 +1,7 @@
 Changelog for EGCG-Project-Management
 =====================================
 
-0.10 (unreleased)
+0.10 (2019-02-28)
 -----------------
 
 - Project report appendix tables are now fit dynamically, depending on their content
