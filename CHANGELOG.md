@@ -4,15 +4,7 @@ Changelog for EGCG-Project-Management
 0.10 (unreleased)
 -----------------
 
-- Project report appendix tables are now fit dynamically, depending on their content
-- Project report code refactor, modifying project_information.py, project_report_latex.py, pylatex_ext.py and utils.py
-- Fixed bug when performing final data deletion by filtering out "Undetermined" sample IDs
-- Project report now supports different analysis types
-- Data deletion now removes sample folder
-- Provides more accurate feedback if data deletion fails, detailing only the cause of failure
-- Project report is now generated using Latex and converting it to PDF before exporting
-- lims.get_processes now uses the appropriate parameter
-- Try/except catches cases where human has more than one analysis type 
+- Nothing changed yet.
 
 
 0.9 (2018-11-30)
