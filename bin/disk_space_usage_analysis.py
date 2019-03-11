@@ -1,8 +1,11 @@
+import argparse
 import csv
+import logging
 import os
 import sys
 from collections import Counter
 from config import load_config
+from egcg_core.app_logging import logging_default
 
 from egcg_core.config import cfg
 from egcg_core.rest_communication import Communicator
@@ -37,7 +40,11 @@ def run_directory_check():
 
 def main():
     a = argparse.ArgumentParser()
-    a.add_argument()
+    a.add_argument('all', help='Runs all available checks - '
+                               'Run directory check, residual run and project directory checks.')
+    a.add_argument('run_directory', help='Check the run directory for space used storing samples, '
+                                         'and displays the respective archiving status.')
+    a.add_argument('residual_run_directory', help='Check space used when sample directories space used ')
 
     args = a.parse_args()
     load_config()
