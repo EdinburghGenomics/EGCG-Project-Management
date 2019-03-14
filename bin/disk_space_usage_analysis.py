@@ -27,13 +27,14 @@ class DiskSpaceUsageAnalysis(AppLogger):
             return
 
 class RunDirectoryChecker(AppLogger):
-    def __init__(self):
+    def __init__(self, disk_space_usage_analysis):
+        self.disk_space_usage_analysis = disk_space_usage_analysis
         self.directory_set = set()
         self.sample_counter = Counter()
         self.sample_splits = Counter()
         self.deleted_dict = {}
 
-        self.bash_command = "find " + DiskSpaceUsageAnalysis.dir_cfg['runs_dir_space_analysis']['runs_dir'] \
+        self.bash_command = "find " + disk_space_usage_analysis.dir_cfg['runs_dir_space_analysis']['runs_dir'] \
                             + ". -name '*.fastq.gz' -type f | egrep -v '/fastq/fastq'"
 
 
@@ -53,9 +54,12 @@ def main():
                                'Run directory check, residual run and project directory checks.')
     arg_group.add_argument('runs_directory', help='Check the runs directory for space used storing samples, '
                                          'and displays the respective archiving status.')
-    arg_group.add_argument('residual_runs_directory', help='Check residual space used when samples directories space used '
-                                                          'is deducted from the respective runs directory space used.')
-    arg_group.add_argument('residual_projects_directory', help='Check residual space used when samples ')
+    arg_group.add_argument('residual_runs_directory', help='Check residual space used when the samples directories` space used '
+                                                          'is deducted from the respective runs directory`s space used.')
+    arg_group.add_argument('residual_projects_directory', help='Check the projects directory for space used storing samples, '
+                                                               'and displays the respective archiving status. Also checks the '
+                                                               'residual space used when the samples directories` space used '
+                                                               'is deducted from the respective runs directory`s space used.' )
 
     args = arg_parser.parse_args()
     load_config()
@@ -65,6 +69,18 @@ def main():
     if args.debug:
         log_cfg.set_log_level(logging.DEBUG)
 
+    disk_space_usage_analysis = DiskSpaceUsageAnalysis()
+
+    # Interpret parameter and select appropriate function
+    if args.all:
+        pass
+    elif args.runs_directory:
+        run_directory_checker = RunDirectoryChecker(disk_space_usage_analysis)
+
+    elif args.residual_runs_directory:
+        pass
+    elif args.residual_projects_directory:
+        pass
 
 if __name__ == '__main__':
     main()
