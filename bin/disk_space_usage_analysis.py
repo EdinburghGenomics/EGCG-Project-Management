@@ -4,7 +4,6 @@ import logging
 import os
 import sys
 from collections import Counter
-from config import load_config
 
 from egcg_core import rest_communication
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
@@ -15,6 +14,7 @@ from egcg_core.exceptions import EGCGError
 class DiskSpaceUsageAnalysis(AppLogger):
     def __init__(self):
         sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from config import load_config
 
         # This command is used throughout to retrieve the disk usage of each directory checked
         self.space_command = "du -ck "
@@ -25,6 +25,7 @@ class DiskSpaceUsageAnalysis(AppLogger):
             self.error('Directory config invalid or incomplete. Please ensure your config has an entry for '
                        'runs_directory and projects_directory.')
             return
+
 
 class RunDirectoryChecker(AppLogger):
     def __init__(self, disk_space_usage_analysis):
@@ -68,6 +69,7 @@ class RunDirectoryChecker(AppLogger):
                         data_deleted = "Error - not found"
                     self.deleted_dict[sample_name] = data_deleted
 
+    # Exports the run directory analysis to a CSV file
     def export_run_directory_analysis_csv(self):
         with open(self.disk_space_usage_analysis.dir_cfg['runs_dir_space_analysis']['output_dir'] + 'run_dir_analysis.csv',
                   mode='w') as analysis_file:
@@ -79,6 +81,7 @@ class RunDirectoryChecker(AppLogger):
                 num_splits = self.sample_splits[key]
                 file_writer.writerow([key, str(value), data_deleted, str(num_splits)])
 
+    # Exports the run directory analysis to a TXT file
     def export_run_directory_analysis_txt(self):
         with open(self.disk_space_usage_analysis.dir_cfg['runs_dir_space_analysis']['output_dir'] + 'run_dir_analysis.txt',
                   mode='w') as analysis_txt_file:
@@ -92,12 +95,10 @@ class RunDirectoryChecker(AppLogger):
             for key, value in self.sample_splits.most_common():
                 analysis_txt_file.write(key + ': ' + str(value))
 
-    if __name__ == '__main__':
-        main()
-
-    def main(self):
+    def execute(self):
         self.run_directory_check()
         self.export_run_directory_analysis_csv()
+        self.export_run_directory_analysis_txt()
 
 # samples = c.get_documents('samples', projection={"data_deleted":1} ,max_results=1000, all_pages=True)
 
@@ -131,6 +132,7 @@ def main():
         pass
     elif args.runs_directory:
         run_directory_checker = RunDirectoryChecker(disk_space_usage_analysis)
+        run_directory_checker.execute()
 
     elif args.residual_runs_directory:
         pass
