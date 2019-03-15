@@ -1,14 +1,9 @@
-import argparse
 import csv
-import logging
 import os
-import sys
 from collections import Counter
 
 from egcg_core import rest_communication
-from egcg_core.app_logging import AppLogger, logging_default as log_cfg
-from egcg_core.config import cfg
-from egcg_core.exceptions import EGCGError
+from egcg_core.app_logging import AppLogger
 
 
 class RunDirectoryChecker(AppLogger):
