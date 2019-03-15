@@ -3,7 +3,6 @@ import logging
 import os
 import sys
 
-from disk_space_usage_analysis import RunDirectoryChecker
 from egcg_core.app_logging import AppLogger, logging_default as log_cfg
 from egcg_core.config import cfg
 
@@ -40,6 +39,7 @@ def main():
 
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from config import load_config
+    from disk_space_usage_analysis import RunDirectoryChecker
 
     load_config()
     log_cfg.set_log_level(logging.INFO)
