@@ -13,17 +13,17 @@ from egcg_core.exceptions import EGCGError
 
 class DiskSpaceUsageAnalysis(AppLogger):
     def __init__(self):
-        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        from config import load_config
-
         # This command is used throughout to retrieve the disk usage of each directory checked
         self.space_command = "du -ck "
 
         # Loading the run and project directory values from the config file
         self.dir_cfg = cfg.query('runs_dir_space_analysis', 'projects_dir_space_analysis', ret_default={})
+        print(cfg.content)
+        print(self.dir_cfg)
+        print(set(self.dir_cfg))
         if set(self.dir_cfg) != {'runs_dir', 'projects_dir'}:
             self.error('Directory config invalid or incomplete. Please ensure your config has an entry for '
-                       'runs_directory and projects_directory.')
+                       'runs_dir_space_analysis and projects_dir_space_analysis.')
             return
 
 
@@ -107,23 +107,25 @@ def main():
     arg_parser = argparse.ArgumentParser()
     arg_group = arg_parser.add_mutually_exclusive_group(required=True)
     arg_group.add_argument('all', help='Runs all available checks - '
-                               'Run directory check, residual run and project directory checks.')
+                                       'Run directory check, residual run and project directory checks.', nargs='?')
     arg_group.add_argument('runs_directory', help='Check the runs directory for space used storing samples, '
-                                         'and displays the respective archiving status.')
+                                                  'and displays the respective archiving status.', nargs='?')
     arg_group.add_argument('residual_runs_directory', help='Check residual space used when the samples directories` space used '
-                                                          'is deducted from the respective runs directory`s space used.')
+                                                           'is deducted from the respective runs directory`s space used.', nargs='?')
     arg_group.add_argument('residual_projects_directory', help='Check the projects directory for space used storing samples, '
                                                                'and displays the respective archiving status. Also checks the '
                                                                'residual space used when the samples directories` space used '
-                                                               'is deducted from the respective runs directory`s space used.' )
+                                                               'is deducted from the respective runs directory`s space used.',
+                           nargs='?')
 
     args = arg_parser.parse_args()
+
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from config import load_config
+
     load_config()
     log_cfg.set_log_level(logging.INFO)
     log_cfg.add_stdout_handler()
-
-    if args.debug:
-        log_cfg.set_log_level(logging.DEBUG)
 
     disk_space_usage_analysis = DiskSpaceUsageAnalysis()
 
