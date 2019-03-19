@@ -472,8 +472,8 @@ class TestProjectReportUtils(TestProjectManagement):
     @patch('os.path.getsize', return_value=1)
     def test_get_folder_size(self, mocked_getsize):
         d = os.path.join(TestProjectManagement.root_path, 'etc')
-        assert utils.get_folder_size(d) == 12
-        assert mocked_getsize.call_count == 12
+        assert utils.get_folder_size(d) == 11
+        assert mocked_getsize.call_count == 11
 
     def test_parse_date(self):
         assert utils.parse_date('2017-08-02T11:25:14.659000') == '02 Aug 17'
