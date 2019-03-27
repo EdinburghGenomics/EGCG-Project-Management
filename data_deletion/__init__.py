@@ -69,9 +69,11 @@ class Deleter(app_logging.AppLogger):
 
     def _execute(self, cmd, cluster_execution=False):
         if not cluster_execution:
-            status = executor.local_execute(cmd).join()
+            e = executor.local_execute(cmd)
         else:
-            status = executor.cluster_execute(cmd, job_name='data_deletion', working_dir=self.work_dir).join()
+            e = executor.cluster_execute(cmd, job_name='data_deletion', cpus=1, mem=2, working_dir=self.work_dir)
+
+        status = e.join()
         if status:
             raise EGCGError('Command failed: ' + cmd)
 
