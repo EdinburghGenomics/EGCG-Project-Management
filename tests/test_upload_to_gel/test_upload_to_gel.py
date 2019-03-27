@@ -272,6 +272,9 @@ class TestGelDataDelivery(TestProjectManagement):
     def test_check_delivery_qc_failed(self):
         self._test_check_delivery('qc_failed', 'passed', 'failed')
 
+    def test_check_delivered(self):
+        self._test_check_delivery('delivered', None, None)
+
     def test_no_check_delivery(self):
         _id = self.gel_data_delivery.deliver_db.create_delivery('sample1', '123456789_ext_sample1')
         self.gel_data_delivery.deliver_db.set_upload_state(_id, 'passed')
@@ -284,8 +287,8 @@ class TestGelDataDelivery(TestProjectManagement):
             self.gel_data_delivery.deliver_db.cursor.execute('select * from delivery;')
             obs = self.gel_data_delivery.deliver_db.cursor.fetchone()
             mock_error.assert_called_with(
-                'Delivery %s sample %s qc check failed - was checked before on %s',
+                'Delivery %s sample %s: %s',
                 'ED00000001',
                 'sample1',
-                obs[9]
+                'QC check failed - was checked before on %s' % obs[9]
             )
