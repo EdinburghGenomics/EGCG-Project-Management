@@ -335,6 +335,9 @@ class ProjectReportLatex:
                 elif library_prep_type == 'Illumina TruSeq PCR-Free library':
                     library_prep = report_text.get('library_preparation_pcr_free')
                     library_qc = report_text.get('library_qc_pcr_free')
+                elif library_prep_type == 'KAPA library':
+                    library_prep = report_text['library_preparation_kapa']
+                    library_qc = report_text['library_qc_kapa']
                 elif library_prep_type == 'User Prepared Library':
                     library_prep = None
                     library_qc = report_text.get('library_qc_nano')
@@ -362,17 +365,25 @@ class ProjectReportLatex:
             with self.doc.create(Subsection('Sequencing', numbering=True)):
                 add_text(self.doc, report_text.get('sequencing'))
 
+            bioinf_reports = {
+                'qc': ('Bioinformatics QC', 'bioinformatics_qc'),
+                'bcbio': ('Bioinformatics Analysis for Human samples', 'bioinformatics_analysis_bcbio'),
+                'variant_calling': ('Bioinformatics Analysis', 'bioinformatics_analysis'),
+                'variant_calling_gatk4': ('Bioinformatics Analysis with GATK4', 'bioinformatics_analysis_gatk4'),
+                'human_variant_calling_gatk4': ('Bioinformatics Analysis with GATK4 for Human samples', 'bioinformatics_analysis_gatk4'),
+                'qc_gatk4': ('Bioinformatics QC with GATK4', 'bioinformatics_qc')
+            }
+
             for bioinfo_analysis_type in self.pi.get_project_analysis_types():
                 bioinfo_version = self.pi.get_bioinformatics_params_for_analysis(bioinfo_analysis_type)
-                if bioinfo_analysis_type == 'qc':
-                    with self.doc.create(Subsection('Bioinformatics QC', numbering=True)):
-                        add_text(self.doc, report_text.get('bioinformatics_qc').format(**bioinfo_version))
-                if bioinfo_analysis_type == 'bcbio':
-                    with self.doc.create(Subsection('Bioinformatics Analysis for Human samples', numbering=True)):
-                        add_text(self.doc, report_text.get('bioinformatics_analysis_bcbio').format(**bioinfo_version))
-                if bioinfo_analysis_type == 'variant_calling':
-                    with self.doc.create(Subsection('Bioinformatics Analysis', numbering=True)):
-                        add_text(self.doc, report_text.get('bioinformatics_analysis').format(**bioinfo_version))
+                subsection, paragraph = bioinf_reports[bioinfo_analysis_type]
+                with self.doc.create(Subsection(subsection, numbering=True)):
+                    add_text(self.doc, report_text[paragraph].format(**bioinfo_version))
+
+            if self.pi.has_rapid_samples():
+                with self.doc.create(Subsection('Rapid Bioinformatics Analysis', numbering=True)):
+                    add_text(self.doc, report_text['rapid_analysis'])
+
             self.doc.append(NewPage())
 
     def create_results_section(self):

@@ -22,7 +22,8 @@ class ProjectReportInformation(AppLogger):
         'TruSeq Nano DNA Sample Prep': 'Illumina TruSeq Nano library',
         'TruSeq PCR-Free DNA Sample Prep': 'Illumina TruSeq PCR-Free library',
         'TruSeq PCR-Free Sample Prep': 'Illumina TruSeq PCR-Free library',
-        'TruSeq DNA PCR-Free Sample Prep': 'Illumina TruSeq PCR-Free library'
+        'TruSeq DNA PCR-Free Sample Prep': 'Illumina TruSeq PCR-Free library',
+        'KAPA DNA Sample Prep': 'KAPA library'
     }
     library_abbreviation = {
         'User Prepared Library': 'UPL',
@@ -32,12 +33,18 @@ class ProjectReportInformation(AppLogger):
     analysis_abbreviation = {
         'bcbio': 'bcbio',
         'variant_calling': 'variant',
-        'qc': 'basic qc'
+        'qc': 'basic qc',
+        'variant_calling_gatk4': 'variant gatk4',
+        'human_variant_calling_gatk4': 'variant gatk4',
+        'qc_gatk4': 'basic qc'
     }
     analysis_description = {
         'bcbio': 'GATK3 based variant call for human',
-        'variant_calling': 'GATK based variant call',
-        'qc': 'Alignment based quality control'
+        'variant_calling': 'GATK3 based variant call',
+        'qc': 'Alignment based quality control',
+        'variant_calling_gatk4': 'GATK4 based variant call',
+        'human_variant_calling_gatk4': 'GATK4 based variant call',
+        'qc_gatk4': 'Alignment based quality control'
     }
 
     species_abbreviation = {}
@@ -229,6 +236,12 @@ class ProjectReportInformation(AppLogger):
 
     def get_project_analysis_types(self):
         return self._aggregate_per_project(self.get_analysis_type_from_sample)
+
+    def has_rapid_samples(self):
+        return any(
+            query_dict(self.sample_info(s['sample_id']), 'info.Rapid Analysis') == 'Yes'
+            for s in self.sample_data_for_project
+        )
 
     def get_project_genome_version(self):
         return self._aggregate_per_project(self.get_genome_version)
