@@ -113,10 +113,10 @@ fake_sample_templates = {
             'Coverage (X)': 30
         }
     },
-    'gatk4rapid': {
+    'kapagatk4rapid': {
         'name': 'rapid_',
         'udf': {
-            'Prep Workflow': 'TruSeq Nano DNA Sample Prep',
+            'Prep Workflow': 'KAPA PCR-Free DNA Sample Prep',
             'Rapid Analysis': 'Yes',
             'Analysis Type': 'Variant Calling gatk4',
             'Species': 'Homo sapiens',
@@ -213,7 +213,7 @@ fake_process_templates = {
     'nhpf999': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NC85: All samples were bad quality.'},
     'uhtn999': {'nb_processes': 1, 'date': d, 'finished': 'No', 'NC': 'NA'},
     'upl999': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NA'},
-    'gatk4rapid': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NA'}
+    'kapagatk4rapid': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NA'}
 }
 
 fake_processes = {}
@@ -457,7 +457,7 @@ class TestProjectReportLatex(TestProjectReport):
 
     @mocked_get_documents
     def test_project_types(self, mocked_get_docs):
-        projects = ('mix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999', 'upl999', 'gatk4rapid')
+        projects = ('mix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999', 'upl999', 'kapagatk4rapid')
 
         for p in projects:
             report = ProjectReportLatex(p, self.working_dir)

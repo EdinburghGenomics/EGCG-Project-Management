@@ -23,12 +23,13 @@ class ProjectReportInformation(AppLogger):
         'TruSeq PCR-Free DNA Sample Prep': 'Illumina TruSeq PCR-Free library',
         'TruSeq PCR-Free Sample Prep': 'Illumina TruSeq PCR-Free library',
         'TruSeq DNA PCR-Free Sample Prep': 'Illumina TruSeq PCR-Free library',
-        'KAPA DNA Sample Prep': 'KAPA library'
+        'KAPA PCR-Free DNA Sample Prep': 'Roche KAPA PCR-Free library'
     }
     library_abbreviation = {
         'User Prepared Library': 'UPL',
         'Illumina TruSeq Nano library': 'Nano',
-        'Illumina TruSeq PCR-Free library': 'PCRfree'
+        'Illumina TruSeq PCR-Free library': 'PCRfree',
+        'Roche KAPA PCR-Free library': 'KAPA'
     }
     analysis_abbreviation = {
         'bcbio': 'bcbio',

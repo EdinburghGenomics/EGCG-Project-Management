@@ -22,7 +22,7 @@ releases_signatures_desc: >-
 method_header: >-
   Edinburgh Genomics Clinical utilises Illumina SeqLab, which integrates Illumina TruSeq
   library preparation, Illumina cBot2 cluster generation, Illumina HiSeqX sequencing, Hamilton
-  Microlab STAR integrative automation, and Genologics Clarity LIMS X Edition.
+  Microlab STAR integrative automation, and Genologics Clarity LIMS X (4.2) Edition.
 
 sample_qc: >-
   Genomic DNA (gDNA) samples are evaluated for quantity using Quant-iT Picogreen reagent, Lambda Standard 
@@ -52,7 +52,7 @@ library_qc_nano: >-
 library_preparation_pcr_free: >-
   Next Generation sequencing libraries are prepared using Illumina SeqLab specific 
   TruSeq PCR-Free High Throughput library preparation kits in conjunction with the Hamilton MicroLab STAR and 
-  Clarity LIMS X Edition. The gDNA samples are normalised to the concentration and volume required for the Illumina 
+  Clarity LIMS X (4.2) Edition. The gDNA samples are normalised to the concentration and volume required for the Illumina
   TruSeq PCR-Free library preparation kits then sheared to a 450bp mean insert size using a Covaris LE220 
   focused-ultrasonicator. The inserts are blunt ended, A-tailed, size selected, and the TruSeq adapters are ligated onto
   the ends.
@@ -63,6 +63,20 @@ library_qc_pcr_free: >-
   800bp. The concentration of each library is calculated using a Roche LightCycler 480 and a Kapa Illumina Library 
   Quantification kit and Standards to ensure that the concentration of each library is between
   1.1latex::\si{\nano\mole}:: and 8latex::\si{\nano\mole}::.
+
+library_preparation_kapa_pcr_free: >-
+  Next Generation sequencing libraries are prepared using Roche KAPA Hyper Prep PCR-free library preparation kits in
+  conjunction with the Hamilton MicroLab STAR and Clarity LIMS X (4.2) Edition. The gDNA samples are normalised to the
+  concentration and volume required for Roche KAPA Hyper Prep PCR-free library preparation kits then sheared to a 450bp
+  mean insert size using a Covaris LE220 focused-ultrasonicator. The inserts are blunt ended, A-tailed, and TruSeq IDT
+  Unique Dual Index adapters are ligated to the fragments and then the libraries are size selected.
+
+library_qc_kapa_pcr_free: >-
+  The insert size for each library is evaluated after shearing using the Caliper GX Touch with a HT DNA 1k/12K/HI SENS
+  LabChip and HT DNA HI SENS Reagent Kit to ensure that the mean fragment sizes fall between 300bp and 800bp. The
+  concentration of each library is calculated using a Roche LightCycler 480 and a Kapa Illumina Library Quantification
+  kit and Standards to ensure that the concentration of each library is between 1.1latex::\si{\nano\mole}:: and
+  40latex::\si{\nano\mole}::.
 
 user_prepared_libraries: >-
   The libraries were prepared by the user and have been quality controlled by Edinburgh Genomics.

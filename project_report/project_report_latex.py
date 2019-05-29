@@ -335,9 +335,9 @@ class ProjectReportLatex:
                 elif library_prep_type == 'Illumina TruSeq PCR-Free library':
                     library_prep = report_text.get('library_preparation_pcr_free')
                     library_qc = report_text.get('library_qc_pcr_free')
-                elif library_prep_type == 'KAPA library':
-                    library_prep = report_text['library_preparation_kapa']
-                    library_qc = report_text['library_qc_kapa']
+                elif library_prep_type == 'Roche KAPA PCR-Free library':
+                    library_prep = report_text['library_preparation_kapa_pcr_free']
+                    library_qc = report_text['library_qc_kapa_pcr_free']
                 elif library_prep_type == 'User Prepared Library':
                     library_prep = None
                     library_qc = report_text.get('library_qc_nano')
