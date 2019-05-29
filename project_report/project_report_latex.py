@@ -1,5 +1,4 @@
 import os
-
 import yaml
 from egcg_core.util import query_dict
 from pylatex import Document, Section, Subsection, Package, PageStyle, Head, MiniPage, StandAloneGraphic, Foot, \
@@ -10,9 +9,9 @@ from pylatex.utils import italic, bold
 from project_report.project_information import ProjectReportInformation
 from project_report.utils import yield_vs_coverage_plot, parse_date, min_mean_max, estimate_columns_definition
 
-# Load all source texts from yaml.
 from project_report.pylatex_ext import HRef, LatexSection, add_text
 
+# Load all source texts from yaml.
 _report_text_yaml_file = os.path.join(os.path.dirname(__file__), 'report_texts.yaml')
 with open(_report_text_yaml_file) as open_file:
     report_text = yaml.load(open_file)
@@ -23,7 +22,6 @@ Uni_logo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 
 
 
 class ProjectReportLatex:
-
     def __init__(self, project_name, working_dir):
         self.pi = ProjectReportInformation(project_name)
         self.working_dir = working_dir
@@ -382,7 +380,9 @@ class ProjectReportLatex:
 
             if self.pi.has_rapid_samples():
                 with self.doc.create(Subsection('Rapid Bioinformatics Analysis', numbering=True)):
-                    add_text(self.doc, report_text['rapid_analysis'])
+                    add_text(self.doc, report_text['bioinformatics_analysis_rapid'])
+                    self.doc.append(' More information on Dragen can be found on the ')
+                    self.doc.append(HRef(url=NoEscape(report_text['dragen_link']), text='Illumina website.'))
 
             self.doc.append(NewPage())
 

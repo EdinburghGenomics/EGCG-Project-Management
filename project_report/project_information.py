@@ -1,9 +1,7 @@
-import os
 import csv
-from collections import defaultdict
-
 import yaml
 import datetime
+from collections import defaultdict
 from cached_property import cached_property
 from os import path
 
@@ -109,9 +107,9 @@ class ProjectReportInformation(AppLogger):
     def _get_bcl2fastq_version(self, run_ids):
         bcl2fastq_versions = set()
         for run_id in run_ids:
-            prog_vers_yaml = os.path.join(self.run_folders, run_id, 'program_versions.yaml')
+            prog_vers_yaml = path.join(self.run_folders, run_id, 'program_versions.yaml')
             bcl2fastq_version = None
-            if os.path.isfile(prog_vers_yaml):
+            if path.isfile(prog_vers_yaml):
                 with open(prog_vers_yaml, 'r') as open_file:
                     full_yaml = yaml.safe_load(open_file)
                     if 'bcl2fastq' in full_yaml and full_yaml.get('bcl2fastq'):
