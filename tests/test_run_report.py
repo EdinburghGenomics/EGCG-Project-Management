@@ -114,6 +114,23 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
         }
     }
 
+    report_runs.cache['run_data'] = {
+        'a_run': {
+            'aggregated': {
+                'most_recent_proc': {
+                    'status': 'processing'
+                }
+            }
+        },
+        'errored_run': {
+            'aggregated': {
+                'most_recent_proc': {
+                    'status': 'processing'
+                }
+            }
+        }
+    }
+
     report_runs.cache['sample_data'] = {
         'passing': {'aggregated': {'clean_pc_q30': 75, 'clean_yield_in_gb': 2, 'from_run_elements': {'mean_coverage': 4}}},
         'no_data': {'aggregated': {}},
@@ -125,6 +142,7 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
     for s in report_runs.cache['sample_data'].values():
         s['required_yield'] = 2000000000
         s['required_coverage'] = 4
+        s['run_elements'] = ['a_run', 'errored_run']
 
     report_runs.report_runs(['a_run', 'errored_run'])
     mocked_email.assert_any_call(
@@ -137,8 +155,8 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
     )
 
     exp_failing_samples = [
-        {'id': 'no_data', 'reason': 'No data'},
-        {'id': 'poor_yield_and_coverage', 'reason': 'Not enough data: yield (1.0 < 2) and coverage (3 < 4)'}
+        {'id': 'no_data', 'reason': 'No data. Another pending run element already exists'},
+        {'id': 'poor_yield_and_coverage', 'reason': 'Not enough data: yield (1.0 < 2) and coverage (3 < 4). Another pending run element already exists'}
     ]
 
     mocked_email.assert_any_call(
