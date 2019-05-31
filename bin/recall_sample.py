@@ -24,7 +24,7 @@ def main(argv=None):
 
 
 def file_states(sample_id):
-    s = ProcessedSample(rest_communication.get_document('aggregate/samples', match={'sample_id': sample_id}))
+    s = ProcessedSample(rest_communication.get_document('samples', quiet=True,  where={'sample_id': sample_id}))
     return {f: sorted(am.archive_states(f)) for f in s.raw_data_files + s.processed_data_files}
 
 

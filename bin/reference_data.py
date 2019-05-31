@@ -1,4 +1,5 @@
 import os
+import sys
 import ftplib
 import logging
 import requests
@@ -11,6 +12,8 @@ from egcg_core import util, rest_communication, ncbi
 from egcg_core.app_logging import AppLogger, logging_default
 from egcg_core.config import cfg
 from egcg_core.exceptions import EGCGError
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import load_config
 
 
