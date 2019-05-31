@@ -15,6 +15,7 @@ from config import load_config
 
 cache = {
     'run_elements_data': {},
+    'run_data': {},
     'lanes_data': {},
     'sample_data': {},
     'run_status_data': {}
@@ -42,6 +43,12 @@ def run_status_data(run_id):
         for d in data:
             cache['run_status_data'][d['run_id']] = d
     return cache['run_status_data'][run_id]
+
+
+def run_data(run_id):
+    if run_id not in cache['run_data']:
+        cache['run_data'][run_id] = rest_communication.get_document('runs', where={'run_id': run_id})
+    return cache['run_data'][run_id]
 
 
 def run_elements_data(run_id):
@@ -133,6 +140,11 @@ def report_runs(run_ids, noemail=False):
                         round(clean_yield/1000000000, 1), int(sdata['required_yield']/1000000000),
                         round(mean_cov, 1), sdata['required_coverage']
                     )
+                # Checking for other run elements which are still pending
+                for sample_run_id in sdata.query('run_elements'):
+                    if query_dict(run_data(sample_run_id), 'aggregated.most_recent_proc.status') == 'processing':
+                        reason += '. Another pending run element already exists'
+                        break
 
                 sample_repeats.append({'id': sample_id, 'reason': reason})
 
