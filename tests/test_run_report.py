@@ -37,6 +37,22 @@ def test_run_element_data(mocked_get_docs):
 
 
 @patch('egcg_core.rest_communication.get_document')
+def test_run_data(mocked_get_docs):
+    report_runs.cache['run_data'] = {}
+
+    mocked_get_docs.return_value = 'some data'
+    obs = report_runs.run_data('a_run')
+    assert obs == 'some data'
+    assert report_runs.cache['run_data'] == {'a_run': 'some data'}
+    mocked_get_docs.assert_called_with('runs', where={'run_id': 'a_run'})
+    assert mocked_get_docs.call_count == 1
+
+    obs = report_runs.run_data('a_run')
+    assert obs == 'some data'
+    assert mocked_get_docs.call_count == 1  # not called again
+
+
+@patch('egcg_core.rest_communication.get_document')
 def test_sample_data(mocked_get_docs):
     report_runs.cache['sample_data'] = {}
 
