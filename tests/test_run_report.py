@@ -142,7 +142,7 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
     for s in report_runs.cache['sample_data'].values():
         s['required_yield'] = 2000000000
         s['required_coverage'] = 4
-        s['run_elements'] = ['a_run', 'errored_run']
+        s['run_elements'] = ['a_run_laneno', 'errored_run_laneno']
 
     report_runs.report_runs(['a_run', 'errored_run'])
     mocked_email.assert_any_call(

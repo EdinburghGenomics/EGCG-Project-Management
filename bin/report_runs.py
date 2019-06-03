@@ -141,7 +141,9 @@ def report_runs(run_ids, noemail=False):
                         round(mean_cov, 1), sdata['required_coverage']
                     )
                 # Checking for other run elements which are still pending
-                for sample_run_id in query_dict(sdata, 'run_elements') or []:
+                for sample_run_element in query_dict(sdata, 'run_elements') or []:
+                    # Removing the lane suffix from run element, to turn it into a run_id
+                    sample_run_id = sample_run_element[:sample_run_element.rfind("_")]
                     if query_dict(run_data(sample_run_id), 'aggregated.most_recent_proc.status') == 'processing':
                         reason += '. Another pending run element already exists'
                         break
