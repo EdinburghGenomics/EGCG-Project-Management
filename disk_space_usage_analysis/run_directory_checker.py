@@ -5,6 +5,7 @@ from collections import Counter
 from egcg_core import rest_communication
 from egcg_core.app_logging import AppLogger
 
+# TODO: Convert in line with suggestions and merge residual_run_directory.py into it
 
 class RunDirectoryChecker(AppLogger):
     def __init__(self, disk_space_usage_analysis):
