@@ -104,25 +104,25 @@ def test_get_run_success(mocked_logger):
 def test_report_runs(mocked_today, mocked_run_success, mocked_email):
     report_runs.cfg.content = {'run_report': {'email_notification': {}}}
     report_runs.cache['run_status_data'] = {
-        'a_run': {
+        'run_id_id_lane': {
             'run_status': 'RunCompleted',
             'sample_ids': ['passing', 'no_data', 'poor_yield', 'poor_coverage', 'poor_yield_and_coverage']
         },
-        'errored_run': {
+        'errored_id_id_lane': {
             'run_status': 'RunErrored',
             'sample_ids': ['passing', 'no_data', 'poor_yield', 'poor_coverage', 'poor_yield_and_coverage']
         }
     }
 
     report_runs.cache['run_data'] = {
-        'a_run': {
+        'run_id_id_lane': {
             'aggregated': {
                 'most_recent_proc': {
                     'status': 'processing'
                 }
             }
         },
-        'errored_run': {
+        'errored_id_id_lane': {
             'aggregated': {
                 'most_recent_proc': {
                     'status': 'processing'
@@ -142,15 +142,15 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
     for s in report_runs.cache['sample_data'].values():
         s['required_yield'] = 2000000000
         s['required_coverage'] = 4
-        s['run_elements'] = ['a_run_laneno', 'errored_run_laneno']
+        s['run_elements'] = ['run_id_id_lane_barcode', 'errored_id_id_lane_barcode']
 
-    report_runs.report_runs(['a_run', 'errored_run'])
+    report_runs.report_runs(['run_id_id_lane', 'errored_id_id_lane'])
     mocked_email.assert_any_call(
         subject='Run report today',
         email_template=report_runs.email_template_report,
         runs=[
             {'name': 'successful_run', 'failed_lanes': 0, 'details': []},
-            {'name': 'errored_run', 'failed_lanes': 8, 'details': ['RunErrored']}
+            {'name': 'errored_id_id_lane', 'failed_lanes': 8, 'details': ['RunErrored']}
         ]
     )
 
@@ -163,7 +163,7 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
         subject='Sequencing repeats today',
         email_template=report_runs.email_template_repeats,
         runs=[
-            {'name': 'a_run', 'repeat_count': 2, 'repeats': exp_failing_samples},
-            {'name': 'errored_run', 'repeat_count': 2, 'repeats': exp_failing_samples}
+            {'name': 'run_id_id_lane', 'repeat_count': 2, 'repeats': exp_failing_samples},
+            {'name': 'errored_id_id_lane', 'repeat_count': 2, 'repeats': exp_failing_samples}
         ]
     )
