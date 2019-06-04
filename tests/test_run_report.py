@@ -149,8 +149,8 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
         subject='Run report today',
         email_template=report_runs.email_template_report,
         runs=[
+            {'name': 'errored_id_id_lane', 'failed_lanes': 8, 'details': ['RunErrored']},
             {'name': 'run_id_id_lane', 'failed_lanes': 0, 'details': []},
-            {'name': 'errored_id_id_lane', 'failed_lanes': 8, 'details': ['RunErrored']}
         ]
     )
 
@@ -163,7 +163,8 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
         subject='Sequencing repeats today',
         email_template=report_runs.email_template_repeats,
         runs=[
-            {'name': 'run_id_id_lane', 'repeat_count': 2, 'repeats': exp_failing_samples},
-            {'name': 'errored_id_id_lane', 'repeat_count': 2, 'repeats': exp_failing_samples}
+
+            {'name': 'errored_id_id_lane', 'repeat_count': 2, 'repeats': exp_failing_samples},
+            {'name': 'run_id_id_lane', 'repeat_count': 2, 'repeats': exp_failing_samples}
         ]
     )
