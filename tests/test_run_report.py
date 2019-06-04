@@ -150,7 +150,7 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
         email_template=report_runs.email_template_report,
         runs=[
             {'name': 'successful_run', 'failed_lanes': 0, 'details': []},
-            {'name': 'errored_id_id_lane', 'failed_lanes': 8, 'details': ['RunErrored']}
+            {'name': 'errored_run', 'failed_lanes': 8, 'details': ['RunErrored']}
         ]
     )
 
