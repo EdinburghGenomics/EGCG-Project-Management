@@ -99,7 +99,7 @@ def test_get_run_success(mocked_logger):
 
 
 @patch('bin.report_runs.send_html_email')
-@patch('bin.report_runs.get_run_success', return_value={'name': 'successful_run', 'failed_lanes': 0, 'details': []})
+@patch('bin.report_runs.get_run_success', return_value={'name': 'run_id_id_lane', 'failed_lanes': 0, 'details': []})
 @patch('bin.report_runs.today', return_value='today')
 def test_report_runs(mocked_today, mocked_run_success, mocked_email):
     report_runs.cfg.content = {'run_report': {'email_notification': {}}}
@@ -149,8 +149,8 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
         subject='Run report today',
         email_template=report_runs.email_template_report,
         runs=[
-            {'name': 'successful_run', 'failed_lanes': 0, 'details': []},
-            {'name': 'errored_run', 'failed_lanes': 8, 'details': ['RunErrored']}
+            {'name': 'run_id_id_lane', 'failed_lanes': 0, 'details': []},
+            {'name': 'errored_id_id_lane', 'failed_lanes': 8, 'details': ['RunErrored']}
         ]
     )
 
