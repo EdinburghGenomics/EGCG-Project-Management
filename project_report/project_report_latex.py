@@ -194,9 +194,9 @@ class ProjectReportLatex:
             library_descriptions.add((self.pi.library_abbreviation.get(library), library))
             species = self.pi.get_species_from_sample(sample)
             species_descriptions.add((self.pi.abbreviate_species(species), species))
-            analysis = self.pi.get_analysis_type_from_sample(sample)
-            analysis_descriptions.add((self.pi.analysis_abbreviation.get(analysis),
-                                       self.pi.analysis_description.get(analysis)))
+            analysis = self.pi.get_analysis_performed_from_sample(sample)
+            for a in analysis:
+                analysis_descriptions.add((self.pi.analysis_abbreviation.get(a), self.pi.analysis_description.get(a)))
             row = [
                 self.pi.get_user_sample_id(sample),
                 internal_sample_name,
@@ -204,7 +204,7 @@ class ProjectReportLatex:
                 ', '.join(date_reviewed),
                 self.pi.abbreviate_species(species),
                 self.pi.library_abbreviation.get(library),
-                self.pi.analysis_abbreviation.get(analysis)
+                ', '.join(self.pi.analysis_abbreviation.get(a) for a in analysis)
             ]
 
             rows.append(row)
@@ -369,7 +369,8 @@ class ProjectReportLatex:
                 'variant_calling': ('Bioinformatics Analysis', 'bioinformatics_analysis'),
                 'variant_calling_gatk4': ('Bioinformatics Analysis with GATK4', 'bioinformatics_analysis_gatk4'),
                 'human_variant_calling_gatk4': ('Bioinformatics Analysis with GATK4 for Human samples', 'bioinformatics_analysis_gatk4'),
-                'qc_gatk4': ('Bioinformatics QC with GATK4', 'bioinformatics_qc')
+                'qc_gatk4': ('Bioinformatics QC with GATK4', 'bioinformatics_qc'),
+                'rapid': ('Rapid Bioinformatics Analysis', 'bioinformatics_analysis_rapid')
             }
 
             for bioinfo_analysis_type in self.pi.get_project_analysis_types():
@@ -377,12 +378,6 @@ class ProjectReportLatex:
                 subsection, paragraph = bioinf_reports[bioinfo_analysis_type]
                 with self.doc.create(Subsection(subsection, numbering=True)):
                     add_text(self.doc, report_text[paragraph].format(**bioinfo_version))
-
-            if self.pi.has_rapid_samples():
-                with self.doc.create(Subsection('Rapid Bioinformatics Analysis', numbering=True)):
-                    add_text(self.doc, report_text['bioinformatics_analysis_rapid'])
-                    self.doc.append(' More information on Dragen can be found on the ')
-                    self.doc.append(HRef(url=NoEscape(report_text['dragen_link']), text='Illumina website.'))
 
             self.doc.append(NewPage())
 

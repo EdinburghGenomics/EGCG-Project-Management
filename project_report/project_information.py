@@ -35,7 +35,8 @@ class ProjectReportInformation(AppLogger):
         'qc': 'basic qc',
         'variant_calling_gatk4': 'variant gatk4',
         'human_variant_calling_gatk4': 'variant gatk4',
-        'qc_gatk4': 'basic qc'
+        'qc_gatk4': 'basic qc',
+        'rapid': 'rapid'
     }
     analysis_description = {
         'bcbio': 'GATK3 based variant call for human',
@@ -43,7 +44,8 @@ class ProjectReportInformation(AppLogger):
         'qc': 'Alignment based quality control',
         'variant_calling_gatk4': 'GATK4 based variant call',
         'human_variant_calling_gatk4': 'GATK4 based variant call',
-        'qc_gatk4': 'Alignment based quality control'
+        'qc_gatk4': 'Alignment based quality control',
+        'rapid': 'Dragen based variant calling analysis'
     }
 
     species_abbreviation = {}
@@ -183,8 +185,11 @@ class ProjectReportInformation(AppLogger):
     def get_fluidx_barcode(self, sample_name):
         return query_dict(self.sample_info(sample_name), 'info.2D Barcode')
 
-    def get_analysis_type_from_sample(self, sample_name):
-        return query_dict(self.sample_info(sample_name), 'data.aggregated.most_recent_proc.pipeline_used.name')
+    def get_analysis_performed_from_sample(self, sample_name):
+        analysis = [query_dict(self.sample_info(sample_name), 'data.aggregated.most_recent_proc.pipeline_used.name')]
+        if query_dict(self.sample_info(sample_name), 'info.Rapid Analysis') == 'Yes':
+            analysis.append('rapid')
+        return sorted(analysis)
 
     def get_library_workflow_from_sample(self, sample_name):
         if query_dict(self.sample_info(sample_name), 'info.User Prepared Library') == 'Yes':
@@ -225,7 +230,14 @@ class ProjectReportInformation(AppLogger):
         return [sample.get('sample_id') for sample in self.sample_data_for_project]
 
     def _aggregate_per_project(self, func):
-        return sorted(set(func(s) for s in self.sample_names_delivered))
+        final_set = set()
+        for s in self.sample_names_delivered:
+            value_to_aggregate = func(s)
+            if isinstance(value_to_aggregate, list):
+                final_set.update(value_to_aggregate)
+            else:
+                final_set.add(value_to_aggregate)
+        return sorted(final_set)
 
     def get_project_species(self):
         return self._aggregate_per_project(self.get_species_from_sample)
@@ -234,7 +246,7 @@ class ProjectReportInformation(AppLogger):
         return self._aggregate_per_project(self.get_library_workflow_from_sample)
 
     def get_project_analysis_types(self):
-        return self._aggregate_per_project(self.get_analysis_type_from_sample)
+        return self._aggregate_per_project(self.get_analysis_performed_from_sample)
 
     def has_rapid_samples(self):
         return any(
@@ -318,7 +330,7 @@ class ProjectReportInformation(AppLogger):
         """
         params_for_analysis_tmp = defaultdict(set)
         for sample in self.sample_names_delivered:
-            if self.get_analysis_type_from_sample(sample) == analysis_type:
+            if analysis_type in self.get_analysis_performed_from_sample(sample):
                 for k, v in self.sample_info(sample).get('versions').items():
                     params_for_analysis_tmp[k].add(v)
                 params_for_analysis_tmp['species_submitted'].add(self.get_species_from_sample(sample))
@@ -331,11 +343,14 @@ class ProjectReportInformation(AppLogger):
 
     def get_format_delivered(self):
         formats_delivered = set()
+        at_with_bam_and_vcf = ['bcbio', 'variant_calling', 'variant_calling_gatk4', 'human_variant_calling_gatk4',
+                               'rapid']
         for analysis_type in self.get_project_analysis_types():
-            if analysis_type and analysis_type in ['bcbio', 'variant_calling']:
+            if analysis_type and analysis_type in at_with_bam_and_vcf:
                 formats_delivered.update(['fastq', 'bam', 'vcf'])
             else:
                 formats_delivered.add('fastq')
+
         return formats_delivered
 
     def abbreviate_species(self, species, nchar=1):
