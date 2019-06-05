@@ -130,9 +130,8 @@ bioinformatics_analysis_rapid: >-
   Raw sequencer data is converted directly to BAM and VCF outputs using the whole-genome pipeline in Dragen 3.0.2,
   which consists of demultiplexing, mapping/aligning, position sorting, duplicate marking and variant calling including
   dbSNP. Dragen is optimised to keep as much processing as possible in memory, so no fastq files are produced. The
-  reference genome used for rapid analysis is always hg38.
-
-dragen_link: https://www.illumina.com/products/by-type/informatics-products/dragen-bio-it-platform.html
+  reference genome used for rapid analysis is always hg38. More information on Dragen can be found on
+  latex::\href{{https://www.illumina.com/products/by-type/informatics-products/dragen-bio-it-platform.html}}{{Illumina's website.}}::
 
 yield_and_coverage: >-
   Yield is calculated as the number of bases provided in the fastq files and is expressed in
