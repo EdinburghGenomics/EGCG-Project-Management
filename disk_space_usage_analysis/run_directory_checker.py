@@ -67,7 +67,7 @@ class RunDirectoryChecker(AppLogger):
                     command_output = os.popen(command).read()
                     self.run_counter.update({run_directory_name: int(command_output.split()[0])})
 
-    # Exports the run directory analysis to a CSV file
+    # Calculated and exports the run directory analysis to a CSV file
     def export_run_directory_analysis_csv(self):
         with open(self.disk_space_usage_analysis.dir_cfg['runs_dir_space_analysis']['output_dir'] + 'run_dir_analysis.csv',
                   mode='w') as file:
@@ -93,7 +93,7 @@ class RunDirectoryChecker(AppLogger):
             for key, value in self.sample_splits.most_common():
                 analysis_txt_file.write(key + ': ' + str(value))
 
-    # Exports the residual run directory analysis to a CSV file
+    # Calculates and exports the residual run directory analysis to a CSV file
     def export_residual_run_directory_analysis(self):
         with open(self.disk_space_usage_analysis.dir_cfg['runs_dir_space_analysis']['output_dir'] + 'residual_run_directory_analysis.csv',
                   mode='w') as file:
