@@ -100,6 +100,18 @@ def get_run_success(run_id):
     return run_info
 
 
+def check_pending_run_element(sample_id, sdata):
+    # Checking for other run elements which are still pending
+    for sample_run_element in query_dict(sdata, 'run_elements') or []:
+        # Splitting the run element, and generating the run_id by concatenating the first four components
+        # with an underscore
+        sample_run_id = '_'.join(sample_run_element.split('_')[:4])
+        if query_dict(run_data(sample_run_id), 'aggregated.most_recent_proc.status') == 'processing':
+            logger.info('Another pending run element already exists for sample ' + sample_id)
+            return True
+    return False
+
+
 def report_runs(run_ids, noemail=False):
     run_ids.sort()
 
@@ -140,14 +152,9 @@ def report_runs(run_ids, noemail=False):
                         round(clean_yield/1000000000, 1), int(sdata['required_yield']/1000000000),
                         round(mean_cov, 1), sdata['required_coverage']
                     )
-                # Checking for other run elements which are still pending
-                for sample_run_element in query_dict(sdata, 'run_elements') or []:
-                    # Splitting the run element, and generating the run_id by concatenating the first four components
-                    # with an underscore
-                    sample_run_id = '_'.join(sample_run_element.split('_')[:4])
-                    if query_dict(run_data(sample_run_id), 'aggregated.most_recent_proc.status') == 'processing':
-                        reason += '. Another pending run element already exists'
-                        break
+                # if a pending run element exists, continue to the next sample without logging current one
+                if check_pending_run_element(sample_id, sdata):
+                    continue
 
                 sample_repeats.append({'id': sample_id, 'reason': reason})
 
