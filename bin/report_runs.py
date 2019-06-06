@@ -144,7 +144,6 @@ def report_runs(run_ids, noemail=False):
                 for sample_run_element in query_dict(sdata, 'run_elements') or []:
                     # Splitting the run element, and generating the run_id by concatenating the first four components
                     # with an underscore
-                    sample_run_element_sections = sample_run_element.split('_')
                     sample_run_id = '_'.join(sample_run_element.split('_')[:4])
                     if query_dict(run_data(sample_run_id), 'aggregated.most_recent_proc.status') == 'processing':
                         reason += '. Another pending run element already exists'
