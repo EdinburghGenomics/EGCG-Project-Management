@@ -106,11 +106,15 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
     report_runs.cache['run_status_data'] = {
         'run_id_id_lane': {
             'run_status': 'RunCompleted',
-            'sample_ids': ['passing', 'no_data', 'poor_yield', 'poor_coverage', 'poor_yield_and_coverage']
+            'sample_ids': ['passing', 'no_data', 'excluded_no_data', 'poor_yield', 'poor_coverage', 'poor_yield_and_coverage']
         },
         'errored_id_id_lane': {
             'run_status': 'RunErrored',
-            'sample_ids': ['passing', 'no_data', 'poor_yield', 'poor_coverage', 'poor_yield_and_coverage']
+            'sample_ids': ['passing', 'no_data', 'excluded_no_data', 'poor_yield', 'poor_coverage', 'poor_yield_and_coverage']
+        },
+        'excluded_id_id_lane': {
+            'run_status': 'RunErrored',
+            'sample_ids': ['excluded_no_data']
         }
     }
 
@@ -118,11 +122,18 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
         'run_id_id_lane': {
             'aggregated': {
                 'most_recent_proc': {
-                    'status': 'processing'
+                    'status': 'finished'
                 }
             }
         },
         'errored_id_id_lane': {
+            'aggregated': {
+                'most_recent_proc': {
+                    'status': 'finished'
+                }
+            }
+        },
+        'excluded_id_id_lane': {
             'aggregated': {
                 'most_recent_proc': {
                     'status': 'processing'
@@ -134,6 +145,7 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
     report_runs.cache['sample_data'] = {
         'passing': {'aggregated': {'clean_pc_q30': 75, 'clean_yield_in_gb': 2, 'from_run_elements': {'mean_coverage': 4}}},
         'no_data': {'aggregated': {}},
+        'excluded_no_data': {'aggregated': {}},
         'poor_yield': {'aggregated': {'clean_pc_q30': 75, 'clean_yield_in_gb': 1, 'from_run_elements': {'mean_coverage': 4}}},
         'poor_coverage': {'aggregated': {'clean_pc_q30': 75, 'clean_yield_in_gb': 2, 'from_run_elements': {'mean_coverage': 3}}},
         'poor_yield_and_coverage': {'aggregated': {'clean_pc_q30': 75, 'clean_yield_in_gb': 1, 'from_run_elements': {'mean_coverage': 3}}},
@@ -144,19 +156,23 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
         s['required_coverage'] = 4
         s['run_elements'] = ['run_id_id_lane_barcode', 'errored_id_id_lane_barcode']
 
-    report_runs.report_runs(['run_id_id_lane', 'errored_id_id_lane'])
+    # Adding excluded_id_id_lane run element only to the excluded_no_data sample
+    report_runs.cache['sample_data']['excluded_no_data']['run_elements'].append('excluded_id_id_lane')
+
+    report_runs.report_runs(['run_id_id_lane', 'errored_id_id_lane', 'excluded_id_id_lane'])
     mocked_email.assert_any_call(
         subject='Run report today',
         email_template=report_runs.email_template_report,
         runs=[
             {'name': 'errored_id_id_lane', 'failed_lanes': 8, 'details': ['RunErrored']},
+            {'name': 'excluded_id_id_lane', 'failed_lanes': 8, 'details': ['RunErrored']},
             {'name': 'run_id_id_lane', 'failed_lanes': 0, 'details': []},
         ]
     )
 
     exp_failing_samples = [
-        {'id': 'no_data', 'reason': 'No data. Another pending run element already exists'},
-        {'id': 'poor_yield_and_coverage', 'reason': 'Not enough data: yield (1.0 < 2) and coverage (3 < 4). Another pending run element already exists'}
+        {'id': 'no_data', 'reason': 'No data'},
+        {'id': 'poor_yield_and_coverage', 'reason': 'Not enough data: yield (1.0 < 2) and coverage (3 < 4)'}
     ]
 
     mocked_email.assert_any_call(
@@ -165,6 +181,7 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
         runs=[
 
             {'name': 'errored_id_id_lane', 'repeat_count': 2, 'repeats': exp_failing_samples},
+            {'name': 'excluded_id_id_lane', 'repeat_count': 0, 'repeats': []},
             {'name': 'run_id_id_lane', 'repeat_count': 2, 'repeats': exp_failing_samples}
         ]
     )
