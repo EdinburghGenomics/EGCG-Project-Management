@@ -37,6 +37,22 @@ def test_run_element_data(mocked_get_docs):
 
 
 @patch('egcg_core.rest_communication.get_document')
+def test_run_data(mocked_get_docs):
+    report_runs.cache['run_data'] = {}
+
+    mocked_get_docs.return_value = 'some data'
+    obs = report_runs.run_data('a_run')
+    assert obs == 'some data'
+    assert report_runs.cache['run_data'] == {'a_run': 'some data'}
+    mocked_get_docs.assert_called_with('runs', where={'run_id': 'a_run'})
+    assert mocked_get_docs.call_count == 1
+
+    obs = report_runs.run_data('a_run')
+    assert obs == 'some data'
+    assert mocked_get_docs.call_count == 1  # not called again
+
+
+@patch('egcg_core.rest_communication.get_document')
 def test_sample_data(mocked_get_docs):
     report_runs.cache['sample_data'] = {}
 
@@ -83,24 +99,53 @@ def test_get_run_success(mocked_logger):
 
 
 @patch('bin.report_runs.send_html_email')
-@patch('bin.report_runs.get_run_success', return_value={'name': 'successful_run', 'failed_lanes': 0, 'details': []})
+@patch('bin.report_runs.get_run_success', return_value={'name': 'run_id_id_lane', 'failed_lanes': 0, 'details': []})
 @patch('bin.report_runs.today', return_value='today')
 def test_report_runs(mocked_today, mocked_run_success, mocked_email):
     report_runs.cfg.content = {'run_report': {'email_notification': {}}}
     report_runs.cache['run_status_data'] = {
-        'a_run': {
+        'run_id_id_lane': {
             'run_status': 'RunCompleted',
-            'sample_ids': ['passing', 'no_data', 'poor_yield', 'poor_coverage', 'poor_yield_and_coverage']
+            'sample_ids': ['passing', 'no_data', 'excluded_no_data', 'poor_yield', 'poor_coverage', 'poor_yield_and_coverage']
         },
-        'errored_run': {
+        'errored_id_id_lane': {
             'run_status': 'RunErrored',
-            'sample_ids': ['passing', 'no_data', 'poor_yield', 'poor_coverage', 'poor_yield_and_coverage']
+            'sample_ids': ['passing', 'no_data', 'excluded_no_data', 'poor_yield', 'poor_coverage', 'poor_yield_and_coverage']
+        },
+        'excluded_id_id_lane': {
+            'run_status': 'RunErrored',
+            'sample_ids': ['excluded_no_data']
+        }
+    }
+
+    report_runs.cache['run_data'] = {
+        'run_id_id_lane': {
+            'aggregated': {
+                'most_recent_proc': {
+                    'status': 'finished'
+                }
+            }
+        },
+        'errored_id_id_lane': {
+            'aggregated': {
+                'most_recent_proc': {
+                    'status': 'finished'
+                }
+            }
+        },
+        'excluded_id_id_lane': {
+            'aggregated': {
+                'most_recent_proc': {
+                    'status': 'processing'
+                }
+            }
         }
     }
 
     report_runs.cache['sample_data'] = {
         'passing': {'aggregated': {'clean_pc_q30': 75, 'clean_yield_in_gb': 2, 'from_run_elements': {'mean_coverage': 4}}},
         'no_data': {'aggregated': {}},
+        'excluded_no_data': {'aggregated': {}},
         'poor_yield': {'aggregated': {'clean_pc_q30': 75, 'clean_yield_in_gb': 1, 'from_run_elements': {'mean_coverage': 4}}},
         'poor_coverage': {'aggregated': {'clean_pc_q30': 75, 'clean_yield_in_gb': 2, 'from_run_elements': {'mean_coverage': 3}}},
         'poor_yield_and_coverage': {'aggregated': {'clean_pc_q30': 75, 'clean_yield_in_gb': 1, 'from_run_elements': {'mean_coverage': 3}}},
@@ -109,14 +154,19 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
     for s in report_runs.cache['sample_data'].values():
         s['required_yield'] = 2000000000
         s['required_coverage'] = 4
+        s['run_elements'] = ['run_id_id_lane_barcode', 'errored_id_id_lane_barcode']
 
-    report_runs.report_runs(['a_run', 'errored_run'])
+    # Adding excluded_id_id_lane run element only to the excluded_no_data sample
+    report_runs.cache['sample_data']['excluded_no_data']['run_elements'].append('excluded_id_id_lane')
+
+    report_runs.report_runs(['run_id_id_lane', 'errored_id_id_lane', 'excluded_id_id_lane'])
     mocked_email.assert_any_call(
         subject='Run report today',
         email_template=report_runs.email_template_report,
         runs=[
-            {'name': 'successful_run', 'failed_lanes': 0, 'details': []},
-            {'name': 'errored_run', 'failed_lanes': 8, 'details': ['RunErrored']}
+            {'name': 'errored_id_id_lane', 'failed_lanes': 8, 'details': ['RunErrored']},
+            {'name': 'excluded_id_id_lane', 'failed_lanes': 8, 'details': ['RunErrored']},
+            {'name': 'run_id_id_lane', 'failed_lanes': 0, 'details': []},
         ]
     )
 
@@ -129,7 +179,9 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
         subject='Sequencing repeats today',
         email_template=report_runs.email_template_repeats,
         runs=[
-            {'name': 'a_run', 'repeat_count': 2, 'repeats': exp_failing_samples},
-            {'name': 'errored_run', 'repeat_count': 2, 'repeats': exp_failing_samples}
+
+            {'name': 'errored_id_id_lane', 'repeat_count': 2, 'repeats': exp_failing_samples},
+            {'name': 'excluded_id_id_lane', 'repeat_count': 0, 'repeats': []},
+            {'name': 'run_id_id_lane', 'repeat_count': 2, 'repeats': exp_failing_samples}
         ]
     )
