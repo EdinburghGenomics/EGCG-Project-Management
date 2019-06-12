@@ -8,13 +8,13 @@
 # When string formatting is applied you'll have to escape curly braces.
 
 eg_post_address: >-
-  Edinburgh Genomics Clinical, The Roslin Institute Easter Bush, Midlothian EH25 9RG Scotland, UK
+  Edinburgh Genomics Clinical, The Roslin Institute, Easter Bush, Midlothian, EH25 9RG, Scotland, UK
 
 eg_web_link: https://genomics.ed.ac.uk
 
 UoE_web_link: https://www.ed.ac.uk
 
-project_report_version: EGC-BTP-1 rev. 3
+project_report_version: EGC-BTP-1 rev. 4
 
 releases_signatures_desc: >-
   Details of samples released are available in
@@ -22,13 +22,13 @@ releases_signatures_desc: >-
 method_header: >-
   Edinburgh Genomics Clinical utilises Illumina SeqLab, which integrates Illumina TruSeq
   library preparation, Illumina cBot2 cluster generation, Illumina HiSeqX sequencing, Hamilton
-  Microlab STAR integrative automation, and Genologics Clarity LIMS X Edition.
+  Microlab STAR integrative automation, and Genologics Clarity LIMS X (4.2) Edition.
 
 sample_qc: >-
   Genomic DNA (gDNA) samples are evaluated for quantity using Quant-iT Picogreen reagent, Lambda Standard 
   DNA and a Molecular Devices, Spectramax XPS Gemini plate reader. The quality of the gDNA samples are evaluated
   using an AATI Fragment Analyzer and the Standard Sensitivity Genomic DNA Analysis Kit. Genomic DNA samples 
-  found to have a total amount of >-1000ng and a quality score >-5 pass sample QC. Based on the quantification results, 
+  found to have a total amount of >=1000ng and a quality score >=5 pass sample QC. Based on the quantification results,
   gDNA samples are pre-normalised to fall within the
   5-40latex::\si{\nano\gram\per\micro\litre}:: concentration range required for Illumina SeqLab
   TruSeq Nano library preparation method using the Hamilton MicroLab STAR.
@@ -39,7 +39,7 @@ library_preparation_nano: >-
   Clarity LIMS X (4.2) Edition. The 200latex::\si{\nano\gram}::
   gDNA sample input is normalised to the concentration and volume required for
   the Illumina TruSeq Nano library preparation kit, then sheared to a 450bp mean insert size using a Covaris LE220 
-  focused-ultrasonicator. The inserts are blunt ended, A-tailed, size selected, TruSeq adapters are ligated 
+  focused-ultrasonicator. The inserts are blunt ended, A-tailed, size selected, and the TruSeq adapters are ligated
   onto the ends of each fragment before being PCR amplified.
 
 library_qc_nano: >-
@@ -52,20 +52,34 @@ library_qc_nano: >-
 library_preparation_pcr_free: >-
   Next Generation sequencing libraries are prepared using Illumina SeqLab specific 
   TruSeq PCR-Free High Throughput library preparation kits in conjunction with the Hamilton MicroLab STAR and 
-  Clarity LIMS X Edition. The gDNA samples are normalised to the concentration and volume required for the Illumina 
+  Clarity LIMS X (4.2) Edition. The gDNA samples are normalised to the concentration and volume required for the Illumina
   TruSeq PCR-Free library preparation kits then sheared to a 450bp mean insert size using a Covaris LE220 
-  focused-ultrasonicator. The inserts are blunt ended, A-tailed, size selected and the TruSeq adapters are ligated onto 
+  focused-ultrasonicator. The inserts are blunt ended, A-tailed, size selected, and the TruSeq adapters are ligated onto
   the ends.
 
 library_qc_pcr_free: >-
   The insert size for each library is evaluated using the Caliper GX Touch with a HT DNA 
-  1k/12K/HI SENS LabChip  and HT DNA HI SENS Reagent Kit to ensure that the mean fragment sizes fall between 300bp and 
+  1k/12K/HI SENS LabChip and HT DNA HI SENS Reagent Kit to ensure that the mean fragment sizes fall between 300bp and
   800bp. The concentration of each library is calculated using a Roche LightCycler 480 and a Kapa Illumina Library 
   Quantification kit and Standards to ensure that the concentration of each library is between
   1.1latex::\si{\nano\mole}:: and 8latex::\si{\nano\mole}::.
 
+library_preparation_kapa_pcr_free: >-
+  Next Generation sequencing libraries are prepared using Roche KAPA Hyper Prep PCR-free library preparation kits in
+  conjunction with the Hamilton MicroLab STAR and Clarity LIMS X (4.2) Edition. The gDNA samples are normalised to the
+  concentration and volume required for Roche KAPA Hyper Prep PCR-free library preparation kits then sheared to a 450bp
+  mean insert size using a Covaris LE220 focused-ultrasonicator. The inserts are blunt ended, A-tailed, and TruSeq IDT
+  Unique Dual Index adapters are ligated to the fragments and then the libraries are size selected.
+
+library_qc_kapa_pcr_free: >-
+  The insert size for each library is evaluated after shearing using the Caliper GX Touch with a HT DNA 1k/12K/HI SENS
+  LabChip and HT DNA HI SENS Reagent Kit to ensure that the mean fragment sizes fall between 300bp and 800bp. The
+  concentration of each library is calculated using a Roche LightCycler 480 and a Kapa Illumina Library Quantification
+  kit and Standards to ensure that the concentration of each library is between 1.1latex::\si{\nano\mole}:: and
+  40latex::\si{\nano\mole}::.
+
 user_prepared_libraries: >-
-  The libraries were prepared by the user and have been quality controled by Edinburgh Genomics.
+  The libraries were prepared by the user and have been quality controlled by Edinburgh Genomics.
 
 sequencing: >-
   The libraries are normalised to 1.5latex::\si{\nano\mole}:: and are denatured for clustering and sequencing at
@@ -79,29 +93,45 @@ bioinformatics_qc: >-
   assigning reads to barcodes. Adapters (Read1: latex::\mbox{{{adapter1}}}::, Read2: latex::\mbox{{{adapter2}}}::)
   are trimmed during the demultiplexing process. Bwa mem ({bwa_version}) is used to align the raw reads to the
   {species_submitted} genome(s) ({genome_version}), the duplicated fragments are marked using {biobambam_or_samblaster}
-  ({biobambam_or_samblaster_version}) to mark the duplicated fragments, and samtools ({samtools_version}) is used to 
-  assess coverage. The BAM file generated by the alignement is discarded and only the fastq files are 
-  kept.
+  ({biobambam_or_samblaster_version}), and samtools ({samtools_version}) is used to assess coverage. The BAM file
+  generated by the alignment is discarded and only the fastq files are kept.
 
 bioinformatics_analysis_bcbio: >-
   Demultiplexing is performed using bcl2fastq ({bcl2fastq_version}), allowing 1 
   mismatch when assigning reads to barcodes. Adapters (Read1: latex::\mbox{{{adapter1}}}::,
   Read2: latex::\mbox{{{adapter2}}}::) are trimmed during the demultiplexing process. BCBio-Nextgen ({bcbio_version})
   is used to perform alignment, BAM file preparation and variant detection. BCBio uses bwa mem ({bwa_version}) to
-  align the raw reads to the  {species_submitted} genome(s) ({genome_version}), then {biobambam_or_samblaster}
+  align the raw reads to the {species_submitted} genome(s) ({genome_version}), then {biobambam_or_samblaster}
   ({biobambam_or_samblaster_version}) to mark the duplicated fragments, and the Genome Analysis ToolKit ({gatk_version})
-  for the indel realignment and base recalibration. The genotype likelihoods are calculated using Genome Analysis
-  Toolkit ({gatk_version}) HaplotypeCaller creating a final gvcf file.
+  for indel realignment and base recalibration. The genotype likelihoods are calculated using Genome Analysis
+  Toolkit ({gatk_version}) HaplotypeCaller, creating a final GVCF file.
 
 bioinformatics_analysis: >-
   Demultiplexing is performed using bcl2fastq ({bcl2fastq_version}), allowing 1 mismatch 
   when assigning reads to barcodes. Adapters (Read1: latex::\mbox{{{adapter1}}}::, Read2:
   latex::\mbox{{{adapter2}}}::) are trimmed during the demultiplexing process. Bwa mem ({bwa_version}) is used to align
-  the raw reads to the  {species_submitted} genome(s) ({genome_version}), the duplicated fragments are marked using
+  the raw reads to the {species_submitted} genome(s) ({genome_version}), the duplicated fragments are marked using
   {biobambam_or_samblaster} ({biobambam_or_samblaster_version}) and indel realignment and base recalibration are
-  performed using the Genome Analysis ToolKit ({gatk_version}). This generate the final BAM file. The genotype
-  likelihoods are calculated using Genome Analysis Toolkit ({gatk_version}) HaplotypeCaller creating a gvcf file per
+  performed using the Genome Analysis ToolKit ({gatk_version}). This generates the final BAM file. The genotype
+  likelihoods are calculated using Genome Analysis Toolkit ({gatk_version}) HaplotypeCaller, creating a GVCF file per
   sample.
+
+bioinformatics_analysis_gatk4: >-
+  Demultiplexing is performed using bcl2fastq ({bcl2fastq_version}), allowing 1 mismatch when assigning reads to
+  barcodes. Adapters (Read1: latex::\mbox{{{adapter1}}}::, Read2: latex::\mbox{{{adapter2}}}::) are trimmed during the
+  demultiplexing process. Bwa mem ({bwa_version}) is used to align the raw reads to the {species_submitted} genome(s)
+  ({genome_version}), the duplicated fragments are marked using {biobambam_or_samblaster}
+  ({biobambam_or_samblaster_version}) and base recalibration is performed using the Genome Analysis ToolKit
+  ({gatk_version}). This generates the final BAM file. The genotype likelihoods are calculated using Genome Analysis
+  Toolkit ({gatk_version}) HaplotypeCaller creating a GVCF file per sample. A VCF file is created using Genome Analysis
+  Toolkit ({gatk_version}) GenotypeGVCFs and subsequently filtered using generic hard filters.
+
+bioinformatics_analysis_rapid: >-
+  Raw sequencer data is converted directly to BAM and VCF outputs using the whole-genome pipeline in Dragen 3.0.2,
+  which consists of demultiplexing, mapping/aligning, position sorting, duplicate marking and variant calling including
+  dbSNP. Dragen is optimised to keep as much processing as possible in memory, so no fastq files are produced. The
+  reference genome used for rapid analysis is always hg38. More information on Dragen can be found on
+  latex::\href{{https://www.illumina.com/products/by-type/informatics-products/dragen-bio-it-platform.html}}{{Illumina's website.}}::
 
 yield_and_coverage: >-
   Yield is calculated as the number of bases provided in the fastq files and is expressed in
@@ -127,7 +157,7 @@ bam_format: >-
 bam_link: https://samtools.github.io/hts-specs/SAMv1.pdf
 
 vcf_format: >-
-  Files ending in '.vcf.gz' are gzipped VCF files, and contain variants detected between the sample and 
+  Files ending in '.vcf.gz' are gzipped VCF files, and contain variants detected between the sample and
   the reference genome. There is also a 'g.vcf.gz' file, which contains genotype likelihoods across the genome regardless 
   of the presence of a variant. Files ending in 'vcf.gz.tbi' are Tabix indexes allowing fast random access to any part of 
   their corresponding VCF.
@@ -142,7 +172,7 @@ formal_statement: >-
   All the associated test instrumentation is maintained, calibrated and qualified as appropriate.
 
 privacy_notice: >-
-  Edinburgh Genomics is committed to safeguarding and preserving the privacy of all data you provided.
+  Edinburgh Genomics is committed to safeguarding and preserving the privacy of all data you have provided.
   Our privacy notice can be viewed at:
 
 privacy_notice_link: >-

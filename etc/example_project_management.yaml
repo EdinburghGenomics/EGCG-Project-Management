@@ -30,7 +30,7 @@ sample:
     input_dir: tests/assets/project_report/source
 
 delivery:
-    signature_name: Javier Santoyo
+    signature_name: J. Santoyo-Lopez
     signature_role: Facility Manager
     source: tests/assets/project_report/source
     dest: tests/assets/project_report/dest

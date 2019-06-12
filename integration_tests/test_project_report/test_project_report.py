@@ -256,7 +256,7 @@ class TestProjectReport(IntegrationTest):
         empty_line = re.compile(r' +\n')
         with open(html_report, 'r') as f:
             for line in f:
-                # ignore lines that declare and image as they contain file paths
+                # ignore lines that declare an image as they contain file paths
                 if not empty_line.match(line) and '\includegraphics' not in line:
                     m.update(line.encode())
 
@@ -265,10 +265,10 @@ class TestProjectReport(IntegrationTest):
     def test_reports(self):
         test_success = True
         exp_md5s = {
-            'htn999': '45b170324e279fd3fcf6533d57e19497',
-            'nhtn999': 'a8234839243b9a37518becaf0559a700',
-            'hpf999': '02d1988f47a209bf9900013a7a855ed5',
-            'nhpf999': 'ab68d267be8185ae0d89817a7259e440'
+            'htn999': 'a1a1f825c5102e06482a1a18a7c3c9f4',
+            'nhtn999': '3591d79fbd46b1df04305392b86f09f0',
+            'hpf999': 'c5756d41254ccae779befce6f93dced8',
+            'nhpf999': 'ea623683dea48e20ddd815780f05c7da'
         }
         for k, v in exp_md5s.items():
             client.main(['-p', k, '-o', 'tex', '-w', work_dir])
