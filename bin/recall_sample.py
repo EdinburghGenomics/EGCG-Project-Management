@@ -1,8 +1,11 @@
+import sys
 import argparse
 from shutil import disk_usage
 from egcg_core import rest_communication, archive_management as am
 from egcg_core.app_logging import logging_default
 from egcg_core.exceptions import EGCGError
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import cfg, load_config
 from data_deletion import ProcessedSample, get_file_list_size
 

@@ -1,7 +1,7 @@
 import os
 from unittest.mock import Mock, patch, PropertyMock
 from bin import reference_data
-from bin.reference_data import Downloader
+from bin.reference_data import Downloader, upload_species_without_genome
 from tests import TestProjectManagement
 
 
@@ -356,3 +356,39 @@ class TestManualDownload(TestProjectManagement):
             m_copyfile.assert_any_call('fasta_file.fa.gz', 'path/to/reference_data/A_species/a_genome/fasta_file.fa.gz')
             m_check_call.assert_called_once_with(
                 ['gzip', '-d', 'path/to/reference_data/A_species/a_genome/fasta_file.fa.gz'])
+
+
+class TestSpeciesNoGenome(TestProjectManagement):
+
+    def test_upload_species_without_genome(self):
+        list_answers = ['A. Genome', '123.456789']
+        list_responses = [
+            None,  # The response to get the species
+            {'assembly_name': 'A. Genome', 'genome_size': '1000000000'}
+        ]
+        with patch('builtins.input', side_effect=list_answers), \
+             patch('bin.reference_data.ncbi.get_species_name', return_value='A species'), \
+             patch('egcg_core.rest_communication.get_document', side_effect=list_responses), \
+             patch('egcg_core.ncbi.fetch_from_cache', return_value=('', '9090', 'A species', 'A species')), \
+             patch('egcg_core.rest_communication.post_entry') as mock_post:
+            upload_species_without_genome('new_species')
+            mock_post.assert_called_once_with(
+                'species',
+                {'name': 'A species', 'default_version': 'A. Genome',
+                 'taxid': '9090', 'approximate_genome_size': 123.456789}
+            )
+
+        list_answers = ['A. Genome', '']  # Use default for the question about the genome size
+        with patch('builtins.input', side_effect=list_answers), \
+             patch('bin.reference_data.ncbi.get_species_name', return_value='A species'), \
+             patch('egcg_core.rest_communication.get_document', side_effect=list_responses), \
+             patch('egcg_core.ncbi.fetch_from_cache', return_value=('', '9090', 'A species', 'A species')), \
+             patch('egcg_core.rest_communication.post_entry') as mock_post:
+            upload_species_without_genome('new_species')
+            mock_post.assert_called_once_with(
+                'species',
+                {'name': 'A species', 'default_version': 'A. Genome',
+                 'taxid': '9090', 'approximate_genome_size': 1000.0}
+            )
+
+
