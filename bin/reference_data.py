@@ -490,7 +490,7 @@ def upload_species_without_genome(species_name):
     )
     genome_data = rest_communication.get_document('genomes', where={'assembly_name': genome_version})
     if not genome_data:
-        logger.error('Genome %s does exist in the API. Add it separately with its own species', genome_version)
+        logger.error('Genome %s does not exist in the API. Add it separately with its own species', genome_version)
         return 1
     genome_size = float(int(genome_data.get('genome_size')) / 1000000)
     genome_size = input(
