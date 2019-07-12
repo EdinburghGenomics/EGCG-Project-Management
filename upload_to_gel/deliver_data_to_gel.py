@@ -257,6 +257,7 @@ class GelDataDelivery(AppLogger):
         emit = self.error
         upload_state, md5_state, md5_confirm_date, qc_state, qc_confirm_date = info
         if upload_state == SUCCESS_KW and not all((md5_confirm_date, qc_confirm_date)):
+            emit = self.info
             sample = send_action_to_rest_api(action='get', delivery_id=self.delivery_id).json()
             if sample['state'] == 'delivered':
                 msg = 'Not yet checked'
