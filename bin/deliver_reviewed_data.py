@@ -19,9 +19,8 @@ from egcg_core.notifications.email import send_html_email
 from egcg_core.util import find_files, find_fastqs, query_dict
 from pyclarity_lims.entities import Process
 
-from project_report.project_report_latex import ProjectReportLatex
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from project_report.project_report_latex import ProjectReportLatex
 from config import load_config
 
 hs_files = [

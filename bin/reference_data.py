@@ -469,6 +469,51 @@ class ManualDownload(Downloader):
             self.reference_variation = vcf
 
 
+def upload_species_without_genome(species_name):
+    """
+    This function only adds a new species without the need for a new genome.
+    An existing genome will be associated with the new species.
+    """
+    logger = logging_default.get_logger('SpeciesWithoutGenome')
+
+    scientific_name = ncbi.get_species_name(species_name)
+    if not scientific_name:
+        raise EGCGError('Species %s could not be resolved in NCBI please check the spelling.', species_name)
+
+    species = rest_communication.get_document('species', where={'name': scientific_name})
+    if species:
+        logger.error('Species %s already exist in the API', species_name)
+        return 1
+
+    genome_version = input(
+        "Enter genome version to use as the default genome for %s " % scientific_name
+    )
+    genome_data = rest_communication.get_document('genomes', where={'assembly_name': genome_version})
+    if not genome_data:
+        logger.error('Genome %s does not exist in the API. Add it separately with its own species', genome_version)
+        return 1
+    genome_size = float(int(genome_data.get('genome_size')) / 1000000)
+    genome_size = input(
+        "Enter species genome size (in Mb) to use for yield calculation. (default: %.0f) " % genome_size
+    ) or genome_size
+
+    info = ncbi.fetch_from_cache(scientific_name)
+    if info:
+        q, taxid, scientific_name, common_name = info
+    else:
+        taxid, scientific_name, common_name = ncbi.fetch_from_eutils(scientific_name)
+
+    rest_communication.post_entry(
+        'species',
+        {
+            'name': scientific_name,
+            'default_version': genome_version,
+            'taxid': taxid,
+            'approximate_genome_size': float(genome_size)
+        }
+    )
+
+
 def main():
     a = argparse.ArgumentParser()
     a.add_argument(
@@ -478,6 +523,8 @@ def main():
     a.add_argument('--genome_version', default=None)
     a.add_argument('--no_upload', dest='upload', action='store_false', help='Turn off the metadata upload')
     a.add_argument('--manual', action='store_true', help='Run manual metadata upload only, even if present in Ensembl')
+    a.add_argument('--no_genome', action='store_true',
+                   help='Add a species without providing a genome. It will be linked to an existing genome.')
     a.add_argument('--debug', action='store_true', help='Show debug statement in the output')
     args = a.parse_args()
     load_config()
@@ -485,6 +532,8 @@ def main():
     logging_default.add_stdout_handler()
     if args.debug:
         logging_default.set_log_level(logging.DEBUG)
+    if args.no_genome:
+        upload_species_without_genome(args.species)
     if args.manual:
         d = ManualDownload(args.species, args.genome_version, args.upload)
         d.run()
