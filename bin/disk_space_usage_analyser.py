@@ -8,13 +8,14 @@ from egcg_core.config import cfg
 
 
 class DiskSpaceUsageAnalysis(AppLogger):
-    def __init__(self):
-        # This command is used throughout to retrieve the disk usage of each directory checked
-        self.space_command = "du -ck "
+    # This command is used throughout to retrieve the disk usage of each directory checked
+    space_command = "du -ck "
+    dir_cfg = ""
 
+    def __init__(self):
         # Loading the run and project directory values from the config file
-        self.dir_cfg = cfg.query('directory_space_analysis', ret_default={})
-        if set(self.dir_cfg) != {'runs_dir', 'projects_dir', 'output_dir'}:
+        DiskSpaceUsageAnalysis.dir_cfg = cfg.query('directory_space_analysis', ret_default={})
+        if set(DiskSpaceUsageAnalysis.dir_cfg) != {'runs_dir', 'projects_dir', 'output_dir'}:
             self.error('Directory config invalid or incomplete. Please ensure your config has an entry for '
                        'directory_space_analysis.')
             return
@@ -45,13 +46,11 @@ def main():
     log_cfg.set_log_level(logging.INFO)
     log_cfg.add_stdout_handler()
 
-    disk_space_usage_analysis = DiskSpaceUsageAnalysis()
-
     # Interpret parameter and select appropriate function
     if args.all:
         pass
     elif args.runs_directory:
-        run_directory_checker = RunDirectoryChecker(disk_space_usage_analysis)
+        run_directory_checker = RunDirectoryChecker()
         run_directory_checker.execute()
 
     elif args.residual_runs_directory:
