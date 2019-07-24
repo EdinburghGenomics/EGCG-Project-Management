@@ -35,15 +35,15 @@ class RunDirectoryChecker(AppLogger):
                     self.error('Index Error when splitting sample directory path.')
                     continue
 
-                run_directory_path = '/{lustre}/{env}/{proc}/{runs}/{directory}'.format(
-                    lustre=sample_directory_path_split[1], env=sample_directory_path_split[2],
-                    proc=sample_directory_path_split[3], runs=sample_directory_path_split[4],
-                    directory=sample_directory_path_split[5])
-                directory_path = '/{lustre}/{env}/{proc}/{runs}/{directory}/{project}/{sample}'.format(
-                    lustre=sample_directory_path_split[1], env=sample_directory_path_split[2],
-                    proc=sample_directory_path_split[3], runs=sample_directory_path_split[4],
-                    directory=sample_directory_path_split[5], project=sample_directory_path_split[6],
-                    sample=sample_directory_path_split[7])
+                # Generating named variables from directory path split
+                lustre = sample_directory_path_split[1]
+                env = sample_directory_path_split[2]
+                proc = sample_directory_path_split[3]
+                runs = sample_directory_path_split[4]
+                project = sample_directory_path_split[6]
+
+                run_directory_path = f'/{lustre}/{env}/{proc}/{runs}/{run_directory_name}'
+                directory_path = f'/{lustre}/{env}/{proc}/{runs}/{run_directory_name}/{project}/{sample_name}'
 
                 if directory_path not in self.directory_set:
                     # Not in directory set - adding it
@@ -67,7 +67,7 @@ class RunDirectoryChecker(AppLogger):
                     command_output = os.popen(command).read()
                     self.run_counter.update({run_directory_name: int(command_output.split()[0])})
 
-    # Calculated and exports the run directory analysis to a CSV file
+    # Calculates and exports the run directory analysis to a CSV file
     def export_run_directory_analysis_csv(self):
         with open(self.disk_space_usage_analysis.dir_cfg['runs_dir_space_analysis']['output_dir'] + 'run_dir_analysis.csv',
                   mode='w') as file:
