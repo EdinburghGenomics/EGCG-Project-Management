@@ -32,7 +32,7 @@ class DeliveredSample(AppLogger):
             if arts and len(arts) == 1:
                 self.sample_id = arts[0].samples[0].name
             elif len(arts) == 0:
-                samples = clarity.connection().get_samples(type='Analyte', udf={'2D Barcode': self.sample_id})
+                samples = clarity.connection().get_samples(udf={'2D Barcode': self.sample_id})
                 self.sample_id = samples[0].name
             else:
                 self.error('Found %s artifacts for FluidX sample %s', len(arts), self.sample_id)
