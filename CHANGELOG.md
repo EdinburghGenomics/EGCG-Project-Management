@@ -1,8 +1,8 @@
 Changelog for EGCG-Project-Management
 =====================================
 
-0.11.1 (unreleased)
------------------
+0.11.1 (2019-08-08)
+-------------------
 
 - Bugfix for data download confirmation
 - Support for Asana API changes
