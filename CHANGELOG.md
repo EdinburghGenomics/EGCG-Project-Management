@@ -1,6 +1,12 @@
 Changelog for EGCG-Project-Management
 =====================================
 
+0.12.0 (unreleased)
+-------------------
+
+- Nothing changed yet.
+
+
 0.11.1 (2019-08-08)
 -------------------
 
