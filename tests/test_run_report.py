@@ -2,6 +2,8 @@ from bin import report_runs
 from pytest import raises
 from unittest.mock import patch, call
 
+from bin.report_runs import remove_duplicate_base_on_flowcell_id
+
 
 @patch('egcg_core.rest_communication.get_documents')
 def test_run_status_data(mocked_get_docs):
@@ -99,41 +101,41 @@ def test_get_run_success(mocked_logger):
 
 
 @patch('bin.report_runs.send_html_email')
-@patch('bin.report_runs.get_run_success', return_value={'name': 'run_id_id_lane', 'failed_lanes': 0, 'details': []})
+@patch('bin.report_runs.get_run_success', return_value={'name': 'run_id_id_lane1', 'failed_lanes': 0, 'details': []})
 @patch('bin.report_runs.today', return_value='today')
 def test_report_runs(mocked_today, mocked_run_success, mocked_email):
     report_runs.cfg.content = {'run_report': {'email_notification': {}}}
     report_runs.cache['run_status_data'] = {
-        'run_id_id_lane': {
+        'run_id_id_lane1': {
             'run_status': 'RunCompleted',
             'sample_ids': ['passing', 'no_data', 'excluded_no_data', 'poor_yield', 'poor_coverage', 'poor_yield_and_coverage']
         },
-        'errored_id_id_lane': {
+        'errored_id_id_lane2': {
             'run_status': 'RunErrored',
             'sample_ids': ['passing', 'no_data', 'excluded_no_data', 'poor_yield', 'poor_coverage', 'poor_yield_and_coverage']
         },
-        'excluded_id_id_lane': {
+        'excluded_id_id_lane3': {
             'run_status': 'RunErrored',
             'sample_ids': ['excluded_no_data']
         }
     }
 
     report_runs.cache['run_data'] = {
-        'run_id_id_lane': {
+        'run_id_id_lane1': {
             'aggregated': {
                 'most_recent_proc': {
                     'status': 'finished'
                 }
             }
         },
-        'errored_id_id_lane': {
+        'errored_id_id_lane2': {
             'aggregated': {
                 'most_recent_proc': {
                     'status': 'finished'
                 }
             }
         },
-        'excluded_id_id_lane': {
+        'excluded_id_id_lane3': {
             'aggregated': {
                 'most_recent_proc': {
                     'status': 'processing'
@@ -154,19 +156,19 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
     for s in report_runs.cache['sample_data'].values():
         s['required_yield'] = 2000000000
         s['required_coverage'] = 4
-        s['run_elements'] = ['run_id_id_lane_barcode', 'errored_id_id_lane_barcode']
+        s['run_elements'] = ['run_id_id_lane1_barcode', 'errored_id_id_lane2_barcode']
 
-    # Adding excluded_id_id_lane run element only to the excluded_no_data sample
-    report_runs.cache['sample_data']['excluded_no_data']['run_elements'].append('excluded_id_id_lane')
+    # Adding excluded_id_id_lane3 run element only to the excluded_no_data sample
+    report_runs.cache['sample_data']['excluded_no_data']['run_elements'].append('excluded_id_id_lane3')
 
-    report_runs.report_runs(['run_id_id_lane', 'errored_id_id_lane', 'excluded_id_id_lane'])
+    report_runs.report_runs(['run_id_id_lane1', 'errored_id_id_lane2', 'excluded_id_id_lane3'])
     mocked_email.assert_any_call(
         subject='Run report today',
         email_template=report_runs.email_template_report,
         runs=[
-            {'name': 'errored_id_id_lane', 'failed_lanes': 8, 'details': ['RunErrored']},
-            {'name': 'excluded_id_id_lane', 'failed_lanes': 8, 'details': ['RunErrored']},
-            {'name': 'run_id_id_lane', 'failed_lanes': 0, 'details': []},
+            {'name': 'errored_id_id_lane2', 'failed_lanes': 8, 'details': ['RunErrored']},
+            {'name': 'excluded_id_id_lane3', 'failed_lanes': 8, 'details': ['RunErrored']},
+            {'name': 'run_id_id_lane1', 'failed_lanes': 0, 'details': []},
         ]
     )
 
@@ -180,8 +182,14 @@ def test_report_runs(mocked_today, mocked_run_success, mocked_email):
         email_template=report_runs.email_template_repeats,
         runs=[
 
-            {'name': 'errored_id_id_lane', 'repeat_count': 2, 'repeats': exp_failing_samples},
-            {'name': 'excluded_id_id_lane', 'repeat_count': 0, 'repeats': []},
-            {'name': 'run_id_id_lane', 'repeat_count': 2, 'repeats': exp_failing_samples}
+            {'name': 'errored_id_id_lane2', 'repeat_count': 2, 'repeats': exp_failing_samples},
+            {'name': 'excluded_id_id_lane3', 'repeat_count': 0, 'repeats': []},
+            {'name': 'run_id_id_lane1', 'repeat_count': 2, 'repeats': exp_failing_samples}
         ]
     )
+
+
+def test_remove_duplicate_base_on_flowcell_id():
+    list_runs = ['190423_E0304_238_BFCC68CCXY', '190423_E0304_239_BACC67CCXX', '190424_E0304_240_AACC67CCXX']
+    expected_list_runs = ['190423_E0304_238_BFCC68CCXY', '190424_E0304_240_AACC67CCXX']
+    assert remove_duplicate_base_on_flowcell_id(list_runs) == expected_list_runs

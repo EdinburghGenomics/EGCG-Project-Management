@@ -112,6 +112,22 @@ def check_pending_run_element(sample_id, sdata):
     return False
 
 
+def remove_duplicate_base_on_flowcell_id(list_runs):
+    """
+    Take a list of run and remove the duplicated run based on the flowcell id.
+    It will remove the oldest run when two are found based on the run date.
+    """
+    flowcell_to_run = {}
+    for run_id in list_runs:
+        date, machine, run_number, stage_flowcell = run_id.split('_')
+        flowcell = stage_flowcell[1:]
+        # If the run id has not been seen or if the date is newer than the previous one then keep it
+        if flowcell not in flowcell_to_run or run_id > flowcell_to_run[flowcell]:
+            flowcell_to_run[flowcell] = run_id
+
+    return sorted(flowcell_to_run.values())
+
+
 def report_runs(run_ids, noemail=False):
     run_ids.sort()
 
@@ -130,6 +146,9 @@ def report_runs(run_ids, noemail=False):
     logger.info('')
 
     run_repeats = []
+    # Remove the duplicated run from repeated flowcell
+    run_ids = remove_duplicate_base_on_flowcell_id(run_ids)
+
     for run_id in run_ids:
 
         sample_repeats = []
