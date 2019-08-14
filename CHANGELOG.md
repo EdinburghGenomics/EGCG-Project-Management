@@ -1,10 +1,26 @@
 Changelog for EGCG-Project-Management
 =====================================
 
-0.11 (unreleased)
------------------
+0.12.0 (unreleased)
+-------------------
 
 - Nothing changed yet.
+
+
+0.11.1 (2019-08-08)
+-------------------
+
+- Bugfix for data download confirmation
+- Support for Asana API changes
+
+
+0.11 (2019-07-29)
+-----------------
+
+- Project report updates:
+  - KAPA library prep
+  - GATK4 pipelines
+  - Dragen rapid processing
 
 
 0.10.1 (2019-04-29)
@@ -13,7 +29,6 @@ Changelog for EGCG-Project-Management
 - Removed old project report
 - Removed old aggregation usage
 - Pointing user to attached project report in delivery email
-
 
 
 0.10 (2019-02-28)
