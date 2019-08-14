@@ -1,5 +1,4 @@
 import os
-
 import yaml
 from egcg_core.util import query_dict
 from pylatex import Document, Section, Subsection, Package, PageStyle, Head, MiniPage, StandAloneGraphic, Foot, \
@@ -10,9 +9,9 @@ from pylatex.utils import italic, bold
 from project_report.project_information import ProjectReportInformation
 from project_report.utils import yield_vs_coverage_plot, parse_date, min_mean_max, estimate_columns_definition
 
-# Load all source texts from yaml.
 from project_report.pylatex_ext import HRef, LatexSection, add_text
 
+# Load all source texts from yaml.
 _report_text_yaml_file = os.path.join(os.path.dirname(__file__), 'report_texts.yaml')
 with open(_report_text_yaml_file) as open_file:
     report_text = yaml.load(open_file)
@@ -23,7 +22,6 @@ Uni_logo_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'etc', 
 
 
 class ProjectReportLatex:
-
     def __init__(self, project_name, working_dir):
         self.pi = ProjectReportInformation(project_name)
         self.working_dir = working_dir
@@ -196,9 +194,9 @@ class ProjectReportLatex:
             library_descriptions.add((self.pi.library_abbreviation.get(library), library))
             species = self.pi.get_species_from_sample(sample)
             species_descriptions.add((self.pi.abbreviate_species(species), species))
-            analysis = self.pi.get_analysis_type_from_sample(sample)
-            analysis_descriptions.add((self.pi.analysis_abbreviation.get(analysis),
-                                       self.pi.analysis_description.get(analysis)))
+            analysis = self.pi.get_analysis_performed_from_sample(sample)
+            for a in analysis:
+                analysis_descriptions.add((self.pi.analysis_abbreviation.get(a), self.pi.analysis_description.get(a)))
             row = [
                 self.pi.get_user_sample_id(sample),
                 internal_sample_name,
@@ -206,7 +204,7 @@ class ProjectReportLatex:
                 ', '.join(date_reviewed),
                 self.pi.abbreviate_species(species),
                 self.pi.library_abbreviation.get(library),
-                self.pi.analysis_abbreviation.get(analysis)
+                ', '.join(self.pi.analysis_abbreviation.get(a) for a in analysis)
             ]
 
             rows.append(row)
@@ -335,6 +333,9 @@ class ProjectReportLatex:
                 elif library_prep_type == 'Illumina TruSeq PCR-Free library':
                     library_prep = report_text.get('library_preparation_pcr_free')
                     library_qc = report_text.get('library_qc_pcr_free')
+                elif library_prep_type == 'Roche KAPA PCR-Free library':
+                    library_prep = report_text['library_preparation_kapa_pcr_free']
+                    library_qc = report_text['library_qc_kapa_pcr_free']
                 elif library_prep_type == 'User Prepared Library':
                     library_prep = None
                     library_qc = report_text.get('library_qc_nano')
@@ -362,17 +363,22 @@ class ProjectReportLatex:
             with self.doc.create(Subsection('Sequencing', numbering=True)):
                 add_text(self.doc, report_text.get('sequencing'))
 
+            bioinf_reports = {
+                'qc': ('Bioinformatics QC', 'bioinformatics_qc'),
+                'bcbio': ('Bioinformatics Analysis for Human samples', 'bioinformatics_analysis_bcbio'),
+                'variant_calling': ('Bioinformatics Analysis', 'bioinformatics_analysis'),
+                'variant_calling_gatk4': ('Bioinformatics Analysis with GATK4', 'bioinformatics_analysis_gatk4'),
+                'human_variant_calling_gatk4': ('Bioinformatics Analysis with GATK4 for Human samples', 'bioinformatics_analysis_gatk4'),
+                'qc_gatk4': ('Bioinformatics QC with GATK4', 'bioinformatics_qc'),
+                'rapid': ('Rapid Bioinformatics Analysis', 'bioinformatics_analysis_rapid')
+            }
+
             for bioinfo_analysis_type in self.pi.get_project_analysis_types():
                 bioinfo_version = self.pi.get_bioinformatics_params_for_analysis(bioinfo_analysis_type)
-                if bioinfo_analysis_type == 'qc':
-                    with self.doc.create(Subsection('Bioinformatics QC', numbering=True)):
-                        add_text(self.doc, report_text.get('bioinformatics_qc').format(**bioinfo_version))
-                if bioinfo_analysis_type == 'bcbio':
-                    with self.doc.create(Subsection('Bioinformatics Analysis for Human samples', numbering=True)):
-                        add_text(self.doc, report_text.get('bioinformatics_analysis_bcbio').format(**bioinfo_version))
-                if bioinfo_analysis_type == 'variant_calling':
-                    with self.doc.create(Subsection('Bioinformatics Analysis', numbering=True)):
-                        add_text(self.doc, report_text.get('bioinformatics_analysis').format(**bioinfo_version))
+                subsection, paragraph = bioinf_reports[bioinfo_analysis_type]
+                with self.doc.create(Subsection(subsection, numbering=True)):
+                    add_text(self.doc, report_text[paragraph].format(**bioinfo_version))
+
             self.doc.append(NewPage())
 
     def create_results_section(self):
