@@ -104,11 +104,22 @@ fake_sample_templates = {
     'upl999': {
         'name': 'UPL_HS_',
         'udf': {
-            'Prep Workflow': 'TruSeq Nano DNA Sample Prep',  # This sis sometime set and will be ignored
+            'Prep Workflow': 'TruSeq Nano DNA Sample Prep',  # This is sometimes set and will be ignored
             'User Prepared Library': 'Yes',
             'Species': 'Homo sapiens',
             'Genome Version': 'hg38',
             'Total DNA (ng)': 3000,
+            'Required Yield (Gb)': 120,
+            'Coverage (X)': 30
+        }
+    },
+    'kapagatk4rapid': {
+        'name': 'rapid_',
+        'udf': {
+            'Prep Workflow': 'KAPA PCR-Free DNA Sample Prep',
+            'Rapid Analysis': 'Yes',
+            'Analysis Type': 'Variant Calling gatk4',
+            'Species': 'Homo sapiens',
             'Required Yield (Gb)': 120,
             'Coverage (X)': 30
         }
@@ -151,12 +162,21 @@ for project in fake_sample_templates:
             req_yield = udf.get('Required Yield (Gb)')
             req_cov = udf.get('Coverage (X)')
             clean_yield_in_gb = randint(int(req_yield * .9), int(req_yield * 1.5))
-            if sample_info['Species'] == 'Homo sapiens':
-                pipeline = 'bcbio'
-            elif udf.get('Analysis Type') == 'Variant Calling gatk':
+
+            species = sample_info['Species']
+            analysis_type = udf.get('Analysis Type', '')
+            if species == 'Homo sapiens':
+                if 'Variant Calling gatk4' in analysis_type:
+                    pipeline = 'human_variant_calling_gatk4'
+                else:
+                    pipeline = 'bcbio'
+            elif analysis_type in ['Variant Calling gatk4']:
+                pipeline = 'variant_calling_gatk4'
+            elif analysis_type in ['Variant Calling', 'Variant Calling gatk', 'Variant Calling gatk3']:
                 pipeline = 'variant_calling'
             else:
-                pipeline = 'qc'
+                pipeline = 'qc_gatk4'
+
             nb_char = randint(0, 25)
             rest_sample_data = {
                 'sample_id': sample_id,
@@ -192,7 +212,8 @@ fake_process_templates = {
     'hpf999': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NA'},
     'nhpf999': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NC85: All samples were bad quality.'},
     'uhtn999': {'nb_processes': 1, 'date': d, 'finished': 'No', 'NC': 'NA'},
-    'upl999':  {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NA'}
+    'upl999': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NA'},
+    'kapagatk4rapid': {'nb_processes': 1, 'date': d, 'finished': 'Yes', 'NC': 'NA'}
 }
 
 fake_processes = {}
@@ -436,7 +457,7 @@ class TestProjectReportLatex(TestProjectReport):
 
     @mocked_get_documents
     def test_project_types(self, mocked_get_docs):
-        projects = ('mix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999', 'upl999')
+        projects = ('mix999', 'nhtn999', 'hpf999', 'nhpf999', 'uhtn999', 'upl999', 'kapagatk4rapid')
 
         for p in projects:
             report = ProjectReportLatex(p, self.working_dir)
