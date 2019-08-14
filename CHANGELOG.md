@@ -7,6 +7,15 @@ Changelog for EGCG-Project-Management
 - Nothing changed yet.
 
 
+0.10.1 (2019-04-29)
+-------------------
+
+- Removed old project report
+- Removed old aggregation usage
+- Pointing user to attached project report in delivery email
+
+
+
 0.10 (2019-02-28)
 -----------------
 
