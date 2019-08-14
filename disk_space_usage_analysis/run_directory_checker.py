@@ -41,8 +41,8 @@ class RunDirectoryChecker(AppLogger):
                 sample_name = sample_directory_path_split[7]
 
                 # Generating directory paths
-                run_directory_path = f'/{lustre}/{env}/{proc}/{runs}/{run_directory_name}'
-                directory_path = f'/{lustre}/{env}/{proc}/{runs}/{run_directory_name}/{project}/{sample_name}'
+                run_directory_path = '/{}/{}/{}/{}/{}'.format(lustre, env, proc, runs, run_directory_name)
+                directory_path = '/{}/{}/{}/{}/{}/{}/{}'.format(lustre, env, proc, runs, run_directory_name, project, sample_name)
 
                 if directory_path not in self.directory_set:
                     # Adding it to directory set
