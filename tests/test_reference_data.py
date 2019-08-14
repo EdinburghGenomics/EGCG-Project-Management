@@ -1,5 +1,9 @@
 import os
 from unittest.mock import Mock, patch, PropertyMock
+
+import pytest
+from egcg_core.exceptions import EGCGError
+
 from bin import reference_data
 from bin.reference_data import Downloader, upload_species_without_genome
 from tests import TestProjectManagement
@@ -363,7 +367,7 @@ class TestSpeciesNoGenome(TestProjectManagement):
     def test_upload_species_without_genome(self):
         list_answers = ['A. Genome', '123.456789']
         list_responses = [
-            None,  # The response to get the species
+            {},  # The response to get the species
             {'assembly_name': 'A. Genome', 'genome_size': '1000000000'}
         ]
         with patch('builtins.input', side_effect=list_answers), \
@@ -391,4 +395,12 @@ class TestSpeciesNoGenome(TestProjectManagement):
                  'taxid': '9090', 'approximate_genome_size': 1000.0}
             )
 
+    def test_upload_species_without_genome_failed(self):
+        list_responses = [
+            {'A species'},  # The response to get the species
+        ]
+        with patch('egcg_core.rest_communication.get_document', side_effect=list_responses), \
+             patch('bin.reference_data.ncbi.get_species_name', return_value='A species'):
+            with pytest.raises(EGCGError):
+                upload_species_without_genome('new_species')
 
