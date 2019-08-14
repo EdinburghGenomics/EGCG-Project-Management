@@ -6,10 +6,9 @@ from bin.disk_space_usage_analyser import DiskSpaceUsageAnalysis
 from egcg_core import rest_communication
 from egcg_core.app_logging import AppLogger
 
-# TODO: Convert in line with suggestions and merge residual_run_directory.py into it
-
 
 class RunDirectoryChecker(AppLogger):
+    # Initialising instance variables
     def __init__(self):
         self.deleted_dict = {}
         self.directory_set = set()
@@ -23,7 +22,7 @@ class RunDirectoryChecker(AppLogger):
                             + ". -name '*.fastq.gz' -type f | egrep -v '/fastq/fastq'"
 
     # Aggregates directory space used and checks whether the document has been archived
-    def run_directory_check(self):
+    def _run_directory_check(self):
         output = os.popen(self.bash_command).read()
 
         for sample_directory_path in output.splitlines():
@@ -72,7 +71,7 @@ class RunDirectoryChecker(AppLogger):
                 continue
 
     # Calculates and exports the run directory analysis to a CSV file
-    def export_run_directory_analysis_csv(self):
+    def _export_run_directory_analysis_csv(self):
         with open(self.output_dir + 'run_dir_analysis.csv',
                   mode='w') as file:
             file_writer = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -84,7 +83,7 @@ class RunDirectoryChecker(AppLogger):
                 file_writer.writerow([key, str(value), data_deleted, str(num_splits)])
 
     # Exports the run directory analysis to a TXT file
-    def export_run_directory_analysis_txt(self):
+    def _export_run_directory_analysis_txt(self):
         with open(self.output_dir + 'run_dir_analysis_log.txt',
                   mode='w') as analysis_txt_file:
             analysis_txt_file.write('Samples and space taken as follows: ')
@@ -98,7 +97,7 @@ class RunDirectoryChecker(AppLogger):
                 analysis_txt_file.write(key + ': ' + str(value))
 
     # Calculates and exports the residual run directory analysis to a CSV file
-    def export_residual_run_directory_analysis(self):
+    def _export_residual_run_directory_analysis(self):
         with open(self.output_dir + 'residual_run_directory_analysis.csv',
                   mode='w') as file:
             file_writer = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -108,7 +107,8 @@ class RunDirectoryChecker(AppLogger):
                 residual_space = value - self.run_sample_counter[key]
                 file_writer.writerow([key, str(residual_space)])
 
-    def export_residual_run_directory_analysis_txt(self):
+    # Exports the residual run directory analysis to a TXT file
+    def _export_residual_run_directory_analysis_txt(self):
         with open(self.output_dir + 'residual_run_dir_analysis_log.txt',
                   mode='w') as analysis_txt_file:
             analysis_txt_file.write('Run directories space taken as follows: ')
@@ -119,10 +119,12 @@ class RunDirectoryChecker(AppLogger):
             for key, value in self.run_sample_counter.most_common():
                 analysis_txt_file.write(key + ': ' + str(value))
 
+    # Main function which executes all
     def execute(self):
-        self.run_directory_check()
-        self.export_run_directory_analysis_csv()
-        self.export_residual_run_directory_analysis()
-        self.export_run_directory_analysis_txt()
+        self._run_directory_check()
+        self._export_run_directory_analysis_csv()
+        self._export_run_directory_analysis_txt()
+        self._export_residual_run_directory_analysis()
+        self._export_residual_run_directory_analysis_txt()
 
 # samples = c.get_documents('samples', projection={"data_deleted":1} ,max_results=1000, all_pages=True)

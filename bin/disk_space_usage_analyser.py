@@ -18,7 +18,6 @@ class DiskSpaceUsageAnalysis(AppLogger):
         if set(DiskSpaceUsageAnalysis.dir_cfg) != {'runs_dir', 'projects_dir', 'output_dir'}:
             self.error('Directory config invalid or incomplete. Please ensure your config has an entry for '
                        'directory_space_analysis.')
-            return
 
 
 def main():
@@ -27,9 +26,9 @@ def main():
     arg_group.add_argument('all', help='Runs all available checks - '
                                        'Run directory check, residual run and project directory checks.', nargs='?')
     arg_group.add_argument('runs_directory', help='Check the runs directory for space used storing samples, '
-                                                  'and displays the respective archiving status.', nargs='?')
-    arg_group.add_argument('residual_runs_directory', help='Check residual space used when the samples directories` space used '
-                                                           'is deducted from the respective runs directory`s space used.', nargs='?')
+                                                  'and displays the respective archiving status. Also checks the '
+                                                  'residual space used when the samples directories` space used '
+                                                  'is deducted from the respective runs directory`s space used', nargs='?')
     arg_group.add_argument('residual_projects_directory', help='Check the projects directory for space used storing samples, '
                                                                'and displays the respective archiving status. Also checks the '
                                                                'residual space used when the samples directories` space used '
@@ -52,9 +51,6 @@ def main():
     elif args.runs_directory:
         run_directory_checker = RunDirectoryChecker()
         run_directory_checker.execute()
-
-    elif args.residual_runs_directory:
-        pass
     elif args.residual_projects_directory:
         pass
 
