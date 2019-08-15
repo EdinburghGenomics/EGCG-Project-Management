@@ -22,18 +22,9 @@ class DiskSpaceUsageAnalysis(AppLogger):
 
 def main():
     arg_parser = argparse.ArgumentParser()
-    arg_group = arg_parser.add_mutually_exclusive_group(required=True)
-    arg_group.add_argument('all_dirs', help='Runs all available checks - '
-                                       'Run directory check, residual run and project directory checks.', nargs='?')
-    arg_group.add_argument('runs_directory', help='Check the runs directory for space used storing samples, '
-                                                  'and displays the respective archiving status. Also checks the '
-                                                  'residual space used when the samples directories` space used '
-                                                  'is deducted from the respective runs directory`s space used', nargs='?')
-    arg_group.add_argument('residual_projects_directory', help='Check the projects directory for space used storing samples, '
-                                                               'and displays the respective archiving status. Also checks the '
-                                                               'residual space used when the samples directories` space used '
-                                                               'is deducted from the respective runs directory`s space used.',
-                           nargs='?')
+    arg_parser.add_argument('dirs', help='"all", "run" or "project" - '
+                            'All directory checks, run directory check, or project directory checks.', nargs='?',
+                            required=True)
 
     args = arg_parser.parse_args()
 
@@ -46,12 +37,12 @@ def main():
     log_cfg.add_stdout_handler()
 
     # Interpret parameter and select appropriate function
-    if args.all_dirs:
+    if args.dirs == 'all':
         pass
-    elif args.runs_directory:
+    elif args.dirs == 'run':
         run_directory_checker = RunDirectoryChecker()
         run_directory_checker.execute()
-    elif args.residual_projects_directory:
+    elif args.dirs == 'project':
         pass
 
 
