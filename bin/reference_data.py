@@ -474,8 +474,6 @@ def upload_species_without_genome(species_name):
     This function only adds a new species without the need for a new genome.
     An existing genome will be associated with the new species.
     """
-    logger = logging_default.get_logger('SpeciesWithoutGenome')
-
     scientific_name = ncbi.get_species_name(species_name)
     if not scientific_name:
         raise EGCGError('Species %s could not be resolved in NCBI please check the spelling.', species_name)
