@@ -23,7 +23,7 @@ class DiskSpaceUsageAnalysis(AppLogger):
 def main():
     arg_parser = argparse.ArgumentParser()
     arg_group = arg_parser.add_mutually_exclusive_group(required=True)
-    arg_group.add_argument('all', help='Runs all available checks - '
+    arg_group.add_argument('all_dirs', help='Runs all available checks - '
                                        'Run directory check, residual run and project directory checks.', nargs='?')
     arg_group.add_argument('runs_directory', help='Check the runs directory for space used storing samples, '
                                                   'and displays the respective archiving status. Also checks the '
@@ -46,7 +46,7 @@ def main():
     log_cfg.add_stdout_handler()
 
     # Interpret parameter and select appropriate function
-    if args.all:
+    if args.all_dirs:
         pass
     elif args.runs_directory:
         run_directory_checker = RunDirectoryChecker()
