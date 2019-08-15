@@ -22,9 +22,10 @@ class DiskSpaceUsageAnalysis(AppLogger):
 
 def main():
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('dirs', help='"all", "run" or "project" - '
-                            'All directory checks, run directory check, or project directory checks.', nargs='?',
-                            required=True)
+    arg_parser.add_argument('-dirs', help='"all", "run" or "project" - '
+                            'All directory checks, run directory check, or project directory checks. All by default.',
+                            action="store", default="all", nargs='?')
+    arg_parser.add_argument('')
 
     args = arg_parser.parse_args()
 
@@ -38,11 +39,14 @@ def main():
 
     # Interpret parameter and select appropriate function
     if args.dirs == 'all':
+        print('check 1')
         pass
     elif args.dirs == 'run':
+        print('check 2')
         run_directory_checker = RunDirectoryChecker()
         run_directory_checker.execute()
     elif args.dirs == 'project':
+        print('check 3')
         pass
 
 
