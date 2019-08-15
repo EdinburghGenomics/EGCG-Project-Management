@@ -2,23 +2,23 @@ import csv
 import os
 from collections import Counter
 
-from bin.disk_space_usage_analyser import DiskSpaceUsageAnalysis
 from egcg_core import rest_communication
 from egcg_core.app_logging import AppLogger
 
 
 class RunDirectoryChecker(AppLogger):
     # Initialising instance variables
-    def __init__(self):
+    def __init__(self, helper):
+        self.disk_usage_helper = helper
         self.deleted_dict = {}
         self.directory_set = set()
         self.sample_counter = Counter()
         self.sample_splits = Counter()
         self.run_counter = Counter()
         self.run_sample_counter = Counter()
-        self.output_dir = DiskSpaceUsageAnalysis.dir_cfg['runs_dir_space_analysis']['output_dir']
+        self.output_dir = helper.dir_cfg['output_dir']
 
-        self.bash_command = "find " + DiskSpaceUsageAnalysis.dir_cfg['runs_dir_space_analysis']['runs_dir'] \
+        self.bash_command = "find " + helper.dir_cfg['runs_dir_space_analysis']['runs_dir'] \
                             + ". -name '*.fastq.gz' -type f | egrep -v '/fastq/fastq'"
 
     # Aggregates directory space used and checks whether the document has been archived
@@ -41,7 +41,7 @@ class RunDirectoryChecker(AppLogger):
                 if directory_path not in self.directory_set:
                     # Adding it to directory set
                     self.directory_set.add(directory_path)
-                    command = DiskSpaceUsageAnalysis.space_command + directory_path
+                    command = self.disk_usage_helper.space_command + directory_path
                     command_output = os.popen(command).read()
 
                     # Adding/Incrementing value in sample_splits, run_sample_counter and sample_counter
@@ -58,7 +58,7 @@ class RunDirectoryChecker(AppLogger):
 
                 if run_directory_name not in self.run_counter:
                     # Not in run directory set - adding it
-                    command = DiskSpaceUsageAnalysis.space_command + run_directory_path
+                    command = self.disk_usage_helper.space_command + run_directory_path
                     command_output = os.popen(command).read()
                     self.run_counter.update({run_directory_name: int(command_output.split()[0])})
             except AssertionError:
