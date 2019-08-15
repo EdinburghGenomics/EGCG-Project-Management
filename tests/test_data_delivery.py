@@ -379,7 +379,7 @@ class TestDataDelivery(TestProjectManagement):
             # Remove one of the run_element from rest response so the remaining one gets used as merged
             re = rest_responses['run_elements']['p1sample1'].pop()
             self.delivery_dry_merged.deliver_data()
-            assert os.listdir(self.delivery_dry_merged.staging_dir) == ['p1sample1', 'p1sample2']
+            assert sorted(os.listdir(self.delivery_dry_merged.staging_dir)) == ['p1sample1', 'p1sample2']
             list_files = sorted(os.listdir(os.path.join(self.delivery_dry_merged.staging_dir, 'p1sample1')))
             assert list_files == sorted(self.final_files_merged)
             # Put it back
@@ -388,7 +388,7 @@ class TestDataDelivery(TestProjectManagement):
     def test_deliver_data_merged_concat(self):
         with patch_process, patch_get_document, patch_get_documents, patch_get_queue:
             self.delivery_dry_merged.deliver_data()
-            assert os.listdir(self.delivery_dry_merged.staging_dir) == ['p1sample1', 'p1sample2']
+            assert sorted(os.listdir(self.delivery_dry_merged.staging_dir)) == ['p1sample1', 'p1sample2']
             list_files = sorted(os.listdir(os.path.join(self.delivery_dry_merged.staging_dir, 'p1sample1')))
             assert list_files == sorted(self.final_files_merged_no_raw)
             assert len(self.delivery_dry_merged.all_commands_for_cluster) == 4
@@ -409,7 +409,7 @@ class TestDataDelivery(TestProjectManagement):
             assert os.listdir(self.dest_dir) == ['project1']
             today = datetime.date.today().isoformat()
             assert sorted(os.listdir(os.path.join(self.dest_dir, 'project1'))) == [today, 'all_md5sums.txt', 'summary_metrics.csv']
-            assert os.listdir(os.path.join(self.dest_dir, 'project1', today)) == ['p1sample1', 'p1sample2']
+            assert sorted(os.listdir(os.path.join(self.dest_dir, 'project1', today))) == ['p1sample1', 'p1sample2']
             assert sorted(self.final_files_merged2) == sorted(os.listdir(os.path.join(self.dest_dir, 'project1', today, 'p1sample2')))
 
             assert self.delivery_real_merged.samples2files['p1sample2'] == [

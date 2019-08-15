@@ -1,9 +1,7 @@
-import os
 import csv
-from collections import defaultdict
-
 import yaml
 import datetime
+from collections import defaultdict
 from cached_property import cached_property
 from os import path
 
@@ -22,22 +20,32 @@ class ProjectReportInformation(AppLogger):
         'TruSeq Nano DNA Sample Prep': 'Illumina TruSeq Nano library',
         'TruSeq PCR-Free DNA Sample Prep': 'Illumina TruSeq PCR-Free library',
         'TruSeq PCR-Free Sample Prep': 'Illumina TruSeq PCR-Free library',
-        'TruSeq DNA PCR-Free Sample Prep': 'Illumina TruSeq PCR-Free library'
+        'TruSeq DNA PCR-Free Sample Prep': 'Illumina TruSeq PCR-Free library',
+        'KAPA PCR-Free DNA Sample Prep': 'Roche KAPA PCR-Free library'
     }
     library_abbreviation = {
         'User Prepared Library': 'UPL',
         'Illumina TruSeq Nano library': 'Nano',
-        'Illumina TruSeq PCR-Free library': 'PCRfree'
+        'Illumina TruSeq PCR-Free library': 'PCRfree',
+        'Roche KAPA PCR-Free library': 'KAPA'
     }
     analysis_abbreviation = {
         'bcbio': 'bcbio',
         'variant_calling': 'variant',
-        'qc': 'basic qc'
+        'qc': 'basic qc',
+        'variant_calling_gatk4': 'variant gatk4',
+        'human_variant_calling_gatk4': 'variant gatk4',
+        'qc_gatk4': 'basic qc',
+        'rapid': 'rapid'
     }
     analysis_description = {
         'bcbio': 'GATK3 based variant call for human',
-        'variant_calling': 'GATK based variant call',
-        'qc': 'Alignment based quality control'
+        'variant_calling': 'GATK3 based variant call',
+        'qc': 'Alignment based quality control',
+        'variant_calling_gatk4': 'GATK4 based variant call',
+        'human_variant_calling_gatk4': 'GATK4 based variant call',
+        'qc_gatk4': 'Alignment based quality control',
+        'rapid': 'Dragen based variant calling analysis'
     }
 
     species_abbreviation = {}
@@ -101,9 +109,9 @@ class ProjectReportInformation(AppLogger):
     def _get_bcl2fastq_version(self, run_ids):
         bcl2fastq_versions = set()
         for run_id in run_ids:
-            prog_vers_yaml = os.path.join(self.run_folders, run_id, 'program_versions.yaml')
+            prog_vers_yaml = path.join(self.run_folders, run_id, 'program_versions.yaml')
             bcl2fastq_version = None
-            if os.path.isfile(prog_vers_yaml):
+            if path.isfile(prog_vers_yaml):
                 with open(prog_vers_yaml, 'r') as open_file:
                     full_yaml = yaml.safe_load(open_file)
                     if 'bcl2fastq' in full_yaml and full_yaml.get('bcl2fastq'):
@@ -177,8 +185,11 @@ class ProjectReportInformation(AppLogger):
     def get_fluidx_barcode(self, sample_name):
         return query_dict(self.sample_info(sample_name), 'info.2D Barcode')
 
-    def get_analysis_type_from_sample(self, sample_name):
-        return query_dict(self.sample_info(sample_name), 'data.aggregated.most_recent_proc.pipeline_used.name')
+    def get_analysis_performed_from_sample(self, sample_name):
+        analysis = [query_dict(self.sample_info(sample_name), 'data.aggregated.most_recent_proc.pipeline_used.name')]
+        if query_dict(self.sample_info(sample_name), 'info.Rapid Analysis') == 'Yes':
+            analysis.append('rapid')
+        return sorted(analysis)
 
     def get_library_workflow_from_sample(self, sample_name):
         if query_dict(self.sample_info(sample_name), 'info.User Prepared Library') == 'Yes':
@@ -219,7 +230,14 @@ class ProjectReportInformation(AppLogger):
         return [sample.get('sample_id') for sample in self.sample_data_for_project]
 
     def _aggregate_per_project(self, func):
-        return sorted(set(func(s) for s in self.sample_names_delivered))
+        final_set = set()
+        for s in self.sample_names_delivered:
+            value_to_aggregate = func(s)
+            if isinstance(value_to_aggregate, list):
+                final_set.update(value_to_aggregate)
+            else:
+                final_set.add(value_to_aggregate)
+        return sorted(final_set)
 
     def get_project_species(self):
         return self._aggregate_per_project(self.get_species_from_sample)
@@ -228,7 +246,13 @@ class ProjectReportInformation(AppLogger):
         return self._aggregate_per_project(self.get_library_workflow_from_sample)
 
     def get_project_analysis_types(self):
-        return self._aggregate_per_project(self.get_analysis_type_from_sample)
+        return self._aggregate_per_project(self.get_analysis_performed_from_sample)
+
+    def has_rapid_samples(self):
+        return any(
+            query_dict(self.sample_info(s['sample_id']), 'info.Rapid Analysis') == 'Yes'
+            for s in self.sample_data_for_project
+        )
 
     def get_project_genome_version(self):
         return self._aggregate_per_project(self.get_genome_version)
@@ -306,7 +330,7 @@ class ProjectReportInformation(AppLogger):
         """
         params_for_analysis_tmp = defaultdict(set)
         for sample in self.sample_names_delivered:
-            if self.get_analysis_type_from_sample(sample) == analysis_type:
+            if analysis_type in self.get_analysis_performed_from_sample(sample):
                 for k, v in self.sample_info(sample).get('versions').items():
                     params_for_analysis_tmp[k].add(v)
                 params_for_analysis_tmp['species_submitted'].add(self.get_species_from_sample(sample))
@@ -319,11 +343,14 @@ class ProjectReportInformation(AppLogger):
 
     def get_format_delivered(self):
         formats_delivered = set()
+        at_with_bam_and_vcf = ['bcbio', 'variant_calling', 'variant_calling_gatk4', 'human_variant_calling_gatk4',
+                               'rapid']
         for analysis_type in self.get_project_analysis_types():
-            if analysis_type and analysis_type in ['bcbio', 'variant_calling']:
+            if analysis_type and analysis_type in at_with_bam_and_vcf:
                 formats_delivered.update(['fastq', 'bam', 'vcf'])
             else:
                 formats_delivered.add('fastq')
+
         return formats_delivered
 
     def abbreviate_species(self, species, nchar=1):
