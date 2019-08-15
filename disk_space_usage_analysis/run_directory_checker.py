@@ -31,17 +31,12 @@ class RunDirectoryChecker(AppLogger):
                 assert len(sample_directory_path_split) == 9
 
                 # Generating named variables from directory path split
-                lustre = sample_directory_path_split[1]
-                env = sample_directory_path_split[2]
-                proc = sample_directory_path_split[3]
-                runs = sample_directory_path_split[4]
                 run_directory_name = sample_directory_path_split[5]
-                project = sample_directory_path_split[6]
                 sample_name = sample_directory_path_split[7]
 
                 # Generating directory paths
-                run_directory_path = '/{}/{}/{}/{}/{}'.format(lustre, env, proc, runs, run_directory_name)
-                directory_path = '/{}/{}/{}/{}/{}/{}/{}'.format(lustre, env, proc, runs, run_directory_name, project, sample_name)
+                run_directory_path = '/'.join(sample_directory_path_split[:6])
+                directory_path = '/'.join(sample_directory_path_split[:8])
 
                 if directory_path not in self.directory_set:
                     # Adding it to directory set
