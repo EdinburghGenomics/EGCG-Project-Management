@@ -61,7 +61,7 @@ class RunDirectoryChecker(AppLogger):
                     command_output = os.popen(command).read()
                     self.run_counter.update({run_directory_name: int(command_output.split()[0])})
             except AssertionError:
-                self.error('Index Error when splitting sample directory path.')
+                self.error('Index Error when splitting sample directory path: ' + sample_directory_path)
                 continue
 
     # Calculates and exports the run directory analysis to a CSV file
