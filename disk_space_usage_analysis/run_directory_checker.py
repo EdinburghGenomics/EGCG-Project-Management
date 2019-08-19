@@ -101,13 +101,13 @@ class RunDirectoryChecker(AppLogger):
     # Exports the residual run directory analysis to a TXT file
     def _export_residual_run_directory_analysis_txt(self):
         with open(self.output_dir + 'residual_run_dir_analysis_log.txt', mode='w+') as analysis_txt_file:
-            analysis_txt_file.write('Run directories space taken as follows: ')
+            analysis_txt_file.write('Run directories space taken as follows: \n')
             for key, value in self.run_counter.most_common():
-                analysis_txt_file.write(key + ': ' + str(value))
+                analysis_txt_file.write(key + ': ' + str(value) + '\n')
 
-            analysis_txt_file.write('Sample run directories took space as follows: ')
+            analysis_txt_file.write('Sample run directories took space as follows: \n')
             for key, value in self.run_sample_counter.most_common():
-                analysis_txt_file.write(key + ': ' + str(value))
+                analysis_txt_file.write(key + ': ' + str(value) + '\n')
 
     # Main function which executes all
     def execute(self):
