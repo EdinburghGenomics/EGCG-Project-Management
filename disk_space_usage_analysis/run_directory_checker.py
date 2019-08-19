@@ -18,11 +18,11 @@ class RunDirectoryChecker(AppLogger):
         self.run_sample_counter = Counter()
         self.output_dir = helper.dir_cfg['output_dir']
 
-        self.bash_command = "find " + helper.dir_cfg['runs_dir'] + ". -name '*.fastq.gz' -type f | egrep -v '/fastq/fastq'"
+        self.bash_find = "find " + helper.dir_cfg['runs_dir'] + " -name '*.fastq.gz' -type f | egrep -v '/fastq/fastq'"
 
     # Aggregates directory space used and checks whether the document has been archived
     def _run_directory_check(self):
-        output = os.popen(self.bash_command).read()
+        output = os.popen(self.bash_find).read()
 
         for sample_directory_path in output.splitlines():
             sample_directory_path_split = sample_directory_path.split('/')
