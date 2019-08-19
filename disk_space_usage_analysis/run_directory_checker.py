@@ -18,8 +18,7 @@ class RunDirectoryChecker(AppLogger):
         self.run_sample_counter = Counter()
         self.output_dir = helper.dir_cfg['output_dir']
 
-        self.bash_command = "find " + helper.dir_cfg['runs_dir_space_analysis']['runs_dir'] \
-                            + ". -name '*.fastq.gz' -type f | egrep -v '/fastq/fastq'"
+        self.bash_command = "find " + helper.dir_cfg['runs_dir'] + ". -name '*.fastq.gz' -type f | egrep -v '/fastq/fastq'"
 
     # Aggregates directory space used and checks whether the document has been archived
     def _run_directory_check(self):
@@ -67,8 +66,7 @@ class RunDirectoryChecker(AppLogger):
 
     # Calculates and exports the run directory analysis to a CSV file
     def _export_run_directory_analysis_csv(self):
-        with open(self.output_dir + 'run_dir_analysis.csv',
-                  mode='w') as file:
+        with open(self.output_dir + 'run_dir_analysis.csv', mode='w+') as file:
             file_writer = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             file_writer.writerow(['Sample Name', 'Size', 'Data Deleted', 'Splits'])
 
@@ -79,8 +77,7 @@ class RunDirectoryChecker(AppLogger):
 
     # Exports the run directory analysis to a TXT file
     def _export_run_directory_analysis_txt(self):
-        with open(self.output_dir + 'run_dir_analysis_log.txt',
-                  mode='w') as analysis_txt_file:
+        with open(self.output_dir + 'run_dir_analysis_log.txt', mode='w+') as analysis_txt_file:
             analysis_txt_file.write('Samples and space taken as follows: ')
 
             for key, value in self.sample_counter.most_common():
@@ -93,8 +90,7 @@ class RunDirectoryChecker(AppLogger):
 
     # Calculates and exports the residual run directory analysis to a CSV file
     def _export_residual_run_directory_analysis(self):
-        with open(self.output_dir + 'residual_run_directory_analysis.csv',
-                  mode='w') as file:
+        with open(self.output_dir + 'residual_run_directory_analysis.csv', mode='w+') as file:
             file_writer = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             file_writer.writerow(['Run Directory Name', 'Residual Size'])
 
@@ -104,8 +100,7 @@ class RunDirectoryChecker(AppLogger):
 
     # Exports the residual run directory analysis to a TXT file
     def _export_residual_run_directory_analysis_txt(self):
-        with open(self.output_dir + 'residual_run_dir_analysis_log.txt',
-                  mode='w') as analysis_txt_file:
+        with open(self.output_dir + 'residual_run_dir_analysis_log.txt', mode='w+') as analysis_txt_file:
             analysis_txt_file.write('Run directories space taken as follows: ')
             for key, value in self.run_counter.most_common():
                 analysis_txt_file.write(key + ': ' + str(value))
