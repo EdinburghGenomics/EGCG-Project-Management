@@ -114,7 +114,7 @@ def check_pending_run_element(sample_id, sdata):
 
 def remove_duplicate_base_on_flowcell_id(list_runs):
     """
-    Take a list of run and remove the duplicated run based on the flowcell id.
+    Take a list of runs and remove the duplicated run based on the flowcell id.
     It will remove the oldest run when two are found based on the run date.
     """
     flowcell_to_run = {}
