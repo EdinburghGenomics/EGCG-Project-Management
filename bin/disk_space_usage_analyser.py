@@ -16,13 +16,14 @@ class DiskSpaceUsageAnalysisHelper(AppLogger):
         self.dir_cfg = cfg.query('directory_space_analysis', ret_default={})
         if set(self.dir_cfg) != {'runs_dir', 'projects_dir', 'output_dir'}:
             self.error('Directory config invalid or incomplete. Please ensure your config has an entry for '
-                       'directory_space_analysis.')
+                       'directory_space_analysis: runs_dir, projects_dir, and output_dir')
 
 
 def main():
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('-dir', help='"all", "run" or "project" - '
-                            'All directory checks, run directory check, or project directory checks. All by default.',
+                            'All directory checks, run directory check, or project directory checks. All '
+                                         'is run by default.',
                             action="store", default="all", nargs='?')
 
     args = arg_parser.parse_args()
