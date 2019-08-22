@@ -67,18 +67,18 @@ class RunDirectoryChecker(AppLogger):
                 num_splits = self.sample_splits[key]
                 file_writer.writerow([key, str(value), data_deleted, str(num_splits)])
 
-    def _export_run_directory_analysis_txt(self):
-        """Exports the run directory analysis to a TXT file"""
-        with open(self.output_dir + 'run_dir_analysis_log.txt', mode='w+') as analysis_txt_file:
-            analysis_txt_file.write('Samples and space taken as follows: \n')
+    def _export_run_directory_analysis_log(self):
+        """Exports the run directory analysis to a log file"""
+        with open(self.output_dir + 'run_dir_analysis.log', mode='w+') as analysis_log_file:
+            analysis_log_file.write('Samples and space taken as follows: \n')
 
             for key, value in self.sample_counter.most_common():
-                analysis_txt_file.write(key + ': ' + str(value) + '\n')
-                analysis_txt_file.write('Data Deleted: ' + self.deleted_dict[key] + '\n')
+                analysis_log_file.write(key + ': ' + str(value) + '\n')
+                analysis_log_file.write('Data Deleted: ' + self.deleted_dict[key] + '\n')
 
-            analysis_txt_file.write('Samples were split as follows: \n')
+            analysis_log_file.write('Samples were split as follows: \n')
             for key, value in self.sample_splits.most_common():
-                analysis_txt_file.write(key + ': ' + str(value) + '\n')
+                analysis_log_file.write(key + ': ' + str(value) + '\n')
 
     def _export_residual_run_directory_analysis(self):
         """Calculates and exports the residual run directory analysis to a CSV file"""
@@ -90,16 +90,16 @@ class RunDirectoryChecker(AppLogger):
                 residual_space = value - self.run_sample_counter[key]
                 file_writer.writerow([key, str(residual_space)])
 
-    def _export_residual_run_directory_analysis_txt(self):
-        """Exports the residual run directory analysis to a TXT file"""
-        with open(self.output_dir + 'residual_run_dir_analysis_log.txt', mode='w+') as analysis_txt_file:
-            analysis_txt_file.write('Run directories space taken as follows: \n')
+    def _export_residual_run_directory_analysis_log(self):
+        """Exports the residual run directory analysis to a log file"""
+        with open(self.output_dir + 'residual_run_dir_analysis.log', mode='w+') as analysis_log_file:
+            analysis_log_file.write('Run directories space taken as follows: \n')
             for key, value in self.run_counter.most_common():
-                analysis_txt_file.write(key + ': ' + str(value) + '\n')
+                analysis_log_file.write(key + ': ' + str(value) + '\n')
 
-            analysis_txt_file.write('Sample run directories took space as follows: \n')
+            analysis_log_file.write('Sample run directories took space as follows: \n')
             for key, value in self.run_sample_counter.most_common():
-                analysis_txt_file.write(key + ': ' + str(value) + '\n')
+                analysis_log_file.write(key + ': ' + str(value) + '\n')
 
     # Initialising instance variables
     def __init__(self, helper):
@@ -119,6 +119,6 @@ class RunDirectoryChecker(AppLogger):
         """Main function which executes all intermediate functions"""
         self._run_directory_check()
         self._export_run_directory_analysis_csv()
-        self._export_run_directory_analysis_txt()
+        self._export_run_directory_analysis_log()
         self._export_residual_run_directory_analysis()
-        self._export_residual_run_directory_analysis_txt()
+        self._export_residual_run_directory_analysis_log()
