@@ -44,6 +44,7 @@ class RunDirectoryChecker(AppLogger):
                     try:
                         data_deleted = self.samples[sample_name]
                     except KeyError:
+                        self.debug('Data Deleted not found for sample ' + sample_name)
                         data_deleted = "Error - not found"
                     self.deleted_dict[sample_name] = data_deleted
 
@@ -53,7 +54,7 @@ class RunDirectoryChecker(AppLogger):
                     command_output = os.popen(command).read()
                     self.run_counter.update({run_directory_name: int(command_output.split()[0])})
             except AssertionError:
-                self.error('Index Error when splitting sample directory path: ' + sample_directory_path)
+                self.debug('Index Error when splitting sample directory path: ' + sample_directory_path)
                 continue
 
     def _export_run_directory_analysis_csv(self):
