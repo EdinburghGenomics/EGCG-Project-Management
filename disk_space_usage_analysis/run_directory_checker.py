@@ -43,7 +43,7 @@ class RunDirectoryChecker(AppLogger):
 
                     try:
                         data_deleted = self.samples[sample_name]
-                    except TypeError:
+                    except KeyError:
                         data_deleted = "Error - not found"
                     self.deleted_dict[sample_name] = data_deleted
 
