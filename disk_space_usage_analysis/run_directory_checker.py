@@ -9,7 +9,7 @@ from egcg_core.app_logging import AppLogger
 class RunDirectoryChecker(AppLogger):
     """Checks the space usage of the run directory"""
     def _download_samples(self):
-        list_of_samples = rest_communication.get_documents('samples', projection={"data_deleted":1},
+        list_of_samples = rest_communication.get_documents('samples', projection={"data_deleted": 1}, max_results=1000,
                                                            all_pages=True)
         return {item['sample_id']: item['data_deleted'] for item in list_of_samples}
 
