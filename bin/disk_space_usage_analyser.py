@@ -25,8 +25,7 @@ def main():
                             'All directory checks, run directory check, or project directory checks. All '
                                          'is run by default.',
                             action="store", default="all", nargs='?')
-    arg_parser.add_argument('-debug', help='Set the logging level to Debug.', action="store", default="False",
-                            nargs='?')
+    arg_parser.add_argument('--debug', help='Set the logging level to Debug.')
 
     args = arg_parser.parse_args()
 
@@ -35,7 +34,6 @@ def main():
     from disk_space_usage_analysis import RunDirectoryChecker
 
     load_config()
-
     log_cfg.add_stdout_handler()
     if args.debug:
         log_cfg.set_log_level(logging.DEBUG)
