@@ -34,5 +34,5 @@ class TestRunDirectoryChecker(TestProjectManagement):
         ]
 
     def test_debug_logging_level(self):
-        with patch('egcg_core.rest_communication.get_document', return_value=self.response):
+        with patch('egcg_core.rest_communication.get_documents', return_value=self.response):
             RunDirectoryChecker(self.disk_usage_helper)
