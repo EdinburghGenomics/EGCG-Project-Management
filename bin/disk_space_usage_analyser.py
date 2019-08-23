@@ -48,7 +48,7 @@ def main():
     if args.dir == 'all':
         pass
     elif args.dir == 'run':
-        run_directory_checker = RunDirectoryChecker(disk_usage_helper)
+        run_directory_checker = RunDirectoryChecker(disk_usage_helper, log_cfg)
         run_directory_checker.execute()
     elif args.dir == 'project':
         pass
