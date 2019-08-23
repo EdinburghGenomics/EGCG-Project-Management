@@ -104,7 +104,7 @@ class RunDirectoryChecker(AppLogger):
                 analysis_log_file.write(key + ': ' + str(value) + '\n')
 
     # Initialising instance variables
-    def __init__(self, helper, debug=False):
+    def __init__(self, helper):
         self.disk_usage_helper = helper
         self.deleted_dict = {}
         self.directory_set = set()
@@ -112,7 +112,6 @@ class RunDirectoryChecker(AppLogger):
         self.sample_splits = Counter()
         self.run_counter = Counter()
         self.run_sample_counter = Counter()
-        self.debug = debug
         self.output_dir = helper.dir_cfg['output_dir']
         self.bash_find = "find " + helper.dir_cfg['runs_dir'] + " -name '*.fastq.gz' -type f | egrep -v '/fastq/fastq'"
 
