@@ -104,7 +104,7 @@ class RunDirectoryChecker(AppLogger):
                 analysis_log_file.write(key + ': ' + str(value) + '\n')
 
     # Initialising instance variables
-    def __init__(self, helper, debug):
+    def __init__(self, helper, debug=False):
         self.disk_usage_helper = helper
         self.deleted_dict = {}
         self.directory_set = set()
