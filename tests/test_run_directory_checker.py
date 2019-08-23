@@ -33,6 +33,10 @@ class TestRunDirectoryChecker(TestProjectManagement):
             }
         ]
 
-    def test_debug_logging_level(self):
+    def test_debug_logging_level_true(self):
         with patch('egcg_core.rest_communication.get_documents', return_value=self.response):
             RunDirectoryChecker(self.disk_usage_helper).main()
+
+    def tearDown(self) -> None:
+        """Remove files created during testing process"""
+        pass
