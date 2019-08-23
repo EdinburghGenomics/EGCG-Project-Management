@@ -36,9 +36,9 @@ def main():
 
     load_config()
 
+    log_cfg.add_stdout_handler()
     if args.debug:
         log_cfg.set_log_level(logging.DEBUG)
-    log_cfg.add_stdout_handler()
 
     # Load Disk Space Usage Analysis config by creating new object
     disk_usage_helper = DiskSpaceUsageAnalysisHelper()
