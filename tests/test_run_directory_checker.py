@@ -14,7 +14,7 @@ class TestRunDirectoryChecker(TestProjectManagement):
                             {
                                  'runs_dir': '/lustre/edgeprod/processed/runs/',
                                  'projects_dir': '/lustre/edgeprod/processed/projects/',
-                                 'output_dir': '/Users/lbuttigi/Documents/development/output/'
+                                 'output_dir': '~/Documents/development/output/'
                             }
                          })
         self.disk_usage_helper = DiskSpaceUsageAnalysisHelper()
@@ -35,4 +35,4 @@ class TestRunDirectoryChecker(TestProjectManagement):
 
     def test_debug_logging_level(self):
         with patch('egcg_core.rest_communication.get_documents', return_value=self.response):
-            RunDirectoryChecker(self.disk_usage_helper)
+            RunDirectoryChecker(self.disk_usage_helper).main()

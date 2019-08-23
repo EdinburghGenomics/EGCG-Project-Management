@@ -117,7 +117,7 @@ class RunDirectoryChecker(AppLogger):
 
         self.samples = self._download_samples()
 
-    def execute(self):
+    def main(self):
         """Main function which executes all intermediate functions"""
         log_cfg.add_stdout_handler()
         if self.debug:
