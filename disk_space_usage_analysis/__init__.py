@@ -1,1 +1,2 @@
-from .run_directory_checker import RunDirectoryChecker
+from .runs_directory_checker import RunsDirectoryChecker
+from .projects_directory_checker import ProjectsDirectoryChecker

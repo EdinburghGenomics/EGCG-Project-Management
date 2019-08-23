@@ -4,10 +4,10 @@ import os
 from collections import Counter
 
 from egcg_core import rest_communication
-from egcg_core.app_logging import AppLogger,logging_default as log_cfg
+from egcg_core.app_logging import AppLogger
 
 
-class RunDirectoryChecker(AppLogger):
+class RunsDirectoryChecker(AppLogger):
     """Checks the space usage of the run directory"""
     def _download_samples(self):
         list_of_samples = rest_communication.get_documents('samples', projection={"data_deleted": 1}, max_results=1000,

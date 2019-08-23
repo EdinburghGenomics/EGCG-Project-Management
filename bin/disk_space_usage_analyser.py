@@ -31,7 +31,7 @@ def main():
 
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from config import load_config
-    from disk_space_usage_analysis import RunDirectoryChecker
+    from disk_space_usage_analysis import RunsDirectoryChecker
 
     load_config()
     log_cfg.add_stdout_handler()
@@ -45,7 +45,7 @@ def main():
     if args.dir == 'all':
         pass
     elif args.dir == 'run':
-        RunDirectoryChecker(disk_usage_helper).main()
+        RunsDirectoryChecker(disk_usage_helper).main()
     elif args.dir == 'project':
         pass
 

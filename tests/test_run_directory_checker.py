@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 from bin.disk_space_usage_analyser import DiskSpaceUsageAnalysisHelper
-from disk_space_usage_analysis import RunDirectoryChecker
+from disk_space_usage_analysis import RunsDirectoryChecker
 from egcg_core.config import cfg
 from tests import TestProjectManagement
 
@@ -35,7 +35,7 @@ class TestRunDirectoryChecker(TestProjectManagement):
 
     def test_debug_logging_level_true(self):
         with patch('egcg_core.rest_communication.get_documents', return_value=self.response):
-            RunDirectoryChecker(self.disk_usage_helper).main()
+            RunsDirectoryChecker(self.disk_usage_helper).main()
 
     def tearDown(self) -> None:
         """Remove files created during testing process"""
