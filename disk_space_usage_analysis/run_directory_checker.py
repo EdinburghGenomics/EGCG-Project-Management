@@ -120,9 +120,6 @@ class RunDirectoryChecker(AppLogger):
     def main(self):
         """Main function which executes all intermediate functions"""
         log_cfg.add_stdout_handler()
-        if self.debug:
-            log_cfg.set_log_level(logging.DEBUG)
-
         self._run_directory_check()
         self._export_run_directory_analysis_csv()
         self._export_run_directory_analysis_log()
