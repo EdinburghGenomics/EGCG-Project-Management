@@ -1,9 +1,10 @@
 import csv
+import logging
 import os
 from collections import Counter
 
 from egcg_core import rest_communication
-from egcg_core.app_logging import AppLogger
+from egcg_core.app_logging import AppLogger,logging_default as log_cfg
 
 
 class RunDirectoryChecker(AppLogger):
@@ -103,7 +104,7 @@ class RunDirectoryChecker(AppLogger):
                 analysis_log_file.write(key + ': ' + str(value) + '\n')
 
     # Initialising instance variables
-    def __init__(self, helper, log_config):
+    def __init__(self, helper, debug):
         self.disk_usage_helper = helper
         self.deleted_dict = {}
         self.directory_set = set()
@@ -111,7 +112,7 @@ class RunDirectoryChecker(AppLogger):
         self.sample_splits = Counter()
         self.run_counter = Counter()
         self.run_sample_counter = Counter()
-        self.log_cfg = log_config
+        self.debug = debug
         self.output_dir = helper.dir_cfg['output_dir']
         self.bash_find = "find " + helper.dir_cfg['runs_dir'] + " -name '*.fastq.gz' -type f | egrep -v '/fastq/fastq'"
 
@@ -119,7 +120,10 @@ class RunDirectoryChecker(AppLogger):
 
     def execute(self):
         """Main function which executes all intermediate functions"""
-        self.log_cfg.add_stdout_handler()
+        log_cfg.add_stdout_handler()
+        if self.debug:
+            log_cfg.set_log_level(logging.DEBUG)
+
         self._run_directory_check()
         self._export_run_directory_analysis_csv()
         self._export_run_directory_analysis_log()

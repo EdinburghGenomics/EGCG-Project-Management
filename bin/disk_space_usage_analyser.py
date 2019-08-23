@@ -36,7 +36,6 @@ def main():
 
     load_config()
 
-    log_cfg.set_log_level(logging.INFO)
     if args.debug:
         log_cfg.set_log_level(logging.DEBUG)
     log_cfg.add_stdout_handler()
@@ -48,7 +47,7 @@ def main():
     if args.dir == 'all':
         pass
     elif args.dir == 'run':
-        run_directory_checker = RunDirectoryChecker(disk_usage_helper, log_cfg)
+        run_directory_checker = RunDirectoryChecker(disk_usage_helper)
         run_directory_checker.execute()
     elif args.dir == 'project':
         pass
