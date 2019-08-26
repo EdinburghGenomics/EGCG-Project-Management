@@ -474,24 +474,20 @@ def upload_species_without_genome(species_name):
     This function only adds a new species without the need for a new genome.
     An existing genome will be associated with the new species.
     """
-    logger = logging_default.get_logger('SpeciesWithoutGenome')
-
     scientific_name = ncbi.get_species_name(species_name)
     if not scientific_name:
         raise EGCGError('Species %s could not be resolved in NCBI please check the spelling.', species_name)
 
     species = rest_communication.get_document('species', where={'name': scientific_name})
     if species:
-        logger.error('Species %s already exist in the API', species_name)
-        return 1
+        raise EGCGError('Species %s already exist in the API' % species_name)
 
     genome_version = input(
         "Enter genome version to use as the default genome for %s " % scientific_name
     )
     genome_data = rest_communication.get_document('genomes', where={'assembly_name': genome_version})
     if not genome_data:
-        logger.error('Genome %s does not exist in the API. Add it separately with its own species', genome_version)
-        return 1
+        raise EGCGError('Genome %s does not exist in the API. Add it separately with its own species' % genome_version)
     genome_size = float(int(genome_data.get('genome_size')) / 1000000)
     genome_size = input(
         "Enter species genome size (in Mb) to use for yield calculation. (default: %.0f) " % genome_size
