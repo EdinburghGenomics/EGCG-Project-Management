@@ -1,4 +1,3 @@
-import os
 from unittest.mock import patch
 
 from bin.disk_space_usage_analyser import DiskSpaceUsageAnalysisHelper
@@ -9,6 +8,21 @@ from tests import TestProjectManagement
 
 class TestRunDirectoryChecker(TestProjectManagement):
     """This test suite checks the functionality of the run directory checker."""
+    def setUp(self):
+        self.disk_usage_dir = os.path.join(self.assets_path,  'disk_space_usage')
+        runs_dir = os.path.join(self.disk_usage_dir, 'runs')
+        projects_dir = os.path.join(self.disk_usage_dir, 'projects')
+        output_dir = os.path.join(self.disk_usage_dir, 'output')
+        os.makedirs(runs_dir, exist_ok=True)
+        os.makedirs(projects_dir, exist_ok=True)
+        os.makedirs(output_dir, exist_ok=True)
+        cfg.content['directory_space_analysis'] = {}
+        cfg.content['directory_space_analysis']['runs_dir'] = runs_dir
+        cfg.content['directory_space_analysis']['projects_dir'] = projects_dir
+        cfg.content['directory_space_analysis']['output_dir'] = output_dir
+
+        self.disk_usage_helper = DiskSpaceUsageAnalysisHelper()
+        self.response = [
     # TODO: Change directories prior to final commit
     @classmethod
     def setUpClass(cls):
@@ -36,6 +50,9 @@ class TestRunDirectoryChecker(TestProjectManagement):
                 'data_deleted': 'none'
             }
         ]
+        os.makedirs(os.path.join(runs_dir, 'project1', 'sample1'), exist_ok=True)
+        touch(os.path.join(runs_dir, 'project1', 'sample1', 'sample1_R1.fastq.gz'), content='A fastq file')
+        touch(os.path.join(runs_dir, 'project1', 'sample1', 'sample1_R2.fastq.gz'), content='A fastq file')
 
     def setUp(self):
         self.disk_usage_helper = DiskSpaceUsageAnalysisHelper()
@@ -47,6 +64,4 @@ class TestRunDirectoryChecker(TestProjectManagement):
     @classmethod
     def tearDownClass(cls):
         """Remove files created during testing process"""
-        for file in ['residual_run_dir_analysis.log', 'residual_run_directory_analysis.csv', 'run_dir_analysis.csv',
-                     'run_dir_analysis.log']:
-            os.remove(cfg.query('directory_space_analysis')['output_dir'] + file)
+        shutil.rmtree(self.disk_usage_dir)
