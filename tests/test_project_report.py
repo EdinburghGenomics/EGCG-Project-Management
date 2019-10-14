@@ -312,13 +312,12 @@ class TestProjectReport(TestProjectManagement):
                 os.makedirs(smp_dir, exist_ok=True)
                 if sample.udf['Species'] == 'Homo sapiens':
                     with open(os.path.join(smp_dir, 'programs.txt'), 'w') as open_file:
-                        open_file.write('bcbio,1.1\nbwa,1.2\ngatk,1.3\nsamblaster,1.4\nsamtools,1.5\n')
+                        open_file.write('bcbio,1.1\nbwa,1.2\ngatk,1.3\nsamblaster,1.4\nsamtools,1.5')
                     with open(os.path.join(smp_dir, 'project-summary.yaml'), 'w') as open_file:
                         open_file.write(
                             'samples:\n- dirs:\n    galaxy: path/to/bcbio/bcbio-0.9.4/galaxy\n  genome_build: hg38\n')
-                else:
-                    with open(os.path.join(smp_dir, 'program_versions.yaml'), 'w') as open_file:
-                        open_file.write('biobambam_sortmapdup: 2\nbwa: 1.2\ngatk: v1.3\nbcl2fastq: 2.1\nsamtools: 0.3')
+                with open(os.path.join(smp_dir, 'program_versions.yaml'), 'w') as open_file:
+                    open_file.write('biobambam_sortmapdup: 2\nbwa: 1.2\ngatk: 1.3\nbcl2fastq: 2.1\nsamtools: 0.3\ngatk4_bin: 1.2')
 
         self.run_ids = set()
         for project in fake_rest_samples:
@@ -355,12 +354,8 @@ class TestProjectReportInformation(TestProjectReport):
     @mocked_get_documents
     def test_get_report_type(self, mock_get_docs):
         assert self.pr.get_species_from_sample('sample_1') == 'Thingius thingy'
-        self.pr.project_name = 'hpf999'
-        self.pr.__dict__['_sample_info'] = {}
-        del self.pr.__dict__['sample_status_for_project']
-        del self.pr.__dict__['sample_info_for_project']
-        del self.pr.__dict__['sample_data_for_project']
-        assert self.pr.get_species_from_sample('HS_pcrfree_1') == 'Homo sapiens'
+        pr = ProjectReportInformation('hpf999')
+        assert pr.get_species_from_sample('HS_pcrfree_1') == 'Homo sapiens'
 
     def test_read_program_csv(self):
         program_csv = os.path.join(
@@ -397,6 +392,11 @@ class TestProjectReportInformation(TestProjectReport):
         analysis_types = self.pr.get_project_analysis_types()
         assert len(analysis_types) == 1
         parameters = self.pr.get_bioinformatics_params_for_analysis(analysis_types[0])
+        print(parameters)
+        {'bwa_version': '1.2', 'gatk_version': '1.3', 'samtools_version': '0.3', 'biobambam_sortmapdup_version': '2',
+         'bcl2fastq_version': 'v2.17.1.14', 'biobambam_or_samblaster': 'biobambam',
+         'biobambam_or_samblaster_version': '2', 'genome_version': 'hg38', 'species_submitted': 'Thingius thingy',
+         'adapter1': 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCA', 'adapter2': 'AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT'}
         assert parameters == {
             'bcl2fastq_version': 'v2.17.1.14',
             'adapter1': 'AGATCGGAAGAGCACACGTCTGAACTCCAGTCA',
@@ -405,7 +405,8 @@ class TestProjectReportInformation(TestProjectReport):
             'biobambam_sortmapdup_version': '2',
             'biobambam_or_samblaster': 'biobambam',
             'biobambam_or_samblaster_version': '2',
-            'gatk_version': 'v1.3',
+            'gatk_version': '1.3',
+            'gatk4_bin_version': '1.2',
             'samtools_version': '0.3',
             'genome_version': 'hg38',
             'species_submitted': 'Thingius thingy'

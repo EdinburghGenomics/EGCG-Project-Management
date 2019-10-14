@@ -127,7 +127,7 @@ class ProjectReportInformation(AppLogger):
         program_version = {}
         with open(prog_vers_yaml, 'r') as open_file:
             full_yaml = yaml.safe_load(open_file)
-            for p in ['bwa', 'gatk', 'samtools', 'samblaster', 'biobambam_sortmapdup']:
+            for p in ['bwa', 'gatk', 'gatk4_bin', 'samtools', 'samblaster', 'biobambam_sortmapdup']:
                 if p in full_yaml:
                     program_version[p + '_version'] = full_yaml.get(p)
         return program_version
@@ -137,6 +137,9 @@ class ProjectReportInformation(AppLogger):
         genome_version = None
         species = self.get_species_from_sample(sample_name)
         sample_source = path.join(self.project_source, sample_name)
+
+        program_yaml = find_file(sample_source, 'program_versions.yaml')
+        versions.update(self._read_program_version_yaml(program_yaml))
         if species == 'Homo sapiens':
             program_csv = find_file(sample_source, 'programs.txt')
             versions.update(self._read_program_csv(program_csv))
@@ -144,9 +147,6 @@ class ProjectReportInformation(AppLogger):
             if summary_yaml:
                 bcbio_version, genome_version = self._read_project_summary_yaml(summary_yaml)
                 versions['bcbio_version'] = bcbio_version
-        else:
-            program_yaml = find_file(sample_source, 'program_versions.yaml')
-            versions.update(self._read_program_version_yaml(program_yaml))
         versions['bcl2fastq_version'] = self._get_bcl2fastq_version(
             query_dict(self.sample_info(sample_name), 'data.aggregated.run_ids')
         )

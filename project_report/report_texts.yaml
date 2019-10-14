@@ -122,9 +122,9 @@ bioinformatics_analysis_gatk4: >-
   demultiplexing process. Bwa mem ({bwa_version}) is used to align the raw reads to the {species_submitted} genome(s)
   ({genome_version}), the duplicated fragments are marked using {biobambam_or_samblaster}
   ({biobambam_or_samblaster_version}) and base recalibration is performed using the Genome Analysis ToolKit
-  ({gatk_version}). This generates the final BAM file. The genotype likelihoods are calculated using Genome Analysis
-  Toolkit ({gatk_version}) HaplotypeCaller creating a GVCF file per sample. A VCF file is created using Genome Analysis
-  Toolkit ({gatk_version}) GenotypeGVCFs and subsequently filtered using generic hard filters.
+  ({gatk4_bin_version}). This generates the final BAM file. The genotype likelihoods are calculated using Genome Analysis
+  Toolkit ({gatk4_bin_version}) HaplotypeCaller creating a GVCF file per sample. A VCF file is created using Genome Analysis
+  Toolkit ({gatk4_bin_version}) GenotypeGVCFs and subsequently filtered using generic hard filters.
 
 bioinformatics_analysis_rapid: >-
   Raw sequencer data is converted directly to BAM and VCF outputs using the whole-genome pipeline in Dragen 3.0.2,

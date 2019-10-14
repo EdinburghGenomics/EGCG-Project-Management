@@ -17,8 +17,10 @@ from egcg_core import notifications, util, rest_communication, archive_managemen
 from egcg_core.app_logging import logging_default as log_cfg
 from egcg_core.config import Configuration
 
-integration_cfg = Configuration(os.getenv('INTEGRATIONCONFIG'))
-
+try:
+    integration_cfg = Configuration(os.getenv('INTEGRATIONCONFIG'))
+except:
+    integration_cfg = None
 
 class NamedMock(Mock):
     def __init__(self, name, *args, **kwargs):
