@@ -37,6 +37,25 @@ class TestRawDataDeleter(TestDeleter):
         for d in os.listdir(join(self.assets_deletion, 'archive')):
             rmtree(join(self.assets_deletion, 'archive', d))
 
+    def test_run_element_old_enough_for_deletion(self):
+        old_run_element = {'useable_date': '30_05_2018_12:00:00'}
+        new_run_element = {'useable_date': '12_06_2018_12:00:00'}
+        none_run_element = {'useable_date': None}
+        empty_run_element = {}
+        assert self.deleter._run_element_old_enough_for_deletion(old_run_element) is True
+        assert self.deleter._run_element_old_enough_for_deletion(new_run_element) is False
+        assert self.deleter._run_element_old_enough_for_deletion(none_run_element) is False
+        assert self.deleter._run_element_old_enough_for_deletion(empty_run_element) is False
+
+    @patch('egcg_core.rest_communication.get_documents')
+    def test_run_old_enough_for_deletion(self, mocked_get_docs):
+        mocked_get_docs.return_value = [{'useable_date': '30_05_2018_12:00:00'}, {'useable_date': '30_05_2018_11:00:00'}]
+        assert self.deleter._run_old_enough_for_deletion('a_run') is True
+        mocked_get_docs.return_value = [{'useable_date': '12_06_2018_12:00:00'},  {'useable_date': None}]
+        assert self.deleter._run_old_enough_for_deletion('a_run') is False
+        mocked_get_docs.return_value = []
+        assert self.deleter._run_old_enough_for_deletion('a_run') is False
+
     @patch('egcg_core.rest_communication.get_documents')
     @patch('egcg_core.rest_communication.get_document')
     def test_deletable_runs(self, mocked_get_doc, mocked_get_docs):
@@ -46,10 +65,11 @@ class TestRawDataDeleter(TestDeleter):
         }
         mocked_get_docs.side_effect = [
             [
-                {'run_id': 'a_finished_reviewed_recent_run'},
-                {'run_id': 'a_finished_reviewed_old_run'},
-                {'run_id': 'a_finished_unreviewed_old_run'},
-                {'run_id': 'an_extra_run'}
+                {'run_id': 'a_finished_reviewed_recent_run', 'aggregated': {'review_statuses': ['pass']}},
+                {'run_id': 'a_finished_reviewed_old_run', 'aggregated': {'review_statuses': ['pass']}},
+                {'run_id': 'a_finished_unreviewed_old_run', 'aggregated': {'review_statuses': ['pass']}},
+                {'run_id': 'an_extra_run', 'aggregated': {'review_statuses': ['pass']}},
+                {'run_id': 'an_incomplete_extra_run', 'aggregated': {'review_statuses': []}}  # This will be filtered
             ],
             [{'useable_date': '12_06_2018_12:00:00'}],
             [{'useable_date': '31_05_2018_12:00:00'}],

@@ -253,26 +253,34 @@ class GelDataDelivery(AppLogger):
             self.delivery_id,
             'upload_state', 'md5_state', 'md5_confirm_date', 'qc_state', 'qc_confirm_date'
         )
+        msg = ''
+        emit = self.error
         upload_state, md5_state, md5_confirm_date, qc_state, qc_confirm_date = info
         if upload_state == SUCCESS_KW and not all((md5_confirm_date, qc_confirm_date)):
+            emit = self.info
             sample = send_action_to_rest_api(action='get', delivery_id=self.delivery_id).json()
-            param, status = sample['state'].split('_')  # md5_passed -> ('md5', 'passed')
-            if param == 'md5':
-                self.deliver_db.set_md5_state(self.delivery_id, status)
-            elif param == 'qc':
-                self.deliver_db.set_md5_state(self.delivery_id, SUCCESS_KW)  # if qc has passed, md5 must have passed
-                self.deliver_db.set_qc_state(self.delivery_id, status)
+            if sample['state'] == 'delivered':
+                msg = 'Not yet checked'
+            else:
+                param, status = sample['state'].split('_')  # md5_passed -> ('md5', 'passed')
+                if param == 'md5':
+                    self.deliver_db.set_md5_state(self.delivery_id, status)
+                elif param == 'qc':
+                    self.deliver_db.set_md5_state(self.delivery_id, SUCCESS_KW)  # if qc has passed, md5 must have passed
+                    self.deliver_db.set_qc_state(self.delivery_id, status)
 
-            self.info('Delivery %s sample %s %s check: %s', self.delivery_id, self.sample_id, param, status)
+                msg = '%s check %s' % (param, status)
 
         elif not upload_state:
-            self.error('Delivery %s sample %s: Has not been uploaded', self.delivery_id, self.sample_id)
+            msg = 'Has not been uploaded'
         elif upload_state == FAILURE_KW:
-            self.error('Delivery %s sample %s: Upload failed', self.delivery_id, self.sample_id)
+            msg = 'Upload failed'
         elif qc_state:
-            self.error('Delivery %s sample %s qc check failed - was checked before on %s', self.delivery_id, self.sample_id, qc_confirm_date)
+            msg = 'QC check failed - was checked before on %s' % qc_confirm_date
         elif md5_state:
-            self.error('Delivery %s sample %s md5 check failed - was checked before on %s', self.delivery_id, self.sample_id, md5_confirm_date)
+            msg = 'MD5 check failed - was checked before on %s' % md5_confirm_date
+
+        emit('Delivery %s sample %s: %s', self.delivery_id, self.sample_id, msg)
 
 
 def check_all_deliveries():

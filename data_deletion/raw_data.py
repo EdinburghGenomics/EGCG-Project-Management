@@ -4,6 +4,8 @@ import datetime
 from egcg_core import rest_communication
 from egcg_core.constants import ELEMENT_RUN_NAME, ELEMENT_PROCS, ELEMENT_STATUS, DATASET_DELETED, ELEMENT_PROC_ID
 from egcg_core.config import cfg
+from egcg_core.util import query_dict
+
 from data_deletion import Deleter
 
 reporting_app_date_format = '%d_%m_%Y_%H:%M:%S'
@@ -33,8 +35,17 @@ class RawDataDeleter(Deleter):
                 'aggregated.most_recent_proc.status': {'$in': ['finished', 'aborted']}
             }
         )
+        # filter out the run with no review status so we only have run that have been reviewed
+        auto_runs = [r for r in auto_runs if query_dict(r, 'aggregated.review_statuses')]
         runs = manual_runs + [r for r in auto_runs if self._run_old_enough_for_deletion(r['run_id'])]
         return runs[:self.deletion_limit]
+
+    def _run_element_old_enough_for_deletion(self, run_element):
+        useable_date = run_element.get('useable_date')
+        if useable_date and datetime.datetime.strptime(useable_date, reporting_app_date_format) <= self.deletion_threshold:
+            return True
+        else:
+            return False
 
     def _run_old_enough_for_deletion(self, run_id):
         run_elements = rest_communication.get_documents(
@@ -42,15 +53,10 @@ class RawDataDeleter(Deleter):
             where={'run_id': run_id, 'barcode': {'$ne': 'unknown'}},
             all_pages=True
         )
-        for e in run_elements:
-            useable_date = e.get('useable_date')
-            if not useable_date:
-                return False
-
-            if datetime.datetime.strptime(useable_date, reporting_app_date_format) > self.deletion_threshold:
-                return False
-
-        return True
+        if run_elements:
+            return all(self._run_element_old_enough_for_deletion(e) for e in run_elements)
+        else:
+            return False
 
     def _setup_run_for_deletion(self, run_id):
         raw_data = join(self.raw_data_dir, run_id)

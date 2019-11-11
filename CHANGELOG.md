@@ -1,10 +1,18 @@
 Changelog for EGCG-Project-Management
 =====================================
 
-0.12.0 (unreleased)
--------------------
+0.13 (unreleased)
+-----------------
 
 - Nothing changed yet.
+
+
+0.12.0 (2019-10-08)
+-------------------
+
+- Cleaned up reference_data.upload_species_without_genome
+- report_runs now only reports the latest run in instances where a flowcell has been sequenced more than once
+- Fixes unexpected deletion of non-production runs in data_deletion.raw_data
 
 
 0.11.1 (2019-08-08)
