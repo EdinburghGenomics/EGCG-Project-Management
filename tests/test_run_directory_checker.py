@@ -14,12 +14,14 @@ class TestRunDirectoryChecker(TestProjectManagement):
     @classmethod
     def setUpClass(cls):
         cls.disk_usage_dir = os.path.join(cls.assets_path, 'disk_space_usage')
+        # Making dirs
         runs_dir = os.path.join(cls.disk_usage_dir, 'runs')
         projects_dir = os.path.join(cls.disk_usage_dir, 'projects')
         output_dir = os.path.join(cls.disk_usage_dir, 'output')
         os.makedirs(runs_dir, exist_ok=True)
         os.makedirs(projects_dir, exist_ok=True)
         os.makedirs(output_dir, exist_ok=True)
+        # Populating cfg
         cfg.content['directory_space_analysis'] = {}
         cfg.content['directory_space_analysis']['runs_dir'] = runs_dir
         cfg.content['directory_space_analysis']['projects_dir'] = projects_dir
@@ -29,21 +31,31 @@ class TestRunDirectoryChecker(TestProjectManagement):
 
         cls.response = [
             {
-                'sample_id': 'LP1251554__B_11',
+                'sample_id': 'sample1',
                 'data_deleted': 'all'
             },
             {
-                'sample_id': '10015AT0004',
+                'sample_id': 'sample2',
                 'data_deleted': 'none'
             },
             {
-                'sample_id': 'X0002DM002_D_07',
+                'sample_id': 'sample3',
                 'data_deleted': 'none'
             }
         ]
+
+        # Generating project files
         os.makedirs(os.path.join(runs_dir, 'project1', 'sample1'), exist_ok=True)
         touch(os.path.join(runs_dir, 'project1', 'sample1', 'sample1_R1.fastq.gz'), content='A fastq file')
         touch(os.path.join(runs_dir, 'project1', 'sample1', 'sample1_R2.fastq.gz'), content='A fastq file')
+
+        os.makedirs(os.path.join(runs_dir, 'project1', 'sample2'), exist_ok=True)
+        touch(os.path.join(runs_dir, 'project1', 'sample1', 'sample2_R1.fastq.gz'), content='A fastq file')
+        touch(os.path.join(runs_dir, 'project1', 'sample1', 'sample2_R2.fastq.gz'), content='A fastq file')
+
+        os.makedirs(os.path.join(runs_dir, 'project1', 'sample3'), exist_ok=True)
+        touch(os.path.join(runs_dir, 'project1', 'sample3', 'sample1_R1.fastq.gz'), content='A fastq file')
+        touch(os.path.join(runs_dir, 'project1', 'sample3', 'sample1_R2.fastq.gz'), content='A fastq file')
 
     def setUp(self):
         self.disk_usage_helper = DiskSpaceUsageAnalysisHelper()
