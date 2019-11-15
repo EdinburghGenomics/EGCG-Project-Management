@@ -284,7 +284,7 @@ class DataDelivery(AppLogger):
             raise EGCGError('No species information found in the LIMS for ' + sample_name)
         elif species == 'Homo sapiens':
             files = hs_files
-        elif analysis_type in ['Variant Calling', 'Variant Calling gatk']:
+        elif analysis_type in ['Variant Calling', 'Variant Calling gatk', 'Variant Calling gatk4']:
             files = variant_calling_files
         else:
             files = other_files
